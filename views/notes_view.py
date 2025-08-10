@@ -199,19 +199,19 @@ class NotesView(ctk.CTkFrame):
         ctk.CTkButton(actions_frame, text=" Ajouter", image=add_icon, compound="left",
                       font=(FONT_FAMILY, FONT_SIZE_TEXT - 2, "bold"),
                       fg_color=THEME["accent_blue"], text_color=THEME["bg_main"],
-                      hover_color="#45b69c", command=self.ajouter).pack(side="left", padx=5)
+                      hover_color="#45b69c", command=self.ajouter).pack(side="left", padx=3)
         ctk.CTkButton(actions_frame, text=" Modifier", image=edit_icon, compound="left",
                       font=(FONT_FAMILY, FONT_SIZE_TEXT - 2, "bold"),
                       fg_color=THEME["info_orange"], text_color=THEME["bg_main"],
-                      hover_color="#cc9f13", command=self.modifier).pack(side="left", padx=5)
+                      hover_color="#cc9f13", command=self.modifier).pack(side="left", padx=3)
         ctk.CTkButton(actions_frame, text=" Supprimer", image=delete_icon, compound="left",
                       font=(FONT_FAMILY, FONT_SIZE_TEXT - 2, "bold"),
                       fg_color=THEME["error_red"], text_color=THEME["bg_main"],
-                      hover_color="#dc2626", command=self.supprimer).pack(side="left", padx=5)
+                      hover_color="#dc2626", command=self.supprimer).pack(side="left", padx=3)
         ctk.CTkButton(actions_frame, text=" Exporter", image=export_icon, compound="left",
                       font=(FONT_FAMILY, FONT_SIZE_TEXT - 2, "bold"),
                       fg_color=THEME["card_bg"], text_color=THEME["primary_text"],
-                      hover_color=THEME["select_highlight"], command=self.exporter_notes).pack(side="left", padx=5)
+                      hover_color=THEME["select_highlight"], command=self.exporter_notes).pack(side="left", padx=3)
     
     def _setup_class_dropdown(self):
         classe_options = ["Sélectionnez une classe..."] + [c["nom"] for c in self.classes.values()]
