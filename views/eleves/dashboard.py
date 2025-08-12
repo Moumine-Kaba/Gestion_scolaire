@@ -1,11 +1,11 @@
 import customtkinter as ctk
 from tkinter import ttk, messagebox, filedialog
-from PIL import Image, ImageTk
+from PIL import Image
 import os, datetime, re, sqlite3
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-# ============ Thème et Constantes (Amélioré) ============
+# ============ Thème et Constantes ============
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
@@ -33,7 +33,6 @@ THEME = {
 FONT_FAMILY = "Segoe UI"
 FONT_SIZE_TITLE = 28
 FONT_SIZE_HEADER = 18
-FONT_SIZE_TEXT = 14
 
 # --- Chemin DB et icônes ---
 DB_PATH = r"C:\Users\Lenovo\Desktop\EduManager+\database\edumanager.db"
@@ -44,7 +43,6 @@ ICON_MAP = {
     "filles": "eleve.png",
     "garcons": "person.png",
     "classes": "cover.png",
-    "profs": "profs.png",
     "ajouter": "add.png",
     "edit": "edit.png",
     "delete": "delete.png",
@@ -52,152 +50,37 @@ ICON_MAP = {
     "transferer": "transfer.png",
     "refresh": "refresh.png",
     "search": "search.png",
-    "chevron_right": "chevron_right.png",
-    "home": "home.png",
-    "person": "person.png",
-    "group": "group.png",
-    "door": "door.png",
-    "book": "book.png",
-    "notes": "notes.png",
-    "check": "check.png",
-    "file": "file.png",
-    "bell": "bell.png",
-    "calendar": "calendar.png",
-    "money": "money.png",
-    "logout": "logout.png",
     "close": "close.png",
-    "add": "add.png", # Alias explicite
-    "pdf": "file.png", # Alias
-    "stats": "notes.png", # Alias
-    "transfer": "transfer.png", # Alias
 }
 
 def _icon_candidates(name: str):
     yield name
     if name in ICON_MAP:
-        yield ICON_MAP.get(name).replace(".png", "") # Pour les doublons éventuels
-    for k, lst in {
-        "add": ["ajouter", "check", "upload"],
-        "pdf": ["file", "notes"],
-        "calendar": ["calendar"],
-        "stats": ["notes", "book"],
-        "transfer": ["transferer"],
-    }.items():
-        if name == k:
-            for alt in lst:
-                yield alt
+        yield ICON_MAP.get(name).replace(".png", "")
 
 # --- Regex de validation ---
 EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 PHONE_RE = re.compile(r"^\+?\d{7,15}$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 NAME_RE = re.compile(r"^[A-Za-zÀ-ÖØ-öø-ÿ' -]{2,}$")
-
-def is_email(val): return bool(EMAIL_RE.match(val))
-def is_phone(val): return bool(PHONE_RE.match(val))
+def is_email(val): return bool(EMAIL_RE.match(val)) if val else True
+def is_phone(val): return bool(PHONE_RE.match(val)) if val else True
 def is_date(val):
+    if not val: return True
     if not DATE_RE.match(val): return False
     try:
         datetime.datetime.strptime(val, "%Y-%m-%d"); return True
     except Exception:
         return False
-def is_name(val): return bool(NAME_RE.match(val))
+def is_name(val): return bool(NAME_RE.match(val)) if val else False
 
-# --- DB helpers ---
-def get_db_connection():
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        return conn
-    except sqlite3.Error as e:
-        messagebox.showerror("Erreur de connexion", f"Impossible de se connecter à la base de données: {e}")
-        return None
-
-def get_all_classes():
-    conn = get_db_connection()
-    if conn:
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT id, nom FROM classe ORDER BY
-            CASE
-                WHEN nom LIKE '1er%' THEN 1
-                WHEN nom LIKE '2em%' THEN 2
-                WHEN nom LIKE '3em%' THEN 3
-                WHEN nom LIKE '4em%' THEN 4
-                WHEN nom LIKE '5em%' THEN 5
-                WHEN nom LIKE '6em%' THEN 6
-                WHEN nom LIKE '7em%' THEN 7
-                WHEN nom LIKE '8em%' THEN 8
-                WHEN nom LIKE '9em%' THEN 9
-                WHEN nom LIKE '10em%' THEN 10
-                WHEN nom LIKE '11em%' THEN 11
-                WHEN nom LIKE '12em%' THEN 12
-                ELSE 99
-            END,
-            nom
-        """)
-        rows = cur.fetchall()
-        conn.close()
-        return rows
-    return []
-
-def get_stats_eleves(classe_id=None):
-    conn = get_db_connection()
-    if conn:
-        cur = conn.cursor()
-        stats = {}
-        if classe_id is None:
-            cur.execute("SELECT COUNT(*) FROM eleves"); stats["total"] = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM eleves WHERE sexe LIKE 'F%'"); stats["filles"] = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM eleves WHERE sexe LIKE 'M%'"); stats["garcons"] = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM classe"); stats["classes"] = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(DISTINCT professeur_principal_id) FROM classe WHERE professeur_principal_id IS NOT NULL")
-            stats["profs"] = cur.fetchone()[0]
-        else:
-            cur.execute("SELECT COUNT(*) FROM eleves WHERE classe_id=?", (classe_id,)); stats["total"] = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM eleves WHERE sexe LIKE 'F%' AND classe_id=?", (classe_id,)); stats["filles"] = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM eleves WHERE sexe LIKE 'M%' AND classe_id=?", (classe_id,)); stats["garcons"] = cur.fetchone()[0]
-            stats["classes"] = 1
-            cur.execute("SELECT professeur_principal_id FROM classe WHERE id=?", (classe_id,))
-            prof = cur.fetchone(); stats["profs"] = 1 if prof and prof[0] else 0
-        conn.close()
-        return stats
-    return {"total": 0, "filles": 0, "garcons": 0, "classes": 0, "profs": 0}
-
-def get_eleves_by_classe(classe_id=None):
-    conn = get_db_connection()
-    if conn:
-        cur = conn.cursor()
-        if classe_id is None:
-            cur.execute("SELECT c.nom, COUNT(e.id) FROM classe c LEFT JOIN eleves e ON e.classe_id = c.id GROUP BY c.nom ORDER BY c.nom")
-        else:
-            cur.execute("SELECT c.nom, COUNT(e.id) FROM classe c LEFT JOIN eleves e ON e.classe_id = c.id WHERE c.id=? GROUP BY c.nom", (classe_id,))
-        rows = cur.fetchall()
-        conn.close()
-        return rows
-    return []
-
-def get_eleves_list(classe_id=None):
-    conn = get_db_connection()
-    if conn:
-        cur = conn.cursor()
-        if classe_id is None:
-            cur.execute("SELECT id, nom, prenom, sexe, date_naissance, statut FROM eleves ORDER BY nom")
-        else:
-            cur.execute("SELECT id, nom, prenom, sexe, date_naissance, statut FROM eleves WHERE classe_id=? ORDER BY nom", (classe_id,))
-        rows = cur.fetchall()
-        conn.close()
-        return rows
-    return []
-
-def get_eleve_complet(eleve_id):
-    conn = get_db_connection()
-    if conn:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM eleves WHERE id=?", (eleve_id,))
-        data = cur.fetchone()
-        conn.close()
-        return data
-    return None
+# --- Utils ---
+def compute_age(date_str: str):
+    if not date_str or not is_date(date_str): return "—"
+    y, m, d = (int(x) for x in date_str.split("-"))
+    today = datetime.date.today()
+    age = today.year - y - ((today.month, today.day) < (m, d))
+    return str(age)
 
 def square_photo(path, size=(160, 160)):
     try:
@@ -209,12 +92,117 @@ def square_photo(path, size=(160, 160)):
         img = Image.new("RGB", size, THEME["header_bg"])
     return ctk.CTkImage(light_image=img, dark_image=img, size=size)
 
+# ============ DB helpers ============
+def get_db_connection():
+    try:
+        return sqlite3.connect(DB_PATH)
+    except sqlite3.Error as e:
+        messagebox.showerror("Erreur DB", f"Connexion impossible : {e}")
+        return None
+
+def get_all_classes():
+    conn = get_db_connection()
+    if not conn: return []
+    cur = conn.cursor()
+    cur.execute("SELECT id, nom FROM classe ORDER BY nom")
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+def get_stats_eleves(classe_id=None):
+    conn = get_db_connection()
+    if not conn: return {"total":0, "filles":0, "garcons":0, "classes":0, "profs":0}
+    cur = conn.cursor()
+    stats = {}
+    if classe_id is None:
+        cur.execute("SELECT COUNT(*) FROM eleves"); stats["total"] = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM eleves WHERE sexe LIKE 'F%'"); stats["filles"] = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM eleves WHERE sexe LIKE 'M%'"); stats["garcons"] = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM classe"); stats["classes"] = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(DISTINCT professeur_principal_id) FROM classe WHERE professeur_principal_id IS NOT NULL")
+        stats["profs"] = cur.fetchone()[0]
+    else:
+        cur.execute("SELECT COUNT(*) FROM eleves WHERE classe_id=?", (classe_id,)); stats["total"] = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM eleves WHERE sexe LIKE 'F%' AND classe_id=?", (classe_id,)); stats["filles"] = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM eleves WHERE sexe LIKE 'M%' AND classe_id=?", (classe_id,)); stats["garcons"] = cur.fetchone()[0]
+        stats["classes"] = 1
+        cur.execute("SELECT professeur_principal_id FROM classe WHERE id=?", (classe_id,))
+        prof = cur.fetchone(); stats["profs"] = 1 if prof and prof[0] else 0
+    conn.close()
+    return stats
+
+def get_eleves_by_classe(classe_id=None):
+    conn = get_db_connection()
+    if not conn: return []
+    cur = conn.cursor()
+    if classe_id is None:
+        cur.execute("""
+            SELECT c.nom, COUNT(e.id)
+            FROM classe c LEFT JOIN eleves e ON e.classe_id = c.id
+            GROUP BY c.nom ORDER BY c.nom
+        """)
+    else:
+        cur.execute("""
+            SELECT c.nom, COUNT(e.id)
+            FROM classe c LEFT JOIN eleves e ON e.classe_id = c.id
+            WHERE c.id=? GROUP BY c.nom
+        """, (classe_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+def get_eleves_list(classe_id=None):
+    """Retourne (id, nom, prenom, sexe, date_naissance, statut, classe_id)"""
+    conn = get_db_connection()
+    if not conn: return []
+    cur = conn.cursor()
+    if classe_id is None:
+        cur.execute("SELECT id, nom, prenom, sexe, date_naissance, statut, classe_id FROM eleves ORDER BY nom, prenom")
+    else:
+        cur.execute("SELECT id, nom, prenom, sexe, date_naissance, statut, classe_id FROM eleves WHERE classe_id=? ORDER BY nom, prenom", (classe_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+def get_eleve_complet(eleve_id):
+    """Dict complet aligné sur ta table (avec lieu_naissance + date_inscription)."""
+    conn = get_db_connection()
+    if not conn: return None
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT
+            id, nom, prenom, sexe, date_naissance, lieu_naissance, statut,
+            telephone, email,
+            nom_pere, telephone_pere, nom_mere, telephone_mere,
+            adresse, photo_path, classe_id, date_inscription,
+            telephone_parent, email_parent
+        FROM eleves
+        WHERE id=?
+    """, (eleve_id,))
+    row = cur.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_classe_name(classe_id):
+    if classe_id is None: return None
+    conn = get_db_connection()
+    if not conn: return None
+    cur = conn.cursor()
+    cur.execute("SELECT nom FROM classe WHERE id=?", (classe_id,))
+    row = cur.fetchone()
+    conn.close()
+    return row[0] if row else None
+
 # ============ Classe principale UI ============
 class DashboardEleves(ctk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent, fg_color=THEME["bg_main"])
         self.selected_classe = None
         self.selected_eleve = None
+        self._selected_photo_path = None
+        self.classes_map = {}
+        self._sort_state = {}
 
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -231,7 +219,7 @@ class DashboardEleves(ctk.CTkFrame):
         self._create_table_actions_bar(main_content_frame)
         self._create_table_section(main_content_frame)
         self._create_classes_sidebar()
-        self.update_classes_sidebar() # Initial call
+        self.update_classes_sidebar()
         self.refresh()
 
     # ---------- Header
@@ -293,11 +281,8 @@ class DashboardEleves(ctk.CTkFrame):
 
     def on_search_key_release(self, event):
         self.apply_search_filter()
-        if self.search_var.get():
-            self.clear_btn.grid()
-        else:
-            self.clear_btn.grid_remove()
-    
+        self.clear_btn.grid() if self.search_var.get() else self.clear_btn.grid_remove()
+
     def clear_search(self):
         self.search_var.set("")
         self.apply_search_filter()
@@ -322,24 +307,21 @@ class DashboardEleves(ctk.CTkFrame):
             card = ctk.CTkFrame(cards_container, fg_color=THEME["card_bg"], corner_radius=16)
             card.grid(row=0, column=i, padx=(0, 10) if i < len(stats_info) - 1 else 0, sticky="nsew")
 
-            icon_frame = ctk.CTkFrame(card, fg_color="transparent")
-            icon_frame.pack(fill="x", padx=10, pady=(10, 5))
-
             icon = self._load_icon(icon_name, 28, 28)
-            ctk.CTkLabel(icon_frame, image=icon, text="", width=30).pack(side="left")
-
-            ctk.CTkLabel(icon_frame, text=title, font=ctk.CTkFont(FONT_FAMILY, 13, "bold"),
+            row = ctk.CTkFrame(card, fg_color="transparent")
+            row.pack(fill="x", padx=10, pady=(10, 5))
+            ctk.CTkLabel(row, image=icon, text="", width=30).pack(side="left")
+            ctk.CTkLabel(row, text=title, font=ctk.CTkFont(FONT_FAMILY, 13, "bold"),
                          text_color=THEME["secondary_text"]).pack(side="left", padx=(5, 0))
-
             lbl = ctk.CTkLabel(card, text=value, font=ctk.CTkFont(FONT_FAMILY, 34, "bold"), text_color=accent_color)
             lbl.pack(pady=(0, 10), anchor="w", padx=15)
             self.stats_labels.append(lbl)
 
     # ---------- Graph
     def _create_graph_section(self, parent_frame):
-        self.graph_box = ctk.CTkFrame(parent_frame, fg_color=THEME["card_bg"], corner_radius=16, border_width=1, border_color=THEME["border_color"])
+        self.graph_box = ctk.CTkFrame(parent_frame, fg_color=THEME["card_bg"], corner_radius=16,
+                                      border_width=1, border_color=THEME["border_color"])
         self.graph_box.grid(row=2, column=0, sticky="ew", pady=(0, 15))
-
         graph_header = ctk.CTkFrame(self.graph_box, fg_color="transparent")
         graph_header.pack(fill="x", pady=(10, 5))
         ctk.CTkLabel(graph_header, text="Répartition des élèves par classe",
@@ -349,33 +331,25 @@ class DashboardEleves(ctk.CTkFrame):
     def update_graph(self, data):
         for widget in self.graph_box.winfo_children()[1:]:
             widget.destroy()
-
         cls_names = [x[0] for x in data]
         counts = [x[1] for x in data]
-
         if not cls_names or all(c == 0 for c in counts):
-            label = ctk.CTkLabel(self.graph_box, text="📊\n\nAucune donnée à afficher",
-                                 font=ctk.CTkFont(FONT_FAMILY, 16, "bold"),
-                                 text_color=THEME["secondary_text"])
-            label.pack(pady=40)
+            ctk.CTkLabel(self.graph_box, text="📊\n\nAucune donnée à afficher",
+                         font=ctk.CTkFont(FONT_FAMILY, 16, "bold"),
+                         text_color=THEME["secondary_text"]).pack(pady=40)
             return
-
         fig = plt.Figure(figsize=(6.6, 3.5), dpi=100)
         ax = fig.add_subplot(111)
         x_pos = range(len(cls_names))
         colors = plt.cm.viridis(range(len(cls_names)))
         ax.bar(x_pos, counts, color=colors, width=0.6)
-
         ax.set_xticks(list(x_pos))
         ax.set_xticklabels(cls_names, fontsize=10, rotation=45, ha='right', color=THEME["primary_text"])
         ax.set_ylabel("Nombre d'élèves", fontsize=12, color=THEME["primary_text"])
         ax.tick_params(axis='x', colors=THEME["primary_text"])
         ax.tick_params(axis='y', colors=THEME["primary_text"])
-
         for i, v in enumerate(counts):
-            if v > 0:
-                ax.text(i, v + 0.5, str(v), color=THEME["primary_text"], fontsize=10, ha='center', fontweight='bold')
-
+            if v > 0: ax.text(i, v + 0.5, str(v), color=THEME["primary_text"], fontsize=10, ha='center', fontweight='bold')
         fig.tight_layout()
         fig.patch.set_facecolor(THEME["card_bg"])
         ax.set_facecolor(THEME["card_bg"])
@@ -383,7 +357,6 @@ class DashboardEleves(ctk.CTkFrame):
         ax.spines['left'].set_color(THEME["border_color"])
         ax.spines['right'].set_color(THEME["card_bg"])
         ax.spines['top'].set_color(THEME["card_bg"])
-
         canvas_fig = FigureCanvasTkAgg(fig, master=self.graph_box)
         canvas_fig.draw()
         canvas_fig.get_tk_widget().pack(fill="x", pady=6)
@@ -392,15 +365,13 @@ class DashboardEleves(ctk.CTkFrame):
     def _create_table_actions_bar(self, parent_frame):
         actions_bar = ctk.CTkFrame(parent_frame, fg_color="transparent")
         actions_bar.grid(row=3, column=0, sticky="ew", pady=(0, 5))
-
-        btn_add = self._btn_crud(actions_bar, "Ajouter", THEME["success_green"], self.ajouter_eleve, "ajouter")
-        btn_add.pack(side="left", padx=(0, 5), expand=True, fill="x")
+        self._btn_crud(actions_bar, "Ajouter", THEME["success_green"], self.ajouter_eleve, "ajouter").pack(side="left", padx=(0, 5), expand=True, fill="x")
         self._btn_crud(actions_bar, "Modifier", THEME["info_orange"], self.modifier_eleve, "edit").pack(side="left", padx=5, expand=True, fill="x")
         self._btn_crud(actions_bar, "Supprimer", THEME["error_red"], self.supprimer_eleve, "delete").pack(side="left", padx=5, expand=True, fill="x")
         self._btn_crud(actions_bar, "Détails", THEME["accent_blue"], self.details_eleve, "detail").pack(side="left", padx=5, expand=True, fill="x")
         self._btn_crud(actions_bar, "Transférer", THEME["warning_yellow"], self.ouvrir_transfert, "transferer").pack(side="left", padx=5, expand=True, fill="x")
 
-    # ---------- Table
+    # ---------- Table (design + tri + Âge/Classe)
     def _create_table_section(self, parent_frame):
         table_container = ctk.CTkFrame(parent_frame, fg_color=THEME["card_bg"], corner_radius=16)
         table_container.grid(row=4, column=0, sticky="nsew")
@@ -411,24 +382,26 @@ class DashboardEleves(ctk.CTkFrame):
         style.theme_use("default")
         style.configure("Treeview",
                         background=THEME["card_bg"], fieldbackground=THEME["card_bg"], foreground=THEME["primary_text"],
-                        rowheight=45, font=(FONT_FAMILY, 12), borderwidth=0, relief="flat")
+                        rowheight=50, font=(FONT_FAMILY, 12), borderwidth=0, relief="flat")
         style.configure("Treeview.Heading",
                         background=THEME["header_bg"], foreground=THEME["accent_blue"],
-                        font=(FONT_FAMILY, 14, "bold"), relief="flat", borderwidth=0)
-        style.map("Treeview", background=[('selected', THEME["hover_light"])])
+                        font=(FONT_FAMILY, 13, "bold"), relief="flat", borderwidth=0, padding=6)
+        style.map("Treeview",
+                  background=[('selected', THEME["select_highlight"])],
+                  foreground=[('selected', THEME["primary_text"])])
 
-        columns = ("id", "nom", "prenom", "sexe", "date_naissance", "statut")
-        self.table = ttk.Treeview(table_container, columns=columns, show="headings", selectmode="browse")
-        for col, label in [
-            ("id", "ID"),
-            ("nom", "Nom"),
-            ("prenom", "Prénom"),
-            ("sexe", "Sexe"),
-            ("date_naissance", "Date de naissance"),
-            ("statut", "Statut")
-        ]:
-            self.table.heading(col, text=label)
-            self.table.column(col, anchor="center", minwidth=80, width=150 if col in ("nom", "prenom") else 120)
+        self.table_columns = ("id", "nom", "prenom", "sexe", "date_naissance", "age", "classe", "statut")
+        self.table = ttk.Treeview(table_container, columns=self.table_columns, show="headings", selectmode="browse")
+
+        headings = [
+            ("id", "ID"), ("nom", "Nom"), ("prenom", "Prénom"), ("sexe", "Sexe"),
+            ("date_naissance", "Naissance"), ("age", "Âge"), ("classe", "Classe"), ("statut", "Statut")
+        ]
+        for col, label in headings:
+            self.table.heading(col, text=label, command=lambda c=col: self._sort_by_column(c))
+            width = 80 if col in ("id", "age", "sexe") else 130
+            if col in ("nom", "prenom", "classe"): width = 160
+            self.table.column(col, anchor="center", minwidth=70, width=width)
 
         table_scroll = ctk.CTkScrollbar(
             table_container, orientation="vertical", command=self.table.yview,
@@ -438,10 +411,25 @@ class DashboardEleves(ctk.CTkFrame):
         self.table.configure(yscrollcommand=table_scroll.set)
         self.table.grid(row=0, column=0, sticky="nsew", pady=10, padx=(10, 0))
 
-        self.table.bind("<<TreeviewSelect>>", self.on_select_eleve)
         self.table.tag_configure('oddrow', background=THEME["card_bg"])
         self.table.tag_configure('evenrow', background=THEME["header_bg"])
-        self.table_data = [] # pour le filtrage
+        self.table.tag_configure('status_actif', foreground=THEME["success_green"])
+        self.table.tag_configure('status_inactif', foreground=THEME["error_red"])
+
+        self.table.bind("<<TreeviewSelect>>", self.on_select_eleve)
+        self.table_data = []  # tuples DB
+
+    def _sort_by_column(self, col):
+        reverse = self._sort_state.get(col, False)
+        items = [(iid, self.table.item(iid, "values")) for iid in self.table.get_children()]
+        idx = self.table_columns.index(col)
+        try:
+            items.sort(key=lambda it: (int(it[1][idx]) if str(it[1][idx]).isdigit() else str(it[1][idx]).lower()), reverse=reverse)
+        except Exception:
+            items.sort(key=lambda it: str(it[1][idx]).lower(), reverse=reverse)
+        for i, (iid, _) in enumerate(items):
+            self.table.move(iid, "", i)
+        self._sort_state[col] = not reverse
 
     # ---------- Sidebar classes
     def _create_classes_sidebar(self):
@@ -457,8 +445,11 @@ class DashboardEleves(ctk.CTkFrame):
         self.classe_btns = []
 
     def update_classes_sidebar(self):
-        for w in self.classe_btns_frame.winfo_children():
-            w.destroy()
+        # map id -> nom
+        classes = get_all_classes()
+        self.classes_map = {cid: nom for cid, nom in classes}
+
+        for w in self.classe_btns_frame.winfo_children(): w.destroy()
         self.classe_btns = []
 
         btn_tous = ctk.CTkButton(
@@ -470,7 +461,6 @@ class DashboardEleves(ctk.CTkFrame):
         btn_tous.pack(fill="x", pady=(5, 2))
         self.classe_btns.append((btn_tous, None))
 
-        classes = get_all_classes()
         if not classes:
             ctk.CTkLabel(self.classe_btns_frame, text="Aucune classe trouvée.", text_color=THEME["secondary_text"]).pack(pady=10)
         else:
@@ -543,8 +533,13 @@ class DashboardEleves(ctk.CTkFrame):
         for row in self.table.get_children():
             self.table.delete(row)
         for i, e in enumerate(eleves):
-            tag = 'evenrow' if i % 2 == 0 else 'oddrow'
-            self.table.insert("", "end", values=e, tags=(tag,))
+            _id, nom, prenom, sexe, naissance, statut, cid = e
+            age = compute_age(naissance)
+            cls = self.classes_map.get(cid, "—")
+            values = (_id, nom, prenom, sexe or "—", naissance or "—", age, cls, statut or "—")
+            tag_zebra = 'evenrow' if i % 2 == 0 else 'oddrow'
+            tag_status = 'status_actif' if (statut or "").lower().startswith("act") else 'status_inactif'
+            self.table.insert("", "end", values=values, tags=(tag_zebra, tag_status))
 
     def refresh(self):
         self.update_dashboard_for_classe(self.selected_classe)
@@ -553,10 +548,7 @@ class DashboardEleves(ctk.CTkFrame):
 
     def on_select_eleve(self, event):
         selected = self.table.selection()
-        if selected:
-            self.selected_eleve = self.table.item(selected[0])["values"][0]
-        else:
-            self.selected_eleve = None
+        self.selected_eleve = self.table.item(selected[0])["values"][0] if selected else None
 
     def ajouter_eleve(self):
         self.formulaire_eleve(mode="Ajouter")
@@ -597,202 +589,505 @@ class DashboardEleves(ctk.CTkFrame):
         if not eleve:
             messagebox.showerror("Erreur", "Élève introuvable.")
             return
-        self.formulaire_eleve(mode="Détails", eleve=eleve)
+        self._open_eleve_details_card(eleve)
 
     def apply_search_filter(self):
         term = self.search_var.get().strip().lower()
         if not term:
-            self.update_table(self.table_data)
-            return
-        filtered = [r for r in self.table_data if any(term in str(r[i]).lower() for i in [0, 1, 2, 3, 5])]
+            self.update_table(self.table_data); return
+        filtered = [r for r in self.table_data if any(term in str(r[i]).lower() for i in [0,1,2,3,5])]
         self.update_table(filtered)
 
-    # ---------- Formulaire élève
+    # ---------- Détails (Carte premium)
+    def _open_eleve_details_card(self, e: dict):
+        import datetime
+        import customtkinter as ctk
+
+        # ---------------- Helpers ----------------
+        def _age(d):
+            try:
+                if not d: return "—"
+                y, m, d2 = map(int, str(d).split("-"))
+                t = datetime.date.today()
+                return str(t.year - y - ((t.month, t.day) < (m, d2)))
+            except Exception:
+                return "—"
+
+        def _kv_row(parent, r, label, value, span=1):
+            """Ligne clé/valeur (full grid, pas de pack)."""
+            lbl = ctk.CTkLabel(parent, text=label, text_color=THEME["secondary_text"],
+                            font=ctk.CTkFont(FONT_FAMILY, 13, "bold"), anchor="w")
+            val = ctk.CTkLabel(parent, text=value or "—", text_color=THEME["primary_text"],
+                            font=ctk.CTkFont(FONT_FAMILY, 14), anchor="w", justify="left")
+            lbl.grid(row=r, column=0, sticky="w", padx=(16, 10), pady=(6, 0))
+            val.grid(row=r, column=1, columnspan=span, sticky="w", padx=(0, 16), pady=(6, 0))
+
+        def _section(parent, title, c=0, r=0, colspan=1):
+            """Carte section, full grid."""
+            card = ctk.CTkFrame(parent, fg_color=THEME["card_bg"],
+                                border_width=1, border_color=THEME["border_color"])
+            card.grid(row=r, column=c, columnspan=colspan, sticky="nsew", padx=8, pady=8)
+            card.grid_columnconfigure(0, weight=0)
+            card.grid_columnconfigure(1, weight=1)
+
+            header = ctk.CTkLabel(card, text=title, text_color=THEME["accent_blue"],
+                                font=ctk.CTkFont(FONT_FAMILY, 16, "bold"), anchor="w")
+            header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=16, pady=(14, 8))
+            ctk.CTkFrame(card, height=1, fg_color=THEME["border_color"]).grid(
+                row=1, column=0, columnspan=2, sticky="ew", padx=16, pady=(0, 6)
+            )
+            return card
+
+        # ---------------- Window ----------------
+        top = ctk.CTkToplevel(self)
+        top.title(f"Détails — {e.get('nom','')} {e.get('prenom','')}")
+        top.geometry("980x720"); top.minsize(940, 700)
+        top.transient(self.winfo_toplevel()); top.grab_set()
+        top.configure(fg_color=THEME["bg_main"])
+        top.bind("<Escape>", lambda _=None: top.destroy())
+
+        # Root (grid only)
+        root = ctk.CTkFrame(top, fg_color="transparent")
+        root.grid(row=0, column=0, sticky="nsew", padx=16, pady=16)
+        top.grid_rowconfigure(0, weight=1)
+        top.grid_columnconfigure(0, weight=1)
+        root.grid_columnconfigure(0, weight=1)
+        root.grid_rowconfigure(1, weight=1)
+
+        # ---------------- Header (full grid) ----------------
+        header = ctk.CTkFrame(root, fg_color=THEME["card_bg"],
+                            border_width=1, border_color=THEME["border_color"])
+        header.grid(row=0, column=0, sticky="ew")
+        header.grid_columnconfigure(0, weight=0)
+        header.grid_columnconfigure(1, weight=1)
+        header.grid_columnconfigure(2, weight=0)
+
+        # Photo carrée (pas d’arrondis)
+        photo_wrap = ctk.CTkFrame(header, fg_color=THEME["bg_main"])
+        photo_wrap.grid(row=0, column=0, padx=16, pady=16, sticky="w")
+        photo_wrap.configure(width=160, height=160); photo_wrap.grid_propagate(False)
+        photo = square_photo(e.get("photo_path"), size=(160, 160))
+        ctk.CTkLabel(photo_wrap, image=photo, text="").grid(row=0, column=0, sticky="nsew")
+
+        # Bloc identité
+        ident = ctk.CTkFrame(header, fg_color="transparent")
+        ident.grid(row=0, column=1, sticky="nsew", pady=16)
+        ident.grid_columnconfigure(0, weight=1)
+
+        fullname = f"{(e.get('nom') or '').upper()} {e.get('prenom') or ''}".strip()
+        ctk.CTkLabel(ident, text=fullname, text_color=THEME["accent_blue"],
+                    font=ctk.CTkFont(FONT_FAMILY, 26, "bold"), anchor="w").grid(
+            row=0, column=0, sticky="w", padx=(4, 4), pady=(4, 6)
+        )
+
+        cls_name = get_classe_name(e.get("classe_id"))
+        sub = f"{cls_name or 'Classe —'}   |   {_age(e.get('date_naissance'))} ans"
+        ctk.CTkLabel(ident, text=sub, text_color=THEME["secondary_text"],
+                    font=ctk.CTkFont(FONT_FAMILY, 14), anchor="w").grid(
+            row=1, column=0, sticky="w", padx=(4, 4), pady=(0, 10)
+        )
+
+        # Badges plats
+        badges = ctk.CTkFrame(ident, fg_color="transparent")
+        badges.grid(row=2, column=0, sticky="w", padx=(0, 0))
+        for txt, bg in [
+            (e.get("statut") or "—", THEME["info_orange"]),
+            (e.get("sexe") or "—", THEME["hover_light"]),
+        ]:
+            ctk.CTkLabel(badges, text=txt, fg_color=bg, text_color=THEME["primary_text"],
+                        font=ctk.CTkFont(FONT_FAMILY, 12, "bold"), corner_radius=4, padx=10, pady=4)\
+                .grid(row=0, column=badges.grid_size()[0], padx=(0, 6))
+
+        # Actions
+        actions = ctk.CTkFrame(header, fg_color="transparent")
+        actions.grid(row=0, column=2, padx=16, pady=16, sticky="e")
+        ctk.CTkButton(actions, text="Modifier", height=38,
+                    fg_color=THEME["info_orange"], hover_color=THEME["hover_light"],
+                    command=lambda: (top.destroy(), self.formulaire_eleve("Modifier", e))).grid(row=0, column=0, padx=(0, 8))
+        ctk.CTkButton(actions, text="Fermer", height=38,
+                    fg_color=THEME["error_red"], hover_color=THEME["hover_light"],
+                    command=top.destroy).grid(row=0, column=1)
+
+        # ---------------- Body (scrollable, grid-only) ----------------
+        body = ctk.CTkScrollableFrame(root, fg_color="transparent")
+        body.grid(row=1, column=0, sticky="nsew", pady=(10, 0))
+        body.grid_columnconfigure(0, weight=1, uniform="cols")
+        body.grid_columnconfigure(1, weight=1, uniform="cols")
+
+        # Sections
+        # Colonne gauche
+        perso = _section(body, "Informations personnelles", c=0, r=0)
+        _kv_row(perso, 2, "Nom", e.get("nom"))
+        _kv_row(perso, 3, "Prénom", e.get("prenom"))
+        _kv_row(perso, 4, "Date de naissance", e.get("date_naissance"))
+        _kv_row(perso, 5, "Lieu de naissance", e.get("lieu_naissance"))
+
+        contact = _section(body, "Contact", c=0, r=1)
+        _kv_row(contact, 2, "Téléphone", e.get("telephone"))
+        _kv_row(contact, 3, "Email", e.get("email"))
+        _kv_row(contact, 4, "Adresse", e.get("adresse"), span=1)
+
+        # Colonne droite
+        parents = _section(body, "Parents / Tuteurs", c=1, r=0)
+        _kv_row(parents, 2, "Nom du père", e.get("nom_pere"))
+        _kv_row(parents, 3, "Téléphone du père", e.get("telephone_pere"))
+        _kv_row(parents, 4, "Nom de la mère", e.get("nom_mere"))
+        _kv_row(parents, 5, "Téléphone de la mère", e.get("telephone_mere"))
+        _kv_row(parents, 6, "Téléphone parent (général)", e.get("telephone_parent"))
+        _kv_row(parents, 7, "Email parent (général)", e.get("email_parent"))
+
+        meta = _section(body, "Scolarité & métadonnées", c=1, r=1)
+        _kv_row(meta, 2, "Classe", cls_name)
+        _kv_row(meta, 3, "Date d'inscription", e.get("date_inscription"))
+        _kv_row(meta, 4, "Âge", f"{_age(e.get('date_naissance'))} ans" if _age(e.get('date_naissance')) != "—" else "—")
+        # Si tu stockes created_at / updated_at :
+        if e.get("created_at") is not None or e.get("updated_at") is not None:
+            _kv_row(meta, 5, "Créé le", e.get("created_at"))
+            _kv_row(meta, 6, "Modifié le", e.get("updated_at"))
+
+        # Assure une bonne répartition verticale si peu de contenu
+        for r in range(2):
+            body.grid_rowconfigure(r, weight=1)
+
+
+    # ---------- Formulaire (Wizard 3 étapes)
     def formulaire_eleve(self, mode="Ajouter", eleve=None):
         popup = ctk.CTkToplevel(self)
         popup.title(f"{mode} Élève")
-        popup.geometry("800x550")
-        popup.minsize(800, 550)
+        popup.geometry("1000x720")
+        popup.minsize(980, 680)
         popup.transient(self.winfo_toplevel())
         popup.grab_set()
         popup.configure(fg_color=THEME["bg_main"])
-        
-        main_frame = ctk.CTkFrame(popup, fg_color="transparent")
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
-        main_frame.grid_columnconfigure(0, weight=1)
-        main_frame.grid_columnconfigure(1, weight=1)
-        main_frame.grid_rowconfigure(1, weight=1)
 
-        # Header du formulaire
-        title_text = "Nouveau Profil Élève" if mode == "Ajouter" else f"Détails de {eleve[1]} {eleve[2]}" if mode == "Détails" else f"Modification de {eleve[1]} {eleve[2]}"
-        ctk.CTkLabel(main_frame, text=title_text, font=ctk.CTkFont(FONT_FAMILY, 24, "bold"), text_color=THEME["accent_blue"]).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 15))
+        root = ctk.CTkFrame(popup, fg_color="transparent")
+        root.pack(fill="both", expand=True)
+        root.grid_columnconfigure(0, weight=1)
+        root.grid_rowconfigure(2, weight=1)
 
-        # Cadre photo
-        photo_frame = ctk.CTkFrame(main_frame, fg_color=THEME["card_bg"], corner_radius=16)
-        photo_frame.grid(row=0, column=1, sticky="e", pady=(0, 15), padx=(10, 0))
-        photo_frame.grid_propagate(False)
-        photo_frame.configure(width=160, height=160)
-        self.photo_label = ctk.CTkLabel(photo_frame, text="", image=square_photo(None))
-        self.photo_label.pack(fill="both", expand=True, padx=10, pady=10)
+        header = ctk.CTkFrame(root, fg_color=THEME["card_bg"], corner_radius=18)
+        header.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 12))
+        header.grid_columnconfigure(0, weight=1)
+        title_text = "Nouveau Profil Élève" if mode == "Ajouter" else f"{'Détails' if mode=='Détails' else 'Modification'} de {(eleve or {}).get('nom','')} {(eleve or {}).get('prenom','')}"
+        ctk.CTkLabel(header, text=title_text, font=ctk.CTkFont(FONT_FAMILY, 28, "bold"),
+                     text_color=THEME["accent_blue"]).grid(row=0, column=0, sticky="w", padx=18, pady=(18, 12))
 
-        # Cadre pour les champs du formulaire
-        form_frame = ctk.CTkScrollableFrame(main_frame, fg_color=THEME["card_bg"], corner_radius=16)
-        form_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=(0, 20))
-        form_frame.grid_columnconfigure(0, weight=1)
-        form_frame.grid_columnconfigure(1, weight=1)
+        steps_bar = ctk.CTkFrame(root, fg_color="transparent")
+        steps_bar.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 8))
+        steps_bar.grid_columnconfigure(0, weight=1)
 
-        fields = [
-            ("Informations Personnelles", [
-                ("Nom", "nom", "Entry"), ("Prénom", "prenom", "Entry"),
-                ("Date de naissance", "date_naissance", "Entry", "AAAA-MM-JJ"),
-                ("Lieu de naissance", "lieu_naissance", "Entry"),
-                ("Sexe", "sexe", "OptionMenu", ["Masculin", "Féminin"]),
-                ("Statut", "statut", "OptionMenu", ["Actif", "Inactif"]),
-                ("N° Téléphone", "telephone", "Entry"), ("Email", "email", "Entry"),
-            ]),
-            ("Informations sur les Parents", [
-                ("Nom du père", "nom_pere", "Entry"), ("Nom de la mère", "nom_mere", "Entry"),
-                ("N° Tél du père", "telephone_pere", "Entry"), ("N° Tél de la mère", "telephone_mere", "Entry"),
-            ]),
-            ("Adresse", [
-                ("Adresse", "adresse", "Entry"),
-            ]),
-        ]
+        step_wrap = ctk.CTkFrame(steps_bar, fg_color=THEME["card_bg"], corner_radius=12,
+                                 border_width=1, border_color=THEME["border_color"])
+        step_wrap.grid(row=0, column=0, sticky="ew")
+
+        self._eleve_step_var = ctk.StringVar(value="Profil")
+        stepper = ctk.CTkSegmentedButton(
+            step_wrap,
+            variable=self._eleve_step_var,
+            values=["Profil", "Parents", "Adresse"],
+            fg_color=THEME["card_bg"],
+            selected_color=THEME["accent_blue"],
+            unselected_color=THEME["bg_main"]
+        )
+        stepper.grid(row=0, column=0, sticky="ew", padx=2, pady=2)
+
+        body = ctk.CTkFrame(root, fg_color="transparent")
+        body.grid(row=2, column=0, sticky="nsew", padx=20, pady=(8, 12))
+        body.grid_columnconfigure(0, weight=1)
+        body.grid_rowconfigure(0, weight=1)
+
+        card_profil = ctk.CTkScrollableFrame(body, fg_color=THEME["card_bg"], corner_radius=18,
+                                             border_width=1, border_color=THEME["border_color"])
+        card_parents = ctk.CTkScrollableFrame(body, fg_color=THEME["card_bg"], corner_radius=18,
+                                              border_width=1, border_color=THEME["border_color"])
+        card_adresse = ctk.CTkScrollableFrame(body, fg_color=THEME["card_bg"], corner_radius=18,
+                                              border_width=1, border_color=THEME["border_color"])
+        for card in (card_profil, card_parents, card_adresse):
+            card.grid_columnconfigure(0, weight=1)
+
+        def section_title(parent, text):
+            wrap = ctk.CTkFrame(parent, fg_color="transparent")
+            wrap.grid_columnconfigure(0, weight=0)
+            wrap.grid_columnconfigure(1, weight=1)
+            ctk.CTkLabel(wrap, text=text,
+                         font=ctk.CTkFont(FONT_FAMILY, FONT_SIZE_HEADER, "bold"),
+                         text_color=THEME["accent_blue"]).grid(row=0, column=0, sticky="w",
+                                                               padx=(18, 12), pady=(18, 6))
+            ctk.CTkFrame(wrap, height=2, fg_color=THEME["border_color"]).grid(
+                row=0, column=1, sticky="ew", padx=(0, 18), pady=(28, 0)
+            )
+            return wrap
+
+        def make_label(parent, text):
+            return ctk.CTkLabel(parent, text=text,
+                                font=ctk.CTkFont(FONT_FAMILY, 15, "bold"),
+                                text_color=THEME["primary_text"])
+
+        def make_entry(parent, placeholder=""):
+            return ctk.CTkEntry(parent, font=ctk.CTkFont(FONT_FAMILY, 14),
+                                fg_color=THEME["bg_main"], border_color=THEME["border_color"],
+                                placeholder_text=placeholder, height=52)
+
+        def make_select(parent, values):
+            return ctk.CTkOptionMenu(parent, values=values,
+                                     fg_color=THEME["bg_main"], button_color=THEME["accent_blue"],
+                                     button_hover_color=THEME["hover_light"], height=52)
 
         self.form_entries = {}
-        row_idx = 0
-        for section_title, section_fields in fields:
-            ctk.CTkLabel(form_frame, text=section_title, font=ctk.CTkFont(FONT_FAMILY, FONT_SIZE_HEADER-2, "bold"), text_color=THEME["accent_blue"])\
-                .grid(row=row_idx, column=0, columnspan=2, sticky="w", padx=10, pady=(10, 5))
-            row_idx += 1
-            
-            for i, (label_text, key, widget_type, *args) in enumerate(section_fields):
-                current_row, current_col = row_idx + i // 2, (i % 2) * 2
-                
-                ctk.CTkLabel(form_frame, text=f"{label_text}:", font=ctk.CTkFont(FONT_FAMILY, 14, "bold"),
-                             text_color=THEME["primary_text"]).grid(row=current_row, column=current_col, sticky="w", padx=(10, 0), pady=(0,5))
-                
-                if widget_type == "Entry":
-                    widget = ctk.CTkEntry(form_frame, font=ctk.CTkFont(FONT_FAMILY, 14),
-                                          fg_color=THEME["bg_main"], border_color=THEME["border_color"],
-                                          placeholder_text=args[0] if args else "")
-                elif widget_type == "OptionMenu":
-                    widget = ctk.CTkOptionMenu(form_frame, values=args[0],
-                                               fg_color=THEME["bg_main"], button_color=THEME["accent_blue"],
-                                               button_hover_color=THEME["hover_light"])
-                
-                widget.grid(row=current_row, column=current_col + 1, sticky="ew", padx=(0, 10), pady=(0,5))
-                self.form_entries[key] = widget
-            row_idx += (len(section_fields) + 1) // 2
 
-        # Boutons d'action
-        btn_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        btn_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
+        # -------- Étape 1 : Profil
+        section_title(card_profil, "Profil de l’élève").grid(row=0, column=0, sticky="ew")
+        photo_block = ctk.CTkFrame(card_profil, fg_color="transparent")
+        photo_block.grid(row=1, column=0, sticky="w", padx=18, pady=(6, 8))
+        photo_frame = ctk.CTkFrame(photo_block, fg_color=THEME["bg_main"], corner_radius=16)
+        photo_frame.grid(row=0, column=0, sticky="w")
+        photo_frame.configure(width=220, height=220)
+        photo_frame.grid_propagate(False)
+        self.photo_label = ctk.CTkLabel(photo_frame, text="", image=square_photo(None))
+        self.photo_label.pack(expand=True, fill="both", padx=12, pady=12)
+        def _choose_photo():
+            path = filedialog.askopenfilename(title="Choisir une photo", filetypes=[("Images", "*.png;*.jpg;*.jpeg;*.webp")])
+            if path:
+                try:
+                    self.photo_label.configure(image=square_photo(path))
+                    self._selected_photo_path = path
+                except Exception:
+                    pass
+        ctk.CTkButton(photo_block, text="Importer", command=_choose_photo,
+                      fg_color=THEME["accent_blue"], hover_color=THEME["hover_light"], height=40)\
+            .grid(row=0, column=1, sticky="w", padx=(12, 0))
+        ctk.CTkButton(photo_block, text="Supprimer",
+                      command=lambda: (self.photo_label.configure(image=square_photo(None)), setattr(self, "_selected_photo_path", None)),
+                      fg_color=THEME["error_red"], hover_color=THEME["hover_light"], height=40)\
+            .grid(row=0, column=2, sticky="w", padx=(8, 0))
+
+        profil_fields = [
+            ("Nom *", "nom", "Entry", ""),
+            ("Prénom *", "prenom", "Entry", ""),
+            ("Date de naissance", "date_naissance", "Entry", "AAAA-MM-JJ"),
+            ("Lieu de naissance", "lieu_naissance", "Entry", ""),
+            ("Sexe", "sexe", "OptionMenu", ["Masculin", "Féminin"]),
+            ("Statut", "statut", "OptionMenu", ["Actif", "Inactif"]),
+            ("N° Téléphone", "telephone", "Entry", ""),
+            ("Email", "email", "Entry", ""),
+        ]
+        r = 2
+        for label_text, key, wtype, arg in profil_fields:
+            make_label(card_profil, label_text).grid(row=r, column=0, sticky="w", padx=18, pady=(12, 4))
+            widget = make_entry(card_profil, arg) if wtype == "Entry" else make_select(card_profil, arg)
+            widget.grid(row=r+1, column=0, sticky="ew", padx=18, pady=(0, 6))
+            self.form_entries[key] = widget
+            r += 2
+
+        # -------- Étape 2 : Parents
+        section_title(card_parents, "Informations des parents / tuteurs").grid(row=0, column=0, sticky="ew")
+        parents_fields = [
+            ("Nom du père", "nom_pere", "Entry", ""),
+            ("N° Tél du père", "telephone_pere", "Entry", ""),
+            ("Nom de la mère", "nom_mere", "Entry", ""),
+            ("N° Tél de la mère", "telephone_mere", "Entry", ""),
+            ("Téléphone parent (général)", "telephone_parent", "Entry", ""),
+            ("Email parent (général)", "email_parent", "Entry", ""),
+        ]
+        r = 1
+        for label_text, key, wtype, arg in parents_fields:
+            make_label(card_parents, label_text).grid(row=r, column=0, sticky="w", padx=18, pady=(12, 4))
+            widget = make_entry(card_parents, arg)
+            widget.grid(row=r+1, column=0, sticky="ew", padx=18, pady=(0, 6))
+            self.form_entries[key] = widget
+            r += 2
+
+        # -------- Étape 3 : Adresse
+        section_title(card_adresse, "Adresse et localisation").grid(row=0, column=0, sticky="ew")
+        make_label(card_adresse, "Adresse").grid(row=1, column=0, sticky="w", padx=18, pady=(12, 4))
+        self.form_entries["adresse"] = make_entry(card_adresse, "")
+        self.form_entries["adresse"].grid(row=2, column=0, sticky="ew", padx=18, pady=(0, 6))
+
+        def _show_card(name):
+            for c in (card_profil, card_parents, card_adresse):
+                c.grid_forget()
+            (card_profil if name == "Profil" else card_parents if name == "Parents" else card_adresse)\
+                .grid(row=0, column=0, sticky="nsew")
+
+        stepper.configure(command=_show_card)
+        _show_card(self._eleve_step_var.get())
+
+        footer = ctk.CTkFrame(root, fg_color=THEME["card_bg"], corner_radius=14)
+        footer.grid(row=3, column=0, sticky="ew", padx=20, pady=(0, 20))
+        for i in range(5): footer.grid_columnconfigure(i, weight=1)
+
+        def _go_prev():
+            order = ["Profil", "Parents", "Adresse"]
+            i = max(0, order.index(self._eleve_step_var.get()) - 1)
+            self._eleve_step_var.set(order[i]); _show_card(order[i])
+
+        def _go_next():
+            order = ["Profil", "Parents", "Adresse"]
+            i = min(len(order)-1, order.index(self._eleve_step_var.get()) + 1)
+            self._eleve_step_var.set(order[i]); _show_card(order[i])
+
+        ctk.CTkButton(footer, text="◀ Précédent", command=_go_prev,
+                      fg_color=THEME["bg_main"], hover_color=THEME["hover_light"], height=44)\
+            .grid(row=0, column=0, sticky="w", padx=10, pady=10)
+        ctk.CTkButton(footer, text="Suivant ▶", command=_go_next,
+                      fg_color=THEME["accent_blue"], hover_color=THEME["hover_light"], height=44)\
+            .grid(row=0, column=1, sticky="w", padx=(0, 10), pady=10)
 
         if mode == "Ajouter":
-            ctk.CTkButton(btn_frame, text="Enregistrer",
-                          command=lambda: self.save_eleve(popup, mode),
-                          fg_color=THEME["success_green"], hover_color=THEME["hover_light"]).pack(side="left", expand=True, fill="x", padx=(0, 5))
+            ctk.CTkButton(footer, text="Enregistrer",
+                          command=lambda: self.save_eleve(popup, mode, None, eleve_dict=None),
+                          fg_color=THEME["success_green"], hover_color=THEME["hover_light"], height=44)\
+                .grid(row=0, column=3, sticky="e", padx=(10, 8), pady=10)
         elif mode == "Modifier":
-            ctk.CTkButton(btn_frame, text="Mettre à jour",
-                          command=lambda: self.save_eleve(popup, mode, eleve[0]),
-                          fg_color=THEME["info_orange"], hover_color=THEME["hover_light"]).pack(side="left", expand=True, fill="x", padx=(0, 5))
+            ctk.CTkButton(footer, text="Mettre à jour",
+                          command=lambda: self.save_eleve(popup, mode, (eleve or {}).get('id')),
+                          fg_color=THEME["info_orange"], hover_color=THEME["hover_light"], height=44)\
+                .grid(row=0, column=3, sticky="e", padx=(10, 8), pady=10)
 
-        close_btn = ctk.CTkButton(btn_frame, text="Fermer", command=popup.destroy,
-                                  fg_color=THEME["error_red"], hover_color=THEME["hover_light"])
-        close_btn.pack(side="left", expand=True, fill="x", padx=(5, 0))
+        ctk.CTkButton(footer, text="Fermer", command=popup.destroy,
+                      fg_color=THEME["error_red"], hover_color=THEME["hover_light"], height=44)\
+            .grid(row=0, column=4, sticky="e", padx=(0, 10), pady=10)
 
-        if eleve:
-            self.photo_label.configure(image=square_photo(eleve[12]))
+        # Pré-remplissage
+        if isinstance(eleve, dict):
+            try: self.photo_label.configure(image=square_photo(eleve.get("photo_path")))
+            except Exception: pass
             self.fill_form(eleve)
-        if mode == "Détails":
-            for entry in self.form_entries.values():
-                try: entry.configure(state="disabled")
-                except Exception: pass
-            close_btn.configure(fg_color=THEME["accent_blue"])
-            btn_frame.winfo_children()[0].destroy()
-            btn_frame.winfo_children()[0].pack_forget()
 
-    def fill_form(self, eleve):
+        if mode == "Détails":
+            for w in self.form_entries.values():
+                try: w.configure(state="disabled")
+                except Exception: pass
+            for child in footer.grid_slaves():
+                if isinstance(child, ctk.CTkButton) and child.cget("text") in ("Enregistrer", "Mettre à jour"):
+                    child.grid_forget()
+            for child in footer.grid_slaves():
+                if isinstance(child, ctk.CTkButton) and child.cget("text") == "Fermer":
+                    child.configure(fg_color=THEME["accent_blue"])
+
+    def fill_form(self, eleve: dict):
         data_map = {
-            "nom": eleve[1], "prenom": eleve[2], "sexe": eleve[3],
-            "date_naissance": eleve[4], "lieu_naissance": eleve[5],
-            "statut": eleve[6], "telephone": eleve[7], "email": eleve[8],
-            "adresse": eleve[9], "nom_pere": eleve[10], "nom_mere": eleve[11],
-            "telephone_pere": eleve[13], "telephone_mere": eleve[14]
+            "nom": eleve.get("nom"),
+            "prenom": eleve.get("prenom"),
+            "sexe": eleve.get("sexe"),
+            "date_naissance": eleve.get("date_naissance"),
+            "lieu_naissance": eleve.get("lieu_naissance"),
+            "statut": eleve.get("statut"),
+            "telephone": eleve.get("telephone"),
+            "email": eleve.get("email"),
+            "adresse": eleve.get("adresse"),
+            "nom_pere": eleve.get("nom_pere"),
+            "telephone_pere": eleve.get("telephone_pere"),
+            "nom_mere": eleve.get("nom_mere"),
+            "telephone_mere": eleve.get("telephone_mere"),
+            "telephone_parent": eleve.get("telephone_parent"),
+            "email_parent": eleve.get("email_parent"),
         }
         for key, value in data_map.items():
             w = self.form_entries.get(key)
-            if not w or value is None: continue
-            if isinstance(w, ctk.CTkEntry):
-                w.insert(0, value)
-            elif isinstance(w, ctk.CTkOptionMenu):
-                w.set(value)
+            if not w or value is None: 
+                continue
+            try:
+                if isinstance(w, ctk.CTkOptionMenu):
+                    w.set(value)
+                else:
+                    w.delete(0, "end"); w.insert(0, value)
+            except Exception:
+                pass
 
-    def save_eleve(self, popup, mode, eleve_id=None):
-        data = {key: widget.get() for key, widget in self.form_entries.items()}
-        data["photo"] = None # Pas de gestion de l'upload de photo dans cet exemple
+    def save_eleve(self, popup, mode, eleve_id=None, eleve_dict=None):
+        def _get(key):
+            w = self.form_entries.get(key)
+            return w.get().strip() if w and hasattr(w, "get") else None
 
-        if not all([data.get("nom"), data.get("prenom"), data.get("sexe"), data.get("date_naissance"), data.get("statut")]):
-            messagebox.showerror("Erreur", "Veuillez remplir les champs obligatoires.")
+        data = {
+            "nom": _get("nom"),
+            "prenom": _get("prenom"),
+            "sexe": _get("sexe"),
+            "date_naissance": _get("date_naissance"),
+            "lieu_naissance": _get("lieu_naissance"),
+            "statut": _get("statut"),
+            "telephone": _get("telephone"),
+            "email": _get("email"),
+            "adresse": _get("adresse"),
+            "nom_pere": _get("nom_pere"),
+            "nom_mere": _get("nom_mere"),
+            "telephone_pere": _get("telephone_pere"),
+            "telephone_mere": _get("telephone_mere"),
+            "telephone_parent": _get("telephone_parent"),
+            "email_parent": _get("email_parent"),
+            "photo_path": self._selected_photo_path
+        }
+
+        # validations minimales
+        if not all([data.get("nom"), data.get("prenom")]):
+            messagebox.showerror("Erreur", "Nom et Prénom sont obligatoires.")
             return
         if not is_name(data["nom"]) or not is_name(data["prenom"]):
-            messagebox.showerror("Erreur", "Le nom et le prénom ne doivent contenir que des lettres et des espaces.")
+            messagebox.showerror("Erreur", "Nom/Prénom : lettres, espaces, tirets et apostrophes uniquement.")
             return
-        if not is_date(data["date_naissance"]):
-            messagebox.showerror("Erreur", "Le format de la date de naissance est incorrect (AAAA-MM-JJ).")
+        if data.get("date_naissance") and not is_date(data["date_naissance"]):
+            messagebox.showerror("Erreur", "Format de la date de naissance : AAAA-MM-JJ.")
             return
-        if data.get("telephone") and not is_phone(data["telephone"]):
-            messagebox.showerror("Erreur", "Le format du numéro de téléphone est incorrect.")
-            return
-        if data.get("email") and not is_email(data["email"]):
-            messagebox.showerror("Erreur", "Le format de l'email est incorrect.")
-            return
+        for k in ("telephone", "telephone_pere", "telephone_mere", "telephone_parent"):
+            if data.get(k) and not is_phone(data[k]):
+                messagebox.showerror("Erreur", f"Numéro invalide pour « {k.replace('_',' ')} ».")
+                return
+        for k in ("email", "email_parent"):
+            if data.get(k) and not is_email(data[k]):
+                messagebox.showerror("Erreur", f"Email invalide pour « {k.replace('_',' ')} ».")
+                return
 
         conn = get_db_connection()
-        if conn:
+        if not conn: return
+        try:
             cur = conn.cursor()
-            try:
-                if mode == "Ajouter":
-                    cur.execute("""
-                        INSERT INTO eleves (nom, prenom, sexe, date_naissance, lieu_naissance, statut,
-                        telephone, email, adresse, nom_pere, nom_mere, photo, telephone_pere, telephone_mere, classe_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (data["nom"], data["prenom"], data["sexe"], data["date_naissance"], data["lieu_naissance"],
-                          data["statut"], data["telephone"], data["email"], data["adresse"], data["nom_pere"],
-                          data["nom_mere"], data["photo"], data["telephone_pere"], data["telephone_mere"], self.selected_classe))
-                    messagebox.showinfo("Succès", "Élève ajouté avec succès.")
-                elif mode == "Modifier":
-                    cur.execute("""
-                        UPDATE eleves SET nom=?, prenom=?, sexe=?, date_naissance=?, lieu_naissance=?, statut=?,
-                        telephone=?, email=?, adresse=?, nom_pere=?, nom_mere=?, photo=?, telephone_pere=?, telephone_mere=?
-                        WHERE id=?
-                    """, (data["nom"], data["prenom"], data["sexe"], data["date_naissance"], data["lieu_naissance"],
-                          data["statut"], data["telephone"], data["email"], data["adresse"], data["nom_pere"],
-                          data["nom_mere"], data["photo"], data["telephone_pere"], data["telephone_mere"], eleve_id))
-                    messagebox.showinfo("Succès", "Élève mis à jour avec succès.")
-                
-                conn.commit()
-                self.refresh()
-                popup.destroy()
-            except sqlite3.Error as e:
-                messagebox.showerror("Erreur de base de données", f"Une erreur est survenue : {e}")
-            finally:
-                conn.close()
+            if mode == "Ajouter":
+                cur.execute("""
+                    INSERT INTO eleves
+                    (nom, prenom, sexe, date_naissance, lieu_naissance, statut,
+                     telephone, email, adresse, nom_pere, nom_mere, photo_path,
+                     telephone_pere, telephone_mere, classe_id, date_inscription,
+                     telephone_parent, email_parent)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date('now'), ?, ?)
+                """, (
+                    data["nom"], data["prenom"], data["sexe"], data["date_naissance"], data["lieu_naissance"],
+                    data["statut"], data["telephone"], data["email"], data["adresse"], data["nom_pere"],
+                    data["nom_mere"], data["photo_path"], data["telephone_pere"], data["telephone_mere"],
+                    self.selected_classe, data["telephone_parent"], data["email_parent"]
+                ))
+                messagebox.showinfo("Succès", "Élève ajouté avec succès.")
+            elif mode == "Modifier" and eleve_id:
+                cur.execute("""
+                    UPDATE eleves SET
+                        nom=?, prenom=?, sexe=?, date_naissance=?, lieu_naissance=?, statut=?,
+                        telephone=?, email=?, adresse=?, nom_pere=?, nom_mere=?, photo_path=?,
+                        telephone_pere=?, telephone_mere=?, telephone_parent=?, email_parent=?
+                    WHERE id=?
+                """, (
+                    data["nom"], data["prenom"], data["sexe"], data["date_naissance"], data["lieu_naissance"],
+                    data["statut"], data["telephone"], data["email"], data["adresse"], data["nom_pere"],
+                    data["nom_mere"], data["photo_path"], data["telephone_pere"], data["telephone_mere"],
+                    data["telephone_parent"], data["email_parent"], eleve_id
+                ))
+                messagebox.showinfo("Succès", "Élève mis à jour avec succès.")
 
-# ============ Exécution de l'application ============
+            conn.commit()
+            self.refresh()
+            popup.destroy()
+        except sqlite3.Error as e:
+            messagebox.showerror("Erreur de base de données", f"Une erreur est survenue : {e}")
+        finally:
+            conn.close()
+
+# ============ Exécution directe (pour test) ============
 if __name__ == "__main__":
     app = ctk.CTk()
     app.title("Dashboard des Élèves")
     app.geometry("1200x800")
     app.grid_rowconfigure(0, weight=1)
     app.grid_columnconfigure(0, weight=1)
-    
-    # Simuler un utilisateur pour l'exemple
-    class FakeUser:
-        def __init__(self, username):
-            self.username = username
-    
+
     dashboard_eleves = DashboardEleves(app)
     dashboard_eleves.pack(fill="both", expand=True)
 
