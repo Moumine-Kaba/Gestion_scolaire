@@ -253,117 +253,7 @@ class NotificationBar(ctk.CTkFrame):
         self.msg.configure(text=message, text_color=color or THEME["accent_blue"])
         self.after(2500, lambda: self.msg.configure(text=""))
 
-class StatCard(ctk.CTkFrame):
-    """Carte de statistique moderne avec indicateur visuel"""
-    def __init__(self, parent, title, value, icon, color, bg_color):
-        super().__init__(parent, fg_color=bg_color, corner_radius=12, border_color=color+"30", border_width=2)
-        
-        # Container principal
-        main_container = ctk.CTkFrame(self, fg_color="transparent")
-        main_container.pack(fill="both", expand=True, padx=8, pady=6)
-        
-        # Icône et valeur
-        top_frame = ctk.CTkFrame(main_container, fg_color="transparent")
-        top_frame.pack(fill="x")
-        
-        # Icône avec cercle coloré
-        icon_frame = ctk.CTkFrame(top_frame, fg_color=color+"20", corner_radius=8, width=32, height=32)
-        icon_frame.pack(side="left", padx=(0, 8))
-        icon_frame.pack_propagate(False)
-        
-        ctk.CTkLabel(icon_frame, text=icon, font=(FONT, 16, "bold"), 
-                     text_color=color, fg_color="transparent").pack(expand=True)
-        
-        # Valeur numérique
-        self.value_label = ctk.CTkLabel(top_frame, text=str(value), font=(FONT, 18, "bold"), 
-                                        text_color=THEME["primary_text"], fg_color="transparent")
-        self.value_label.pack(side="right")
-        
-        # Titre descriptif
-        ctk.CTkLabel(main_container, text=title, font=(FONT, 9, "bold"), 
-                     text_color=THEME["secondary_text"], fg_color="transparent").pack(anchor="w", pady=(2, 0))
-
-class StatsBar(ctk.CTkFrame):
-    def __init__(self, parent, get_classes_func, get_profs_func):
-        super().__init__(parent, fg_color="transparent")
-        self.get_classes = get_classes_func
-        self.get_profs = get_profs_func
-        
-        try:
-            # Conteneur pour les cartes de statistiques
-            stats_container = ctk.CTkFrame(self, fg_color="transparent")
-            stats_container.pack(side="left", padx=(0, 10))
-            
-            # Vérifier que StatCard existe avant de l'utiliser
-            if 'StatCard' not in globals():
-                raise NameError("StatCard non définie")
-            
-            # Carte Statistiques Classes
-            self.stat_classes = StatCard(stats_container, "CLASSES", "0", "📚", "#64FFDA", THEME["card_bg"])
-            self.stat_classes.pack(side="left", padx=(0, 6))
-            
-            # Carte Statistiques Professeurs
-            self.stat_profs = StatCard(stats_container, "PROFESSEURS", "0", "👨‍🏫", "#FFD700", THEME["card_bg"])
-            self.stat_profs.pack(side="left", padx=3)
-            
-            # Carte Statistiques Élèves
-            self.stat_eleves = StatCard(stats_container, "ÉLÈVES", "0", "👥", "#A0E7E5", THEME["card_bg"])
-            self.stat_eleves.pack(side="left", padx=(6, 0))
-            
-            self.refresh()
-            
-        except Exception as e:
-            print(f"❌ Erreur dans StatsBar.__init__: {e}")
-            # Version de secours avec des badges simples
-            self.create_fallback_stats()
-    
-    def create_fallback_stats(self):
-        """Crée une version simplifiée des statistiques si StatCard échoue"""
-        stats_container = ctk.CTkFrame(self, fg_color="transparent")
-        stats_container.pack(side="left", padx=(0, 10))
-        
-        # Statistiques simples avec Badge
-        self.stat_classes = Badge(stats_container, "0 Classes", color="#64FFDA", bg=THEME["card_bg"])
-        self.stat_classes.pack(side="left", padx=(0, 6))
-        
-        self.stat_profs = Badge(stats_container, "0 Profs", color="#FFD700", bg=THEME["card_bg"])
-        self.stat_profs.pack(side="left", padx=3)
-        
-        self.stat_eleves = Badge(stats_container, "0 Élèves", color="#A0E7E5", bg=THEME["card_bg"])
-        self.stat_eleves.pack(side="left", padx=(6, 0))
-        
-        self.refresh()
-    
-    def refresh(self):
-        try:
-            classes = self.get_classes()
-            profs = self.get_profs()
-            total_eleves = 0
-            conn = get_db_connection()
-            if conn:
-                try:
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT COUNT(*) FROM eleves")
-                    total_eleves = cursor.fetchone()[0]
-                except sqlite3.Error as e:
-                    print(f"Erreur lors du calcul du nombre total d'élèves : {e}")
-                finally:
-                    if conn: conn.close()
-
-            # Mettre à jour selon le type de widget utilisé
-            if hasattr(self.stat_classes, 'value_label'):
-                # Version StatCard
-                self.stat_classes.value_label.configure(text=str(len(classes)))
-                self.stat_profs.value_label.configure(text=str(len(profs)))
-                self.stat_eleves.value_label.configure(text=str(total_eleves))
-            else:
-                # Version Badge de secours
-                self.stat_classes.configure(text=f"{len(classes)} Classes")
-                self.stat_profs.configure(text=f"{len(profs)} Profs")
-                self.stat_eleves.configure(text=f"{total_eleves} Élèves")
-                
-        except Exception as e:
-            print(f"❌ Erreur dans StatsBar.refresh: {e}")
+# Classes StatCard et StatsBar supprimées - fonctionnalité intégrée dans ClassesManagerView
 
 class ClassCard(ctk.CTkFrame):
     def __init__(self, parent, classe_data, prof_name, salle_name, on_edit, on_delete, icons):
@@ -606,40 +496,9 @@ class ClassesManagerView(ctk.CTkFrame):
         )
         add_class_btn.pack(side="right", padx=(10, 15), pady=7)
         
-        # Vérification de la disponibilité des classes et fonctions nécessaires
-        try:
-            # Test de la classe StatsBar
-            if 'StatsBar' not in globals():
-                raise NameError("❌ La classe StatsBar n'est pas définie dans le namespace global")
-            
-            # Test des fonctions nécessaires
-            if not callable(get_all_classes):
-                raise NameError("❌ La fonction get_all_classes n'est pas callable")
-            if not callable(get_all_professeurs):
-                raise NameError("❌ La fonction get_all_professeurs n'est pas callable")
-            
-            print("✅ Classes et fonctions vérifiées, création de StatsBar...")
-            self.statsbar = StatsBar(header, get_all_classes, get_all_professeurs)
-            self.statsbar.pack(side="right", padx=(0, 10))
-            print("✅ StatsBar créée avec succès")
-            
-        except Exception as e:
-            print(f"❌ Erreur lors de la création de StatsBar: {e}")
-            import traceback
-            traceback.print_exc()
-            
-            # Créer une version de secours simple
-            print("🔄 Création d'une StatsBar de secours...")
-            self.statsbar = ctk.CTkFrame(header, fg_color="transparent")
-            ctk.CTkLabel(self.statsbar, text="Stats non disponibles", 
-                        font=(FONT, 10), text_color=THEME["error_red"], 
-                        fg_color="transparent").pack(pady=5)
-            self.statsbar.pack(side="right", padx=(0, 10))
-            
-            # Ajouter une méthode refresh vide pour éviter les erreurs
-            def dummy_refresh():
-                pass
-            self.statsbar.refresh = dummy_refresh
+        # Créer les statistiques directement sans classe externe
+        print("🔄 Création des statistiques intégrées...")
+        self.statsbar = self.create_integrated_stats(header)
         
         main_content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         main_content_frame.pack(fill="both", expand=True)
@@ -661,6 +520,97 @@ class ClassesManagerView(ctk.CTkFrame):
                      font=(FONT, 9, "bold"), text_color=THEME["secondary_text"], fg_color="transparent").pack(side="left")
         ctk.CTkLabel(footer_content, text="v5.0 Premium", 
                      font=(FONT, 9, "bold"), text_color=THEME["accent_blue"], fg_color="transparent").pack(side="right")
+
+    def create_integrated_stats(self, parent):
+        """Crée les statistiques directement intégrées dans la classe"""
+        stats_container = ctk.CTkFrame(parent, fg_color="transparent")
+        stats_container.pack(side="right", padx=(0, 10))
+        
+        # Conteneur pour les cartes de statistiques
+        cards_frame = ctk.CTkFrame(stats_container, fg_color="transparent")
+        cards_frame.pack(side="left", padx=(0, 10))
+        
+        # Carte Classes
+        self.classe_card = self.create_stat_card(cards_frame, "CLASSES", "0", "📚", "#64FFDA")
+        self.classe_card.pack(side="left", padx=(0, 6))
+        
+        # Carte Professeurs  
+        self.prof_card = self.create_stat_card(cards_frame, "PROFESSEURS", "0", "👨‍🏫", "#FFD700")
+        self.prof_card.pack(side="left", padx=3)
+        
+        # Carte Élèves
+        self.eleve_card = self.create_stat_card(cards_frame, "ÉLÈVES", "0", "👥", "#A0E7E5")
+        self.eleve_card.pack(side="left", padx=(6, 0))
+        
+        # Refresh initial
+        self.refresh_integrated_stats()
+        
+        # Ajouter la méthode refresh au container
+        def refresh_stats():
+            self.refresh_integrated_stats()
+        
+        stats_container.refresh = refresh_stats
+        return stats_container
+    
+    def create_stat_card(self, parent, title, value, icon, color):
+        """Crée une carte de statistique individuelle"""
+        card = ctk.CTkFrame(parent, fg_color=THEME["card_bg"], corner_radius=12, 
+                           border_color=color+"30", border_width=2)
+        
+        # Container principal
+        main_container = ctk.CTkFrame(card, fg_color="transparent")
+        main_container.pack(fill="both", expand=True, padx=8, pady=6)
+        
+        # Icône et valeur
+        top_frame = ctk.CTkFrame(main_container, fg_color="transparent")
+        top_frame.pack(fill="x")
+        
+        # Icône avec cercle coloré
+        icon_frame = ctk.CTkFrame(top_frame, fg_color=color+"20", corner_radius=8, width=32, height=32)
+        icon_frame.pack(side="left", padx=(0, 8))
+        icon_frame.pack_propagate(False)
+        
+        ctk.CTkLabel(icon_frame, text=icon, font=(FONT, 16, "bold"), 
+                     text_color=color, fg_color="transparent").pack(expand=True)
+        
+        # Valeur numérique
+        value_label = ctk.CTkLabel(top_frame, text=str(value), font=(FONT, 18, "bold"), 
+                                   text_color=THEME["primary_text"], fg_color="transparent")
+        value_label.pack(side="right")
+        
+        # Titre descriptif
+        ctk.CTkLabel(main_container, text=title, font=(FONT, 9, "bold"), 
+                     text_color=THEME["secondary_text"], fg_color="transparent").pack(anchor="w", pady=(2, 0))
+        
+        # Stocker la référence au label de valeur
+        card.value_label = value_label
+        return card
+    
+    def refresh_integrated_stats(self):
+        """Met à jour les statistiques intégrées"""
+        try:
+            classes = get_all_classes()
+            profs = get_all_professeurs()
+            total_eleves = 0
+            
+            conn = get_db_connection()
+            if conn:
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT COUNT(*) FROM eleves")
+                    total_eleves = cursor.fetchone()[0]
+                except sqlite3.Error as e:
+                    print(f"Erreur lors du calcul du nombre total d'élèves : {e}")
+                finally:
+                    if conn: conn.close()
+
+            # Mettre à jour les valeurs
+            self.classe_card.value_label.configure(text=str(len(classes)))
+            self.prof_card.value_label.configure(text=str(len(profs)))
+            self.eleve_card.value_label.configure(text=str(total_eleves))
+            
+        except Exception as e:
+            print(f"❌ Erreur dans refresh_integrated_stats: {e}")
 
     def open_edit_modal(self, classe_id=None):
         popup = ctk.CTkToplevel(self)
@@ -832,8 +782,8 @@ class ClassesManagerView(ctk.CTkFrame):
 def verify_classes():
     """Vérifie que toutes les classes nécessaires sont bien définies"""
     required_classes = [
-        'Badge', 'NotificationBar', 'StatCard', 'StatsBar', 
-        'ClassCard', 'ClassesCardView', 'ClassesManagerView'
+        'Badge', 'NotificationBar', 'ClassCard', 
+        'ClassesCardView', 'ClassesManagerView'
     ]
     
     missing_classes = []
@@ -849,30 +799,50 @@ def verify_classes():
         print("🎉 Toutes les classes requises sont définies correctement")
 
 if __name__ == "__main__":
-    print("🔍 Vérification des définitions de classes...")
+    print("🚀 EduManager+ - Gestion des Classes v5.0 Premium")
+    print("=" * 50)
     
-    try:
-        verify_classes()
-    except Exception as e:
-        print(f"❌ Erreur de vérification des classes: {e}")
-        exit(1)
-    
-    print("\n📁 Configuration de la base de données...")
+    # Configuration de la base de données
+    print("📁 Configuration de la base de données...")
     setup_database()
     
+    # Chargement des icônes
+    print("🎨 Chargement des icônes...")
+    icons_to_load = {}
+    for key, path in ICONS_PATH.items():
+        icons_to_load[key] = path
+    print(f"   ✅ {len(icons_to_load)} icônes configurées")
+    
+    # Lancement de l'application
+    print("🖥️ Lancement de l'interface...")
     try:
         root = ctk.CTk()
-        root.title("EduManager+ : Gestion des Classes")
+        root.title("EduManager+ : Gestion des Classes v5.0")
         root.state('zoomed')
-        root.minsize(900, 600)
+        root.minsize(1000, 700)
+        root.configure(fg_color=THEME["bg_main"])
 
-        icons_to_load = {}
-        for key, path in ICONS_PATH.items():
-            icons_to_load[key] = path
-
-        print("🚀 Lancement de l'application...")
-        ClassesManagerView(root, icons_to_load).pack(fill="both", expand=True)
+        # Instanciation de la vue principale avec statistiques intégrées
+        print("🎯 Création de l'interface avec statistiques intégrées...")
+        app = ClassesManagerView(root, icons_to_load)
+        app.pack(fill="both", expand=True)
+        
+        print("✅ Interface créée avec succès !")
+        print("📊 Fonctionnalités disponibles:")
+        print("   • En-tête moderne avec bouton d'ajout")
+        print("   • Cartes statistiques avec indicateurs visuels")
+        print("   • Grille de cartes de classes")
+        print("   • Badges COLLEGE/LYCÉE automatiques")
+        print("   • Année scolaire 2024-2025 par défaut")
+        print("   • Champs Professeur Principal et Salle")
+        print("   • Boutons Modifier/Supprimer avec icônes")
+        
+        print("\n🎉 Démarrage de l'application...")
         root.mainloop()
+        
+    except ImportError as e:
+        print(f"❌ Erreur d'import (CustomTkinter requis): {e}")
+        print("💡 Installer CustomTkinter: pip install customtkinter")
     except Exception as e:
         print(f"❌ Erreur lors du lancement: {e}")
         import traceback
