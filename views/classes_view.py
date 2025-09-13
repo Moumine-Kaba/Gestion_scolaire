@@ -289,42 +289,81 @@ class StatsBar(ctk.CTkFrame):
         self.get_classes = get_classes_func
         self.get_profs = get_profs_func
         
-        # Conteneur pour les cartes de statistiques
+        try:
+            # Conteneur pour les cartes de statistiques
+            stats_container = ctk.CTkFrame(self, fg_color="transparent")
+            stats_container.pack(side="left", padx=(0, 10))
+            
+            # Vérifier que StatCard existe avant de l'utiliser
+            if 'StatCard' not in globals():
+                raise NameError("StatCard non définie")
+            
+            # Carte Statistiques Classes
+            self.stat_classes = StatCard(stats_container, "CLASSES", "0", "📚", "#64FFDA", THEME["card_bg"])
+            self.stat_classes.pack(side="left", padx=(0, 6))
+            
+            # Carte Statistiques Professeurs
+            self.stat_profs = StatCard(stats_container, "PROFESSEURS", "0", "👨‍🏫", "#FFD700", THEME["card_bg"])
+            self.stat_profs.pack(side="left", padx=3)
+            
+            # Carte Statistiques Élèves
+            self.stat_eleves = StatCard(stats_container, "ÉLÈVES", "0", "👥", "#A0E7E5", THEME["card_bg"])
+            self.stat_eleves.pack(side="left", padx=(6, 0))
+            
+            self.refresh()
+            
+        except Exception as e:
+            print(f"❌ Erreur dans StatsBar.__init__: {e}")
+            # Version de secours avec des badges simples
+            self.create_fallback_stats()
+    
+    def create_fallback_stats(self):
+        """Crée une version simplifiée des statistiques si StatCard échoue"""
         stats_container = ctk.CTkFrame(self, fg_color="transparent")
         stats_container.pack(side="left", padx=(0, 10))
         
-        # Carte Statistiques Classes
-        self.stat_classes = StatCard(stats_container, "CLASSES", "0", "📚", "#64FFDA", THEME["card_bg"])
+        # Statistiques simples avec Badge
+        self.stat_classes = Badge(stats_container, "0 Classes", color="#64FFDA", bg=THEME["card_bg"])
         self.stat_classes.pack(side="left", padx=(0, 6))
         
-        # Carte Statistiques Professeurs
-        self.stat_profs = StatCard(stats_container, "PROFESSEURS", "0", "👨‍🏫", "#FFD700", THEME["card_bg"])
+        self.stat_profs = Badge(stats_container, "0 Profs", color="#FFD700", bg=THEME["card_bg"])
         self.stat_profs.pack(side="left", padx=3)
         
-        # Carte Statistiques Élèves
-        self.stat_eleves = StatCard(stats_container, "ÉLÈVES", "0", "👥", "#A0E7E5", THEME["card_bg"])
+        self.stat_eleves = Badge(stats_container, "0 Élèves", color="#A0E7E5", bg=THEME["card_bg"])
         self.stat_eleves.pack(side="left", padx=(6, 0))
         
         self.refresh()
     
     def refresh(self):
-        classes = self.get_classes()
-        profs = self.get_profs()
-        total_eleves = 0
-        conn = get_db_connection()
-        if conn:
-            try:
-                cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM eleves")
-                total_eleves = cursor.fetchone()[0]
-            except sqlite3.Error as e:
-                print(f"Erreur lors du calcul du nombre total d'élèves : {e}")
-            finally:
-                if conn: conn.close()
+        try:
+            classes = self.get_classes()
+            profs = self.get_profs()
+            total_eleves = 0
+            conn = get_db_connection()
+            if conn:
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT COUNT(*) FROM eleves")
+                    total_eleves = cursor.fetchone()[0]
+                except sqlite3.Error as e:
+                    print(f"Erreur lors du calcul du nombre total d'élèves : {e}")
+                finally:
+                    if conn: conn.close()
 
-        self.stat_classes.value_label.configure(text=str(len(classes)))
-        self.stat_profs.value_label.configure(text=str(len(profs)))
-        self.stat_eleves.value_label.configure(text=str(total_eleves))
+            # Mettre à jour selon le type de widget utilisé
+            if hasattr(self.stat_classes, 'value_label'):
+                # Version StatCard
+                self.stat_classes.value_label.configure(text=str(len(classes)))
+                self.stat_profs.value_label.configure(text=str(len(profs)))
+                self.stat_eleves.value_label.configure(text=str(total_eleves))
+            else:
+                # Version Badge de secours
+                self.stat_classes.configure(text=f"{len(classes)} Classes")
+                self.stat_profs.configure(text=f"{len(profs)} Profs")
+                self.stat_eleves.configure(text=f"{total_eleves} Élèves")
+                
+        except Exception as e:
+            print(f"❌ Erreur dans StatsBar.refresh: {e}")
 
 class ClassCard(ctk.CTkFrame):
     def __init__(self, parent, classe_data, prof_name, salle_name, on_edit, on_delete, icons):
@@ -567,8 +606,40 @@ class ClassesManagerView(ctk.CTkFrame):
         )
         add_class_btn.pack(side="right", padx=(10, 15), pady=7)
         
-        self.statsbar = StatsBar(header, get_all_classes, get_all_professeurs)
-        self.statsbar.pack(side="right", padx=(0, 10))
+        # Vérification de la disponibilité des classes et fonctions nécessaires
+        try:
+            # Test de la classe StatsBar
+            if 'StatsBar' not in globals():
+                raise NameError("❌ La classe StatsBar n'est pas définie dans le namespace global")
+            
+            # Test des fonctions nécessaires
+            if not callable(get_all_classes):
+                raise NameError("❌ La fonction get_all_classes n'est pas callable")
+            if not callable(get_all_professeurs):
+                raise NameError("❌ La fonction get_all_professeurs n'est pas callable")
+            
+            print("✅ Classes et fonctions vérifiées, création de StatsBar...")
+            self.statsbar = StatsBar(header, get_all_classes, get_all_professeurs)
+            self.statsbar.pack(side="right", padx=(0, 10))
+            print("✅ StatsBar créée avec succès")
+            
+        except Exception as e:
+            print(f"❌ Erreur lors de la création de StatsBar: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # Créer une version de secours simple
+            print("🔄 Création d'une StatsBar de secours...")
+            self.statsbar = ctk.CTkFrame(header, fg_color="transparent")
+            ctk.CTkLabel(self.statsbar, text="Stats non disponibles", 
+                        font=(FONT, 10), text_color=THEME["error_red"], 
+                        fg_color="transparent").pack(pady=5)
+            self.statsbar.pack(side="right", padx=(0, 10))
+            
+            # Ajouter une méthode refresh vide pour éviter les erreurs
+            def dummy_refresh():
+                pass
+            self.statsbar.refresh = dummy_refresh
         
         main_content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         main_content_frame.pack(fill="both", expand=True)
@@ -758,16 +829,51 @@ class ClassesManagerView(ctk.CTkFrame):
             else:
                 self.notif_bar.show("Erreur lors de la suppression.", THEME["error_red"])
 
+def verify_classes():
+    """Vérifie que toutes les classes nécessaires sont bien définies"""
+    required_classes = [
+        'Badge', 'NotificationBar', 'StatCard', 'StatsBar', 
+        'ClassCard', 'ClassesCardView', 'ClassesManagerView'
+    ]
+    
+    missing_classes = []
+    for class_name in required_classes:
+        if class_name not in globals():
+            missing_classes.append(class_name)
+        else:
+            print(f"✅ {class_name} définie: {globals()[class_name]}")
+    
+    if missing_classes:
+        raise ImportError(f"❌ Classes manquantes: {', '.join(missing_classes)}")
+    else:
+        print("🎉 Toutes les classes requises sont définies correctement")
+
 if __name__ == "__main__":
+    print("🔍 Vérification des définitions de classes...")
+    
+    try:
+        verify_classes()
+    except Exception as e:
+        print(f"❌ Erreur de vérification des classes: {e}")
+        exit(1)
+    
+    print("\n📁 Configuration de la base de données...")
     setup_database()
-    root = ctk.CTk()
-    root.title("EduManager+ : Gestion des Classes")
-    root.state('zoomed')
-    root.minsize(900, 600)
+    
+    try:
+        root = ctk.CTk()
+        root.title("EduManager+ : Gestion des Classes")
+        root.state('zoomed')
+        root.minsize(900, 600)
 
-    icons_to_load = {}
-    for key, path in ICONS_PATH.items():
-        icons_to_load[key] = path
+        icons_to_load = {}
+        for key, path in ICONS_PATH.items():
+            icons_to_load[key] = path
 
-    ClassesManagerView(root, icons_to_load).pack(fill="both", expand=True)
-    root.mainloop()
+        print("🚀 Lancement de l'application...")
+        ClassesManagerView(root, icons_to_load).pack(fill="both", expand=True)
+        root.mainloop()
+    except Exception as e:
+        print(f"❌ Erreur lors du lancement: {e}")
+        import traceback
+        traceback.print_exc()
