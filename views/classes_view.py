@@ -6,7 +6,7 @@ import sys
 import sqlite3
 
 # =================== CHEMIN DE LA BASE DE DONNÉES =====================
-DB_PATH = r"C:\Users\Lenovo\Desktop\EduManager+\database\edumanager.db"
+DB_PATH = "database/edumanager.db"
 
 # Assurez-vous que cette ligne correspond à votre structure de dossiers
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -29,7 +29,7 @@ def get_all_classes():
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM classe")
         classes = cursor.fetchall()
-        return classes
+        return [dict(row) for row in classes]
     except sqlite3.Error as e:
         print(f"Erreur lors de la récupération des classes : {e}")
         return []
@@ -190,7 +190,7 @@ THEME = {
 FONT = "Inter"
 
 # Nouveau chemin de base pour les icônes
-ICONS_BASE_PATH = r"C:\Users\Lenovo\Desktop\EduManager+\assets\icons"
+ICONS_BASE_PATH = "assets/icons"
 
 ICONS_PATH = {
     "edit": os.path.join(ICONS_BASE_PATH, "edit.png"),
@@ -220,6 +220,17 @@ def load_icon(path_or_img, size=14):
         img = Image.new("RGBA", (size, size), (255, 255, 255, 0))
         return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
 
+def get_badge_type(niveau):
+    """Détermine si c'est COLLEGE ou LYCÉE selon le niveau"""
+    niveau = (niveau or "").lower()
+    if any(term in niveau for term in ["6", "5", "4", "3", "sixième", "cinquième", "quatrième", "troisième", "6ème", "5ème", "4ème", "3ème"]):
+        return "COLLÈGE"
+    elif any(term in niveau for term in ["10", "11", "12", "1ère", "2nde", "terminale", "première", "seconde", "tsm", "ts", "10°", "11°", "12°"]):
+        return "LYCÉE"
+    else:
+        # Par défaut, considérer comme LYCÉE pour les niveaux non reconnus
+        return "LYCÉE"
+
 class Badge(ctk.CTkLabel):
     def __init__(self, parent, text, color="#ffffff", bg="#2c3140", font_size=9):
         super().__init__(
@@ -242,20 +253,57 @@ class NotificationBar(ctk.CTkFrame):
         self.msg.configure(text=message, text_color=color or THEME["accent_blue"])
         self.after(2500, lambda: self.msg.configure(text=""))
 
+class StatCard(ctk.CTkFrame):
+    """Carte de statistique moderne avec indicateur visuel"""
+    def __init__(self, parent, title, value, icon, color, bg_color):
+        super().__init__(parent, fg_color=bg_color, corner_radius=12, border_color=color+"30", border_width=2)
+        
+        # Container principal
+        main_container = ctk.CTkFrame(self, fg_color="transparent")
+        main_container.pack(fill="both", expand=True, padx=8, pady=6)
+        
+        # Icône et valeur
+        top_frame = ctk.CTkFrame(main_container, fg_color="transparent")
+        top_frame.pack(fill="x")
+        
+        # Icône avec cercle coloré
+        icon_frame = ctk.CTkFrame(top_frame, fg_color=color+"20", corner_radius=8, width=32, height=32)
+        icon_frame.pack(side="left", padx=(0, 8))
+        icon_frame.pack_propagate(False)
+        
+        ctk.CTkLabel(icon_frame, text=icon, font=(FONT, 16, "bold"), 
+                     text_color=color, fg_color="transparent").pack(expand=True)
+        
+        # Valeur numérique
+        self.value_label = ctk.CTkLabel(top_frame, text=str(value), font=(FONT, 18, "bold"), 
+                                        text_color=THEME["primary_text"], fg_color="transparent")
+        self.value_label.pack(side="right")
+        
+        # Titre descriptif
+        ctk.CTkLabel(main_container, text=title, font=(FONT, 9, "bold"), 
+                     text_color=THEME["secondary_text"], fg_color="transparent").pack(anchor="w", pady=(2, 0))
+
 class StatsBar(ctk.CTkFrame):
     def __init__(self, parent, get_classes_func, get_profs_func):
         super().__init__(parent, fg_color="transparent")
         self.get_classes = get_classes_func
         self.get_profs = get_profs_func
         
-        self.stat_classes = Badge(self, "", color="#f190d7", bg="#453141", font_size=8)
-        self.stat_classes.pack(side="left", padx=(0, 4), ipady=1)
+        # Conteneur pour les cartes de statistiques
+        stats_container = ctk.CTkFrame(self, fg_color="transparent")
+        stats_container.pack(side="left", padx=(0, 10))
         
-        self.stat_profs = Badge(self, "", color="#90d7f1", bg="#314145", font_size=8)
-        self.stat_profs.pack(side="left", padx=4, ipady=1)
+        # Carte Statistiques Classes
+        self.stat_classes = StatCard(stats_container, "CLASSES", "0", "📚", "#64FFDA", THEME["card_bg"])
+        self.stat_classes.pack(side="left", padx=(0, 6))
         
-        self.stat_eleves = Badge(self, "", color=THEME["success_green"], bg="#324531", font_size=8)
-        self.stat_eleves.pack(side="left", padx=4, ipady=1)
+        # Carte Statistiques Professeurs
+        self.stat_profs = StatCard(stats_container, "PROFESSEURS", "0", "👨‍🏫", "#FFD700", THEME["card_bg"])
+        self.stat_profs.pack(side="left", padx=3)
+        
+        # Carte Statistiques Élèves
+        self.stat_eleves = StatCard(stats_container, "ÉLÈVES", "0", "👥", "#A0E7E5", THEME["card_bg"])
+        self.stat_eleves.pack(side="left", padx=(6, 0))
         
         self.refresh()
     
@@ -274,9 +322,9 @@ class StatsBar(ctk.CTkFrame):
             finally:
                 if conn: conn.close()
 
-        self.stat_classes.configure(text=f"{len(classes)} Classes")
-        self.stat_profs.configure(text=f"{len(profs)} Profs")
-        self.stat_eleves.configure(text=f"{total_eleves} Élèves")
+        self.stat_classes.value_label.configure(text=str(len(classes)))
+        self.stat_profs.value_label.configure(text=str(len(profs)))
+        self.stat_eleves.value_label.configure(text=str(total_eleves))
 
 class ClassCard(ctk.CTkFrame):
     def __init__(self, parent, classe_data, prof_name, salle_name, on_edit, on_delete, icons):
@@ -288,42 +336,112 @@ class ClassCard(ctk.CTkFrame):
         self.icons = icons
 
         top_frame = ctk.CTkFrame(self, fg_color="transparent")
-        top_frame.pack(fill="x", padx=8, pady=(8, 4))
+        top_frame.pack(fill="x", padx=10, pady=(10, 6))
         
-        ctk.CTkLabel(top_frame, text=classe_data['nom'], font=(FONT, 14, "bold"), 
-                     text_color=THEME["primary_text"]).pack(anchor="w")
+        # Titre de la classe en évidence avec icône
+        class_title_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
+        class_title_frame.pack(anchor="w")
+        
+        # Icône de classe
+        ctk.CTkLabel(class_title_frame, text="🏫", font=(FONT, 16), 
+                     text_color=THEME["accent_blue"], fg_color="transparent").pack(side="left", padx=(0, 6))
+        
+        # Nom de la classe en gros
+        ctk.CTkLabel(class_title_frame, text=classe_data['nom'] or "Classe sans nom", 
+                     font=(FONT, 16, "bold"), text_color=THEME["primary_text"], 
+                     fg_color="transparent").pack(side="left")
 
         badges_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
         badges_frame.pack(anchor="w", pady=(2, 0))
-        Badge(badges_frame, classe_data['niveau'] or "Niveau non spécifié", color=THEME["accent_blue"], bg=THEME["header_bg"]).pack(side="left")
-        Badge(badges_frame, classe_data['annee'] or "Année non spécifiée", color=THEME["warning_yellow"], bg=THEME["header_bg"]).pack(side="left", padx=2)
+        
+        # Badge du niveau de la classe
+        Badge(badges_frame, classe_data['niveau'] or "Niveau non spécifié", color=THEME["accent_blue"], bg=THEME["header_bg"]).pack(side="left", padx=(0, 2))
+        
+        # Badge COLLEGE/LYCÉE
+        etablissement_type = get_badge_type(classe_data['niveau'])
+        Badge(badges_frame, etablissement_type, color="#FFD700" if etablissement_type == "COLLÈGE" else "#FF6B6B", bg=THEME["header_bg"]).pack(side="left", padx=2)
+        
+        # Badge de l'année scolaire (par défaut 2024-2025)
+        annee_affichee = classe_data['annee'] or "2024-2025"
+        Badge(badges_frame, annee_affichee, color=THEME["warning_yellow"], bg=THEME["header_bg"]).pack(side="left", padx=2)
 
         details_frame = ctk.CTkFrame(self, fg_color="transparent")
-        details_frame.pack(fill="x", padx=8, pady=(4, 8))
+        details_frame.pack(fill="x", padx=10, pady=(6, 8))
         
-        details_frame.grid_columnconfigure(0, weight=0)
-        details_frame.grid_columnconfigure(1, weight=1)
-
-        ctk.CTkLabel(details_frame, text="Prof. Principal:", font=(FONT, 9, "bold"), text_color=THEME["secondary_text"]).grid(row=0, column=0, sticky="w", pady=1)
-        ctk.CTkLabel(details_frame, text=prof_name, font=(FONT, 10), text_color=THEME["primary_text"]).grid(row=0, column=1, sticky="w", padx=6)
+        # Section Professeur Principal avec style amélioré
+        prof_card = ctk.CTkFrame(details_frame, fg_color=THEME["header_bg"]+"80", corner_radius=8, border_width=1, border_color=THEME["border_color"])
+        prof_card.pack(fill="x", pady=(0, 4))
         
-        ctk.CTkLabel(details_frame, text="Salle:", font=(FONT, 9, "bold"), text_color=THEME["secondary_text"]).grid(row=1, column=0, sticky="w", pady=1)
-        ctk.CTkLabel(details_frame, text=salle_name, font=(FONT, 10), text_color=THEME["primary_text"]).grid(row=1, column=1, sticky="w", padx=6)
+        prof_content = ctk.CTkFrame(prof_card, fg_color="transparent")
+        prof_content.pack(fill="x", padx=8, pady=4)
+        
+        # Icône professeur
+        ctk.CTkLabel(prof_content, text="👨‍🏫", font=(FONT, 12), 
+                     text_color=THEME["accent_blue"], fg_color="transparent").pack(side="left", padx=(0, 6))
+        
+        prof_info_frame = ctk.CTkFrame(prof_content, fg_color="transparent")
+        prof_info_frame.pack(side="left", fill="x", expand=True)
+        
+        ctk.CTkLabel(prof_info_frame, text="Professeur Principal", font=(FONT, 9, "bold"), 
+                     text_color=THEME["secondary_text"], fg_color="transparent").pack(anchor="w")
+        ctk.CTkLabel(prof_info_frame, text=prof_name or "Non assigné", font=(FONT, 11, "bold"), 
+                     text_color=THEME["primary_text"] if prof_name != "—" else THEME["error_red"], 
+                     fg_color="transparent").pack(anchor="w")
+        
+        # Section Salle avec style amélioré
+        salle_card = ctk.CTkFrame(details_frame, fg_color=THEME["header_bg"]+"80", corner_radius=8, border_width=1, border_color=THEME["border_color"])
+        salle_card.pack(fill="x")
+        
+        salle_content = ctk.CTkFrame(salle_card, fg_color="transparent")
+        salle_content.pack(fill="x", padx=8, pady=4)
+        
+        # Icône salle
+        ctk.CTkLabel(salle_content, text="🚪", font=(FONT, 12), 
+                     text_color=THEME["warning_yellow"], fg_color="transparent").pack(side="left", padx=(0, 6))
+        
+        salle_info_frame = ctk.CTkFrame(salle_content, fg_color="transparent")
+        salle_info_frame.pack(side="left", fill="x", expand=True)
+        
+        ctk.CTkLabel(salle_info_frame, text="Salle de Classe", font=(FONT, 9, "bold"), 
+                     text_color=THEME["secondary_text"], fg_color="transparent").pack(anchor="w")
+        ctk.CTkLabel(salle_info_frame, text=salle_name or "Non assignée", font=(FONT, 11, "bold"), 
+                     text_color=THEME["primary_text"] if salle_name != "—" else THEME["error_red"], 
+                     fg_color="transparent").pack(anchor="w")
         
         actions_frame = ctk.CTkFrame(self, fg_color="transparent")
-        actions_frame.pack(fill="x", padx=8, pady=(0, 8))
+        actions_frame.pack(fill="x", padx=8, pady=(4, 8))
         
-        edit_btn = ctk.CTkButton(actions_frame, image=load_icon(self.icons["edit"], 14), text="Modifier", 
-                                 fg_color=THEME["header_bg"], hover_color=THEME["hover_light"], 
-                                 text_color=THEME["primary_text"], font=(FONT, 10, "bold"), corner_radius=6, 
-                                 compound="left", command=lambda: self.on_edit(self.classe_id), height=24)
-        edit_btn.pack(side="left", fill="x", expand=True, padx=(0, 2))
+        # Bouton Modifier avec style moderne
+        edit_btn = ctk.CTkButton(
+            actions_frame, 
+            text="✏️ Modifier", 
+            image=load_icon(self.icons["edit"], 16), 
+            fg_color=THEME["accent_blue"], 
+            hover_color="#4CC9F0", 
+            text_color=THEME["bg_main"], 
+            font=(FONT, 11, "bold"), 
+            corner_radius=8, 
+            height=32,
+            compound="left",
+            command=lambda: self.on_edit(self.classe_id)
+        )
+        edit_btn.pack(side="left", fill="x", expand=True, padx=(0, 4))
         
-        delete_btn = ctk.CTkButton(actions_frame, image=load_icon(self.icons["delete"], 14), text="Supprimer", 
-                                 fg_color=THEME["header_bg"], hover_color=THEME["error_red"], 
-                                 text_color=THEME["primary_text"], font=(FONT, 10, "bold"), corner_radius=6,
-                                 compound="left", command=lambda: self.on_delete(self.classe_id), height=24)
-        delete_btn.pack(side="left", fill="x", expand=True, padx=(2, 0))
+        # Bouton Supprimer avec style moderne
+        delete_btn = ctk.CTkButton(
+            actions_frame, 
+            text="🗑️ Supprimer", 
+            image=load_icon(self.icons["delete"], 16), 
+            fg_color="#FF6B6B", 
+            hover_color="#FF5252", 
+            text_color=THEME["primary_text"], 
+            font=(FONT, 11, "bold"), 
+            corner_radius=8,
+            height=32,
+            compound="left",
+            command=lambda: self.on_delete(self.classe_id)
+        )
+        delete_btn.pack(side="left", fill="x", expand=True, padx=(4, 0))
         
         self.bind("<Enter>", self.on_enter)
         self.bind("<Leave>", self.on_leave)
@@ -353,12 +471,6 @@ class ClassesCardView(ctk.CTkFrame):
         # Le conteneur de la barre de recherche et du bouton de filtre
         top_bar = ctk.CTkFrame(self, fg_color="transparent")
         top_bar.pack(fill="x", padx=15, pady=(8, 4))
-        
-        # Bouton "Ajouter" à gauche
-        ctk.CTkButton(top_bar, text="Ajouter", image=load_icon(self.icons["add"], 14), 
-                      fg_color=THEME["header_bg"], hover_color=THEME["border_color"], text_color=THEME["accent_blue"], 
-                      font=(FONT, 11, "bold"), corner_radius=8, height=28,
-                      command=lambda: self.on_edit(None)).pack(side="left", padx=(0, 8))
         
         # NOUVEAU DESIGN : Le frame unifié pour la barre de recherche et les filtres
         search_filter_frame = ctk.CTkFrame(top_bar, fg_color=THEME["header_bg"], height=28, corner_radius=8, border_color=THEME["border_color"], border_width=1)
@@ -428,16 +540,32 @@ class ClassesManagerView(ctk.CTkFrame):
         main_frame = ctk.CTkFrame(self, fg_color=THEME["card_bg"], corner_radius=12, border_color=THEME["border_color"], border_width=1)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        header = ctk.CTkFrame(main_frame, fg_color=THEME["header_bg"], height=40, corner_radius=10)
-        header.pack(fill="x", padx=8, pady=8)
+        header = ctk.CTkFrame(main_frame, fg_color=THEME["header_bg"], height=50, corner_radius=12)
+        header.pack(fill="x", padx=10, pady=(10, 8))
         
+        # En-tête de page avec titre principal
         title_frame = ctk.CTkFrame(header, fg_color="transparent")
-        title_frame.pack(side="left", padx=(10, 0), pady=4)
+        title_frame.pack(side="left", padx=(15, 0), pady=8)
         
-        ctk.CTkLabel(title_frame, text="EduManager+", font=(FONT, 18, "bold"), 
+        # Titre principal "Gestion des Classes"
+        ctk.CTkLabel(title_frame, text="📚 Gestion des Classes", font=(FONT, 20, "bold"), 
                      text_color=THEME["primary_text"], fg_color="transparent").pack(anchor="w")
-        ctk.CTkLabel(title_frame, text="Gestion des Classes", font=(FONT, 12, "bold"), 
-                     text_color=THEME["accent_blue"], fg_color="transparent").pack(anchor="w", pady=(0, 1))
+        ctk.CTkLabel(title_frame, text="EduManager+ • Interface moderne de gestion", font=(FONT, 11), 
+                     text_color=THEME["accent_blue"], fg_color="transparent").pack(anchor="w", pady=(2, 0))
+        
+        # Bouton "Ajouter une classe" dans l'en-tête
+        add_class_btn = ctk.CTkButton(
+            header, 
+            text="➕ Ajouter une Classe", 
+            font=(FONT, 12, "bold"), 
+            fg_color=THEME["accent_blue"], 
+            hover_color=THEME["success_green"], 
+            text_color=THEME["bg_main"], 
+            corner_radius=10, 
+            height=36,
+            command=lambda: self.open_edit_modal(None)
+        )
+        add_class_btn.pack(side="right", padx=(10, 15), pady=7)
         
         self.statsbar = StatsBar(header, get_all_classes, get_all_professeurs)
         self.statsbar.pack(side="right", padx=(0, 10))
@@ -451,10 +579,17 @@ class ClassesManagerView(ctk.CTkFrame):
         self.card_view = ClassesCardView(main_content_frame, self.open_edit_modal, self.delete_classe, self.notif_bar, self.icons)
         self.card_view.pack(fill="both", expand=True)
 
-        footer = ctk.CTkFrame(main_frame, fg_color=THEME["header_bg"], height=25, corner_radius=10)
-        footer.pack(fill="x", padx=8, pady=(0, 8))
-        ctk.CTkLabel(footer, text="EduManager+ • Gestion des classes sans photo – v4.1", 
-                     font=(FONT, 8), text_color=THEME["secondary_text"], fg_color="transparent").pack(side="left", padx=10)
+        footer = ctk.CTkFrame(main_frame, fg_color=THEME["header_bg"], height=30, corner_radius=12)
+        footer.pack(fill="x", padx=10, pady=(8, 10))
+        
+        # Informations du footer avec style moderne
+        footer_content = ctk.CTkFrame(footer, fg_color="transparent")
+        footer_content.pack(fill="x", padx=15, pady=6)
+        
+        ctk.CTkLabel(footer_content, text="🎓 EduManager+ • Système de gestion moderne des classes", 
+                     font=(FONT, 9, "bold"), text_color=THEME["secondary_text"], fg_color="transparent").pack(side="left")
+        ctk.CTkLabel(footer_content, text="v5.0 Premium", 
+                     font=(FONT, 9, "bold"), text_color=THEME["accent_blue"], fg_color="transparent").pack(side="right")
 
     def open_edit_modal(self, classe_id=None):
         popup = ctk.CTkToplevel(self)
@@ -516,7 +651,13 @@ class ClassesManagerView(ctk.CTkFrame):
                                    border_color=THEME["border_color"], text_color=THEME["primary_text"], 
                                    corner_radius=4, width=200, height=24)
                 ent.pack(side="right", fill="x", expand=True)
-                ent.insert(0, data.get(key, ""))
+                
+                # Valeur par défaut pour l'année scolaire
+                default_value = data.get(key, "")
+                if key == "annee" and not default_value:
+                    default_value = "2024-2025"
+                
+                ent.insert(0, default_value)
                 entries[key] = ent
             else:
                 combo = ctk.CTkComboBox(row_frame, values=values_dict[key], font=(FONT, 11), 
@@ -627,8 +768,6 @@ if __name__ == "__main__":
     icons_to_load = {}
     for key, path in ICONS_PATH.items():
         icons_to_load[key] = path
-    
-    icons_to_load["add"] = r"C:\Users\Lenovo\Desktop\EduManager+\assets\icons\image_998b66.png"
 
     ClassesManagerView(root, icons_to_load).pack(fill="both", expand=True)
     root.mainloop()
