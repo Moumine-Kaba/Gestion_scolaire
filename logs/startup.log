@@ -1,0 +1,36 @@
+2025-08-29 10:25:20,127 - __main__ - INFO - Système de logging configuré
+2025-08-29 10:25:20,127 - __main__ - INFO - Import de l'application principale...
+2025-08-29 10:25:20,143 - __main__ - ERROR - Erreur d'import: attempted relative import beyond top-level package
+2025-08-29 10:28:16,273 - __main__ - INFO - Système de logging configuré
+2025-08-29 10:28:16,273 - __main__ - INFO - Import de l'application principale...
+2025-08-29 10:28:16,273 - __main__ - ERROR - Erreur d'import: No module named 'src'
+2025-08-29 10:28:31,419 - __main__ - INFO - Système de logging configuré
+2025-08-29 10:28:31,419 - __main__ - INFO - Import de l'application principale...
+2025-08-29 10:28:31,562 - __main__ - ERROR - Erreur d'import: cannot import name 'LoginEnhanced' from 'src.modules.auth.views.login_enhanced' (C:\Users\Lenovo\Desktop\Clonage_git\Gestion_scolaire\src\modules\auth\views\login_enhanced.py)
+2025-08-29 10:29:23,516 - __main__ - INFO - Système de logging configuré
+2025-08-29 10:29:23,516 - __main__ - INFO - Import de l'application principale...
+2025-08-29 10:29:23,582 - __main__ - ERROR - Erreur d'import: cannot import name 'LoginEnhanced' from 'src.modules.auth.views.login_enhanced' (C:\Users\Lenovo\Desktop\Clonage_git\Gestion_scolaire\src\modules\auth\views\login_enhanced.py)
+2025-08-29 10:29:41,682 - __main__ - INFO - Système de logging configuré
+2025-08-29 10:29:41,682 - __main__ - INFO - Import de l'application principale...
+2025-08-29 10:29:41,721 - __main__ - ERROR - Erreur d'import: cannot import name 'LoginEnhanced' from 'src.modules.auth.views.login_enhanced' (C:\Users\Lenovo\Desktop\Clonage_git\Gestion_scolaire\src\modules\auth\views\login_enhanced.py)
+2025-08-29 10:30:12,164 - __main__ - INFO - Système de logging configuré
+2025-08-29 10:30:12,164 - __main__ - INFO - Import de l'application principale...
+2025-08-29 10:30:12,204 - __main__ - ERROR - Erreur d'import: cannot import name 'DashboardView' from 'src.modules.auth.views.dashboard_view' (C:\Users\Lenovo\Desktop\Clonage_git\Gestion_scolaire\src\modules\auth\views\dashboard_view.py)
+2025-08-29 10:41:37,191 - __main__ - INFO - Système de logging configuré
+2025-08-29 10:41:37,191 - __main__ - INFO - Import de l'application principale...
+2025-08-29 10:41:37,211 - __main__ - INFO - Application importée avec succès
+2025-08-29 10:41:37,211 - __main__ - INFO - Démarrage de l'application...
+2025-08-29 10:41:37,211 - EduManager - INFO - Interface utilisateur configurée
+2025-08-29 10:41:37,211 - EduManager - INFO - Application EduManager+ initialisée
+2025-08-29 10:41:37,211 - EduManager - INFO - 🚀 Démarrage d'EduManager+...
+2025-08-29 10:41:37,211 - EduManager - INFO - Toutes les dépendances sont installées
+2025-08-29 10:41:37,211 - src.core.database.connection - INFO - Connexion à la base de données établie: database\edumanager.db
+2025-08-29 10:41:37,211 - src.core.database.connection - INFO - Test de connexion réussi
+2025-08-29 10:41:37,211 - EduManager - INFO - Base de données accessible
+2025-08-29 10:41:37,211 - EduManager - INFO - ✅ Vérifications terminées
+2025-08-29 10:41:37,251 - EduManager - ERROR - ❌ Erreur d'import: cannot import name 'DashboardView' from 'src.modules.auth.views.dashboard_view' (C:\Users\Lenovo\Desktop\Clonage_git\Gestion_scolaire\src\modules\auth\views\dashboard_view.py)
+2025-08-29 10:41:40,444 - EduManager - ERROR - Erreur d'Import: Impossible d'importer le module de démarrage:
+cannot import name 'DashboardView' from 'src.modules.auth.views.dashboard_view' (C:\Users\Lenovo\Desktop\Clonage_git\Gestion_scolaire\src\modules\auth\views\dashboard_view.py)
+2025-08-29 10:41:40,445 - EduManager - INFO - 🛑 Arrêt d'EduManager+...
+2025-08-29 10:41:40,445 - src.core.database.connection - INFO - Connexion à la base de données fermée
+2025-08-29 10:41:40,445 - EduManager - INFO - ✅ Application arrêtée proprement

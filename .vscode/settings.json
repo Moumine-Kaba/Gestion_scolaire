@@ -2,5 +2,9 @@
     "python.analysis.extraPaths": [
         "./assets",
         "./controllers"
+    ],
+    "cursorpyright.analysis.extraPaths": [
+        "./assets",
+        "./controllers"
     ]
 }

@@ -1,0 +1,22 @@
+2025-08-29 10:41:37,211 - EduManager - INFO - Interface utilisateur configurée
+2025-08-29 10:41:37,211 - EduManager - INFO - Application EduManager+ initialisée
+2025-08-29 10:41:37,211 - EduManager - INFO - 🚀 Démarrage d'EduManager+...
+2025-08-29 10:41:37,211 - EduManager - INFO - Toutes les dépendances sont installées
+2025-08-29 10:41:37,211 - EduManager - INFO - Base de données accessible
+2025-08-29 10:41:37,211 - EduManager - INFO - ✅ Vérifications terminées
+2025-08-29 10:41:37,251 - EduManager - ERROR - ❌ Erreur d'import: cannot import name 'DashboardView' from 'src.modules.auth.views.dashboard_view' (C:\Users\Lenovo\Desktop\Clonage_git\Gestion_scolaire\src\modules\auth\views\dashboard_view.py)
+2025-08-29 10:41:40,444 - EduManager - ERROR - Erreur d'Import: Impossible d'importer le module de démarrage:
+cannot import name 'DashboardView' from 'src.modules.auth.views.dashboard_view' (C:\Users\Lenovo\Desktop\Clonage_git\Gestion_scolaire\src\modules\auth\views\dashboard_view.py)
+2025-08-29 10:41:40,445 - EduManager - INFO - 🛑 Arrêt d'EduManager+...
+2025-08-29 10:41:40,445 - EduManager - INFO - ✅ Application arrêtée proprement
+2025-08-29 10:43:51,468 - EduManager - INFO - Interface utilisateur configurée
+2025-08-29 10:43:51,468 - EduManager - INFO - Application EduManager+ initialisée
+2025-08-29 10:43:51,468 - EduManager - INFO - 🚀 Démarrage d'EduManager+...
+2025-08-29 10:43:51,553 - EduManager - INFO - Toutes les dépendances sont installées
+2025-08-29 10:43:51,558 - EduManager - INFO - Base de données accessible
+2025-08-29 10:43:51,558 - EduManager - INFO - ✅ Vérifications terminées
+2025-08-29 10:43:51,563 - EduManager - ERROR - ❌ Erreur d'import: cannot import name 'DashboardView' from 'src.modules.auth.views.dashboard_view' (C:\Users\Lenovo\Desktop\Clonage_git\Gestion_scolaire\src\modules\auth\views\dashboard_view.py)
+2025-08-29 10:43:54,449 - EduManager - ERROR - Erreur d'Import: Impossible d'importer le module de démarrage:
+cannot import name 'DashboardView' from 'src.modules.auth.views.dashboard_view' (C:\Users\Lenovo\Desktop\Clonage_git\Gestion_scolaire\src\modules\auth\views\dashboard_view.py)
+2025-08-29 10:43:54,449 - EduManager - INFO - 🛑 Arrêt d'EduManager+...
+2025-08-29 10:43:54,449 - EduManager - INFO - ✅ Application arrêtée proprement

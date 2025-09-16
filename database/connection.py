@@ -8,6 +8,10 @@ def connect_db():
     conn.execute("PRAGMA foreign_keys = ON")  # Active les FK
     return conn
 
+def get_db_connection():
+    """Fonction pour obtenir une connexion à la base de données."""
+    return connect_db()
+
 def create_all_tables():
     if not os.path.exists("database"):
         os.makedirs("database")
@@ -188,7 +192,7 @@ def create_all_tables():
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS utilisateurs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_utilisateur INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
             prenom TEXT,
             nom TEXT,
@@ -218,7 +222,7 @@ def create_all_tables():
             utilisateur_id INTEGER,
             date_debut TEXT,
             date_fin TEXT,
-            FOREIGN KEY(utilisateur_id) REFERENCES utilisateurs(id)
+            FOREIGN KEY(utilisateur_id) REFERENCES utilisateurs(id_utilisateur)
         )
     """)
 
@@ -229,7 +233,7 @@ def create_all_tables():
             description TEXT,
             niveau TEXT,
             utilisateur_id INTEGER,
-            FOREIGN KEY(utilisateur_id) REFERENCES utilisateurs(id)
+            FOREIGN KEY(utilisateur_id) REFERENCES utilisateurs(id_utilisateur)
         )
     """)
 

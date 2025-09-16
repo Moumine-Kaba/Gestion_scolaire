@@ -16,10 +16,10 @@ def init_admin():
     cursor = conn.cursor()
 
     # Vérifie si déjà existant, supprime si besoin
-    cursor.execute("DELETE FROM utilisateurs WHERE username = ?", (username,))
+    cursor.execute("DELETE FROM utilisateurs WHERE nom_utilisateur = ?", (username,))
 
     cursor.execute("""
-        INSERT INTO utilisateurs (username, prenom, nom, email, telephone, password, role, niveau)
+        INSERT INTO utilisateurs (nom_utilisateur, prenom, nom, email, telephone, mot_de_passe, role, niveau)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (username, prenom, nom, email, telephone, password, role, niveau))
 
