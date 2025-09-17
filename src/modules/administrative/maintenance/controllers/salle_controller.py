@@ -8,11 +8,33 @@ def _connect():
     """Crée et retourne une connexion à la base de données configurée."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row  # Permet d'accéder aux données par les noms de colonnes
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA temp_store=MEMORY;")
+        conn.execute("PRAGMA cache_size=-8000;")
+    except Exception:
+        pass
     return conn
+
+# ====== CACHE MÉMOIRE ======
+_CACHE = {"salles_all": None}
+
+def _invalidate_cache():
+    _CACHE["salles_all"] = None
+
+def preload_salles_cache():
+    try:
+        _CACHE["salles_all"] = get_all_salles()
+        print("⚡ Cache salles préchargé")
+    except Exception as e:
+        print(f"⚠️ Préchargement salles ignoré: {e}")
 
 def get_all_salles():
     """Liste toutes les salles en tant que dictionnaires."""
     try:
+        if _CACHE.get("salles_all") is not None:
+            return _CACHE["salles_all"]
         with _connect() as conn:
             cur = conn.cursor()
             cur.execute("""
@@ -21,7 +43,9 @@ def get_all_salles():
                 ORDER BY nom_salle
             """)
             rows = cur.fetchall()
-            return [dict(row) for row in rows]
+            data = [dict(row) for row in rows]
+            _CACHE["salles_all"] = data
+            return data
     except Exception as e:
         print(f"[Salle] Erreur get_all_salles: {e}")
         return []
@@ -36,6 +60,7 @@ def add_salle(nom_salle, capacite, type_salle, equipements="", statut="Disponibl
                 VALUES (?, ?, ?, ?, ?, datetime('now'))
             """, (nom_salle, capacite, type_salle, equipements, statut))
             conn.commit()
+            _invalidate_cache()
             return True
     except Exception as e:
         print(f"[Salle] Erreur add_salle: {e}")
@@ -52,6 +77,7 @@ def update_salle(id_salle, nom_salle, capacite, type_salle, equipements="", stat
                 WHERE id_salle=?
             """, (nom_salle, capacite, type_salle, equipements, statut, id_salle))
             conn.commit()
+            _invalidate_cache()
             return True
     except Exception as e:
         print(f"[Salle] Erreur update_salle: {e}")

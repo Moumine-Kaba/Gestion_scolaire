@@ -509,7 +509,7 @@ class ModernClassesView(ctk.CTkFrame):
         
         # Container des cartes
         self.card_container = ctk.CTkScrollableFrame(self, fg_color="transparent", corner_radius=20)
-        self.card_container.pack(fill="both", expand=True, padx=3, pady=(0, 3))
+        self.card_container.pack(fill="both", expand=True, padx=2, pady=(0, 2))
         
         self.refresh_view()
     
@@ -578,32 +578,39 @@ class ModernClassesView(ctk.CTkFrame):
         search_frame = ctk.CTkFrame(right_section, fg_color=BG_CARD_HOVER, corner_radius=20, border_width=2, border_color=BORDER_COLOR)
         search_frame.pack(side="right", padx=(0, 12))
         
-        # Container interne pour la recherche
+        # Container interne pour la recherche moderne
         search_inner = ctk.CTkFrame(search_frame, fg_color="transparent")
-        search_inner.pack(fill="both", expand=True, padx=8, pady=8)
+        search_inner.pack(fill="both", expand=True, padx=12, pady=12)
+        
+        # Icône de recherche sans fond
+        search_icon_img = load_icon(self.icons.get("search"), 20)
+        search_label = ctk.CTkLabel(search_inner, text="", image=search_icon_img, fg_color="transparent")
+        search_label.pack(side="left", padx=(0, 12))
         
         self.search_var = ctk.StringVar()
         self.search_entry = ctk.CTkEntry(
             search_inner,
             textvariable=self.search_var,
-            width=200,
-            height=40,
-            placeholder_text="🔍 Rechercher...",
+            width=250,
+            height=45,
+            placeholder_text="Rechercher une classe...",
             fg_color=BG_CARD,
-            border_width=1,
-            border_color=BORDER_COLOR,
+            border_width=2,
+            border_color=WARNING_YELLOW,
             text_color=TEXT_PRIMARY,
             font=("Segoe UI", 13),
             corner_radius=15
         )
-        self.search_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        self.search_entry.pack(side="left", fill="x", expand=True, padx=(0, 12))
         self.search_entry.bind("<KeyRelease>", self.filter_view)
+        self.search_entry.bind("<FocusIn>", lambda e: self.search_entry.configure(border_color=ACCENT))
+        self.search_entry.bind("<FocusOut>", lambda e: self.search_entry.configure(border_color=WARNING_YELLOW))
         
         # Filtre par niveau
-        self.level_var = ctk.StringVar(value="Tous les niveaux")
+        self.level_var = ctk.StringVar(value="Tous")
         level_filter = ctk.CTkComboBox(
             search_inner,
-            values=["Tous les niveaux", "Lycée", "Collège", "Primaire"],
+            values=["Tous", "Lycée", "Collège", "Primaire"],
             variable=self.level_var,
             font=("Segoe UI", 12),
             fg_color=BG_CARD,
@@ -616,23 +623,6 @@ class ModernClassesView(ctk.CTkFrame):
             command=self.filter_view
         )
         level_filter.pack(side="left", padx=(0, 8))
-        
-        # Bouton de recherche sans fond avec contour gris
-        search_btn = ctk.CTkButton(
-            search_inner,
-            text="",
-            image=load_icon(self.icons.get("search"), 20),
-            fg_color="transparent",
-            hover_color=HOVER_PRIMARY,
-            text_color=TEXT_PRIMARY,
-            width=40,
-            height=40,
-            corner_radius=15,
-            border_width=2,
-            border_color=BORDER_COLOR,
-            command=self.refresh_view
-        )
-        search_btn.pack(side="right")
     
     def refresh_view(self):
         """Rafraîchit la vue avec les nouvelles cartes modernes - Version optimisée"""
@@ -675,17 +665,17 @@ class ModernClassesView(ctk.CTkFrame):
                 filtered_classes = self._cached_classes.copy()
             
             # Filtrage par niveau avec cache
-            if level_filter != "Tous les niveaux":
+            if level_filter != "Tous":
                 level_key = f"level_{level_filter}"
                 if level_key not in self._filter_cache:
                     if level_filter == "Lycée":
-                        lycee_levels = ['1ère', 'TSM', 'Terminale', '2nde']
+                        lycee_levels = ['1°', '2°', '11° SE', '11° SM', '11° SS', '12° SE', '12° SM', '12° SS', 'TSE', 'TSM', 'TSS']
                         self._filter_cache[level_key] = [c for c in self._cached_classes if c['niveau'] in lycee_levels]
                     elif level_filter == "Collège":
-                        college_levels = ['6ème', '5ème', '4ème', '3ème']
+                        college_levels = ['6°', '5°', '4°', '3°', '7°', '8°', '9°', '10°']
                         self._filter_cache[level_key] = [c for c in self._cached_classes if c['niveau'] in college_levels]
                     elif level_filter == "Primaire":
-                        primaire_levels = ['CP', 'CE1', 'CE2', 'CM1', 'CM2']
+                        primaire_levels = ['1° Année', '2° Année', '3° Année', '4° Année', '5° Année']
                         self._filter_cache[level_key] = [c for c in self._cached_classes if c['niveau'] in primaire_levels]
                 
                 filtered_classes = [c for c in filtered_classes if c in self._filter_cache[level_key]]
@@ -708,7 +698,7 @@ class ModernClassesView(ctk.CTkFrame):
     def _create_cards_batch(self, filtered_classes):
         """Crée les cartes en lot pour de meilleures performances"""
         # Créer les cartes modernes en format paysage (2 colonnes)
-        num_columns = 2
+        num_columns = 4
         cards_to_create = []
         
         # Préparer toutes les cartes
@@ -721,7 +711,7 @@ class ModernClassesView(ctk.CTkFrame):
         
         # Créer toutes les cartes en une seule fois
         for card, idx in cards_to_create:
-            card.grid(row=idx // num_columns, column=idx % num_columns, padx=12, pady=12, sticky="nsew")
+            card.grid(row=idx // num_columns, column=idx % num_columns, padx=4, pady=4, sticky="nsew")
         
         # Configurer les colonnes pour le format paysage
         for i in range(num_columns):
@@ -808,8 +798,8 @@ class ModernClassCard(ctk.CTkFrame):
         )
         title_label.pack(side="left", fill="x", expand=True)
         
-        # Badge du niveau à droite
-        level_badge = ctk.CTkFrame(header_frame, fg_color=BG_CARD_HOVER, corner_radius=10, height=22)
+        # Badge du niveau à droite avec couleur adaptée aux icônes blanches
+        level_badge = ctk.CTkFrame(header_frame, fg_color=BG_CARD_HOVER, corner_radius=12, height=28)
         level_badge.pack(side="right")
         
         level_text = ctk.CTkLabel(
@@ -844,19 +834,23 @@ class ModernClassCard(ctk.CTkFrame):
         separator = ctk.CTkFrame(info_header, fg_color=TEXT_ACCENT, height=2, corner_radius=1)
         separator.pack(fill="x", pady=(3, 0))
         
-        # Informations détaillées en layout vertical compact
+        # Informations détaillées en layout horizontal compact
         details_container = ctk.CTkFrame(info_container, fg_color="transparent")
-        details_container.pack(fill="both", expand=True, padx=12, pady=(0, 10))
+        details_container.pack(fill="x", padx=12, pady=(0, 10))
         
-        # Information professeur
-        prof_frame = ctk.CTkFrame(details_container, fg_color="transparent")
-        prof_frame.pack(fill="x", pady=(0, 8))
+        # Container horizontal pour prof et salle
+        info_row = ctk.CTkFrame(details_container, fg_color="transparent")
+        info_row.pack(fill="x")
         
-        # Icône professeur sans fond circulaire
+        # Information professeur à gauche
+        prof_frame = ctk.CTkFrame(info_row, fg_color="transparent")
+        prof_frame.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        
+        # Icône professeur
         person_icon = load_icon(self.icons.get("person"), 12)
         if person_icon:
             prof_icon_label = ctk.CTkLabel(prof_frame, image=person_icon, text="", fg_color="transparent")
-            prof_icon_label.pack(side="left", padx=(0, 8))
+            prof_icon_label.pack(side="left", padx=(0, 6))
         
         prof_text = ctk.CTkLabel(
             prof_frame,
@@ -865,17 +859,17 @@ class ModernClassCard(ctk.CTkFrame):
             text_color=TEXT_PRIMARY,
             fg_color="transparent"
         )
-        prof_text.pack(side="left", fill="x", expand=True)
+        prof_text.pack(side="left")
         
-        # Information salle
-        room_frame = ctk.CTkFrame(details_container, fg_color="transparent")
-        room_frame.pack(fill="x")
+        # Information salle à droite
+        room_frame = ctk.CTkFrame(info_row, fg_color="transparent")
+        room_frame.pack(side="right", fill="x", expand=True)
         
-        # Icône salle sans fond circulaire
+        # Icône salle
         door_icon = load_icon(self.icons.get("door"), 12)
         if door_icon:
             room_icon_label = ctk.CTkLabel(room_frame, image=door_icon, text="", fg_color="transparent")
-            room_icon_label.pack(side="left", padx=(0, 8))
+            room_icon_label.pack(side="left", padx=(0, 6))
         
         room_text = ctk.CTkLabel(
             room_frame,
@@ -884,7 +878,7 @@ class ModernClassCard(ctk.CTkFrame):
             text_color=TEXT_PRIMARY,
             fg_color="transparent"
         )
-        room_text.pack(side="left", fill="x", expand=True)
+        room_text.pack(side="left")
     
     def create_action_buttons(self, parent):
         """Crée les boutons d'action alignés avec les informations"""
@@ -913,41 +907,39 @@ class ModernClassCard(ctk.CTkFrame):
         buttons_inner = ctk.CTkFrame(buttons_container, fg_color="transparent")
         buttons_inner.pack(fill="both", expand=True, padx=12, pady=(0, 10))
         
-        # Bouton Modifier sans fond avec contour gris
+        # Bouton Modifier avec icône seulement
         edit_btn = ctk.CTkButton(
             buttons_inner, 
-            text="Modifier", 
-            image=load_icon(self.icons.get("edit"), 16),
+            text="", 
+            image=load_icon(self.icons.get("edit"), 20),
             fg_color="transparent",
             text_color=TEXT_PRIMARY,
-            hover_color=HOVER_SUCCESS,
+            hover_color=HOVER_WARNING,
             command=lambda: self.on_edit(self.classe_id),
-            corner_radius=10,
-            height=35,
-            width=100,
+            corner_radius=12,
+            height=40,
+            width=40,
             border_width=2,
-            border_color=BORDER_COLOR,
-            font=("Segoe UI", 11, "bold")
+            border_color=BORDER_COLOR
         )
-        edit_btn.pack(fill="x", pady=(0, 8))
+        edit_btn.pack(side="left", padx=(0, 8))
         
-        # Bouton Supprimer sans fond avec contour gris
+        # Bouton Supprimer avec icône seulement
         delete_btn = ctk.CTkButton(
             buttons_inner, 
-            text="Supprimer", 
-            image=load_icon(self.icons.get("delete"), 16),
+            text="", 
+            image=load_icon(self.icons.get("delete"), 20),
             fg_color="transparent",
             text_color=TEXT_PRIMARY,
             hover_color=HOVER_ERROR,
             command=lambda: self.on_delete(self.classe_id),
-            corner_radius=10,
-            height=35,
-            width=100,
+            corner_radius=12,
+            height=40,
+            width=40,
             border_width=2,
-            border_color=BORDER_COLOR,
-            font=("Segoe UI", 11, "bold")
+            border_color=BORDER_COLOR
         )
-        delete_btn.pack(fill="x")
+        delete_btn.pack(side="left")
     
     def bind_events(self):
         """Lie les événements de survol modernes"""
@@ -1132,7 +1124,7 @@ class PremiumClassesCardView(ctk.CTkFrame):
         ctk.CTkLabel(title_text, text="Interface Moderne avec Icônes Personnalisées", font=("Segoe UI", 12, "bold"), 
                      text_color=THEME["electric_purple"], fg_color="transparent").pack(anchor="w")
         
-        # Bouton "Ajouter" sans fond avec contour gris
+        # Bouton "Ajouter" sans fond avec contour
         add_btn = ctk.CTkButton(
             top_bar, 
             text="Nouvelle Classe", 
@@ -1149,31 +1141,43 @@ class PremiumClassesCardView(ctk.CTkFrame):
         )
         add_btn.pack(side="right", padx=24, pady=20)
         
-        # Barre de recherche avec contour gris
-        search_frame = GlassCard(top_bar, fg_color=THEME["card_bg"], corner_radius=16, border_color=BORDER_COLOR)
+        # Barre de recherche moderne et élégante
+        search_frame = GlassCard(top_bar, fg_color=THEME["card_bg"], corner_radius=20, border_color=BORDER_COLOR, height=55)
         search_frame.pack(side="right", padx=(0, 24), pady=20)
+        
+        # Container interne pour la recherche
+        search_inner = ctk.CTkFrame(search_frame, fg_color="transparent")
+        search_inner.pack(fill="both", expand=True, padx=12, pady=12)
+        
+        # Icône de recherche sans fond
+        search_icon_img = load_icon(self.icons.get("search"), 20)
+        search_label = ctk.CTkLabel(search_inner, text="", image=search_icon_img, fg_color="transparent")
+        search_label.pack(side="left", padx=(0, 12))
         
         self.search_var = ctk.StringVar()
         self.search_entry = ctk.CTkEntry(
-            search_frame, 
+            search_inner, 
             textvariable=self.search_var, 
-            width=200, 
-            height=40, 
-            placeholder_text="🔍 Rechercher...", 
+            width=250, 
+            height=45, 
+            placeholder_text="Rechercher une classe...", 
             fg_color=THEME["glass_bg"], 
-            border_width=0, 
+            border_width=2, 
+            border_color=WARNING_YELLOW,
             text_color=THEME["primary_text"], 
             font=("Segoe UI", 13), 
-            corner_radius=16
+            corner_radius=15
         )
-        self.search_entry.pack(side="left", padx=(12, 0), pady=8)
+        self.search_entry.pack(side="left", fill="x", expand=True, padx=(0, 12))
         self.search_entry.bind("<KeyRelease>", self.filter_view)
+        self.search_entry.bind("<FocusIn>", lambda e: self.search_entry.configure(border_color=ACCENT))
+        self.search_entry.bind("<FocusOut>", lambda e: self.search_entry.configure(border_color=WARNING_YELLOW))
         
         # Filtre par niveau dans la vue premium
-        self.level_var = ctk.StringVar(value="Tous les niveaux")
+        self.level_var = ctk.StringVar(value="Tous")
         level_filter = ctk.CTkComboBox(
             search_frame,
-            values=["Tous les niveaux", "Lycée", "Collège", "Primaire"],
+            values=["Tous", "Lycée", "Collège", "Primaire"],
             variable=self.level_var,
             font=("Segoe UI", 12),
             fg_color=THEME["glass_bg"],
@@ -1187,27 +1191,9 @@ class PremiumClassesCardView(ctk.CTkFrame):
         )
         level_filter.pack(side="left", padx=(8, 0), pady=8)
 
-        # Bouton de recherche sans fond avec contour gris
-        search_btn = ctk.CTkButton(
-            search_frame, 
-            text="", 
-            image=load_icon(self.icons["search"], 18), 
-            fg_color="transparent", 
-            hover_color=THEME["premium_purple"], 
-            text_color=THEME["primary_text"], 
-            font=("Segoe UI", 13), 
-            width=40, 
-            corner_radius=12, 
-            height=36,
-            border_width=2,
-            border_color=BORDER_COLOR,
-            command=self.refresh_view
-        )
-        search_btn.pack(side="right", padx=(0, 8), pady=8)
-
         # Conteneur de cartes moderne avec design premium
         self.card_container = ctk.CTkScrollableFrame(self, fg_color="transparent", corner_radius=20)
-        self.card_container.pack(fill="both", expand=True, padx=24, pady=(0, 20))
+        self.card_container.pack(fill="both", expand=True, padx=12, pady=(0, 12))
         
         self.refresh_view()
 
@@ -1252,17 +1238,17 @@ class PremiumClassesCardView(ctk.CTkFrame):
                 filtered_classes = self._cached_classes.copy()
             
             # Filtrage par niveau avec cache
-            if level_filter != "Tous les niveaux":
+            if level_filter != "Tous":
                 level_key = f"level_{level_filter}"
                 if level_key not in self._filter_cache:
                     if level_filter == "Lycée":
-                        lycee_levels = ['1ère', 'TSM', 'Terminale', '2nde']
+                        lycee_levels = ['1°', '2°', '11° SE', '11° SM', '11° SS', '12° SE', '12° SM', '12° SS', 'TSE', 'TSM', 'TSS']
                         self._filter_cache[level_key] = [c for c in self._cached_classes if c['niveau'] in lycee_levels]
                     elif level_filter == "Collège":
-                        college_levels = ['6ème', '5ème', '4ème', '3ème']
+                        college_levels = ['6°', '5°', '4°', '3°', '7°', '8°', '9°', '10°']
                         self._filter_cache[level_key] = [c for c in self._cached_classes if c['niveau'] in college_levels]
                     elif level_filter == "Primaire":
-                        primaire_levels = ['CP', 'CE1', 'CE2', 'CM1', 'CM2']
+                        primaire_levels = ['1° Année', '2° Année', '3° Année', '4° Année', '5° Année']
                         self._filter_cache[level_key] = [c for c in self._cached_classes if c['niveau'] in primaire_levels]
                 
                 filtered_classes = [c for c in filtered_classes if c in self._filter_cache[level_key]]
@@ -1284,7 +1270,7 @@ class PremiumClassesCardView(ctk.CTkFrame):
     
     def _create_premium_cards_batch(self, filtered_classes):
         """Crée les cartes premium en lot pour de meilleures performances"""
-        num_columns = 2  # Format paysage avec 2 colonnes
+        num_columns = 4  # Format paysage avec 2 colonnes
         cards_to_create = []
         
         # Préparer toutes les cartes
@@ -1292,12 +1278,12 @@ class PremiumClassesCardView(ctk.CTkFrame):
             prof_name = self._cached_profs.get(row['prof_id'], '—')
             salle_name = self._cached_salles.get(row['salle_id'], '—')
             
-            card = PremiumClassCard(self.card_container, row, prof_name, salle_name, self.on_edit, self.on_delete, self.icons)
+            card = ModernClassCard(self.card_container, row, prof_name, salle_name, self.on_edit, self.on_delete, self.icons)
             cards_to_create.append((card, idx))
         
         # Créer toutes les cartes en une seule fois
         for card, idx in cards_to_create:
-            card.grid(row=idx // num_columns, column=idx % num_columns, padx=16, pady=16, sticky="nsew")
+            card.grid(row=idx // num_columns, column=idx % num_columns, padx=4, pady=4, sticky="nsew")
         
         # Configurer les colonnes pour le format paysage
         for i in range(num_columns):
@@ -1325,6 +1311,8 @@ class ClassesManagerView(ctk.CTkFrame):
     def __init__(self, parent, icons):
         super().__init__(parent, fg_color=BG_MAIN)
 
+        print("🚀 Initialisation ClassesManagerView...")
+
         # Configuration des icônes avec gestion d'erreur améliorée
         _required_icon_keys = {"add","edit","delete","search","export","import","pdf","reload","view","class","teacher","settings"}
         _default_icons = {k: ICONS_PATH.get(k, "") for k in _required_icon_keys}
@@ -1334,6 +1322,8 @@ class ClassesManagerView(ctk.CTkFrame):
             if k not in self.icons or not self.icons[k]:
                 self.icons[k] = ""
 
+        print("✅ Icônes configurées")
+
         # Frame principal avec design moderne et élégant
         main_frame = ctk.CTkFrame(self, fg_color=BG_CARD, corner_radius=25, border_width=2, border_color=BORDER_COLOR)
         main_frame.pack(fill="both", expand=True, padx=3, pady=3)
@@ -1342,9 +1332,12 @@ class ClassesManagerView(ctk.CTkFrame):
         main_content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         main_content_frame.pack(fill="both", expand=True)
 
-        # Vue des cartes modernes
+        print("🚀 Création de la vue des cartes...")
+        # Vue des cartes modernes avec chargement optimisé
         self.card_view = ModernClassesView(main_content_frame, self.open_edit_modal, self.delete_classe, None, self.icons)
         self.card_view.pack(fill="both", expand=True)
+        
+        print("✅ ClassesManagerView initialisée")
 
 
     def open_edit_modal(self, classe_id=None):

@@ -196,6 +196,13 @@ FONT_PREMIUM = ("Segoe UI", 17, "bold")           # Police premium moderne
 FONT_ACCENT = ("Segoe UI", 13, "bold")            # Police accent moderne
 FONT_HERO = ("Segoe UI", 28, "bold")              # Police héro très grande
 
+# Variables de police simplifiées pour compatibilité
+FONT = "Segoe UI"                                 # Nom de police simple
+FONT_SIZE_TITLE = 24                              # Taille titre
+FONT_SIZE_HEADER = 18                             # Taille header
+FONT_SIZE_TEXT = 14                               # Taille texte
+FONT_SIZE_SMALL = 12                              # Taille petit texte
+
 # =================== ESPACEMENTS PARFAITS =====================
 
 # Espacements (parfaits pour le sombre)
@@ -432,6 +439,7 @@ __all__ = [
     # Polices parfaites
     "FONT_PRIMARY", "FONT_SECONDARY", "FONT_TITLE", "FONT_SUBTITLE", "FONT_SMALL",
     "FONT_BUTTON", "FONT_CARD_TITLE", "FONT_METRIC", "FONT_PREMIUM", "FONT_ACCENT", "FONT_HERO",
+    "FONT", "FONT_SIZE_TITLE", "FONT_SIZE_HEADER", "FONT_SIZE_TEXT", "FONT_SIZE_SMALL",
     
     # Espacements parfaits
     "PADDING_SMALL", "PADDING_MEDIUM", "PADDING_LARGE", "PADDING_XLARGE", "PADDING_CARD", "PADDING_BUTTON", "PADDING_PREMIUM", "PADDING_HERO",

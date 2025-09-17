@@ -7,258 +7,414 @@ import sys
 from PIL import Image
 
 # Importation des contrôleurs pour les matières
-# Le chemin de la base de données est géré par le contrôleur
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.modules.academic.subjects.controllers.matiere_controller import get_all_matieres, search_matieres, add_matiere, update_matiere, delete_matiere
+from src.modules.academic.subjects.controllers.matiere_controller import get_all_matieres, search_matieres, add_matiere, update_matiere, delete_matiere, preload_matieres_cache
 
-# ====== THEME / ICONS (fallback) ======
-# Ce bloc est un fallback au cas où l'importation depuis main.py échoue
+# Import du thème global EduManager+
 try:
-    from main import THEME, FONT_FAMILY, FONT_SIZE_HEADER, FONT_SIZE_SUBHEADER, FONT_SIZE_TEXT
-    from main import load_ctk_icon, ICON_MAP
-except ImportError:
-    THEME = {
-        "bg_main": "#0A192F", "header_bg": "#172A45", "card_bg": "#0B2039",
-        "border_color": "#334155", "accent_blue": "#64FFDA",
-        "primary_text": "#CCD6F6", "secondary_text": "#8892B0",
-        "error_red": "#FF6363", "success_green": "#A0E7E5",
-        "warning_yellow": "#FFD700", "info_orange": "#F97316",
-        "select_highlight": "#2A456C"
-    }
-    FONT_FAMILY = "Segoe UI"
-    FONT_SIZE_HEADER = 20
-    FONT_SIZE_SUBHEADER = 16
-    FONT_SIZE_TEXT = 14
+    root_path = os.path.join(os.path.dirname(__file__), '../../../../..')
+    sys.path.insert(0, root_path)
+    from resources.themes.theme import *
+    print("✅ Thème global EduManager+ importé pour les matières")
+except ImportError as e:
+    print(f"⚠️ Erreur import thème: {e}")
+    # Fallback avec constantes locales
+    BG_MAIN = "#0A192F"
+    CARD_BG = "#0b1d34"
+    ACCENT = "#64FFDA"
+    TEXT = "#E2E8F0"
+    MUTED = "#8aa0b8"
+    SUCCESS_GREEN = "#059669"
+    ERROR_RED = "#DC2626"
+    WARNING_YELLOW = "#D97706"
 
     def load_ctk_icon(icon_name, size=(22, 22)):
-        try:
-            ICON_PATH = "assets/icons"
-            p = os.path.join(ICON_PATH, icon_name)
-            im = Image.open(p).resize(size, Image.Resampling.LANCZOS)
-            return ctk.CTkImage(light_image=im, dark_image=im)
-        except Exception:
+    """Charge une icône depuis le pack utilisateur"""
+    try:
+        # Chemin absolu vers les icônes depuis la racine du projet
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.join(current_dir, '../../../../..')
+        icons_path = os.path.join(project_root, 'resources', 'icons')
+        icon_path = os.path.join(icons_path, icon_name)
+        
+        if os.path.exists(icon_path):
+            image = Image.open(icon_path)
+            icon = ctk.CTkImage(light_image=image, dark_image=image, size=size)
+            return icon
+    except Exception as e:
+        print(f"⚠️ Erreur chargement icône {icon_name}: {e}")
             return None
 
-    ICON_MAP = {
-        "add": "add.png", "edit": "edit.png", "delete": "delete.png",
-        "refresh": "refresh.png", "search": "search.png", "close": "close.png", "stacks": "stacks.png"
-    }
-
-# ====== VIEW ======
 class MatieresView(ctk.CTkFrame):
-    DEBOUNCE_MS = 250
-    BODY_SIDE_PADDING = 16
+    """Vue des matières avec design EduManager+ magnifique"""
 
     def __init__(self, parent, icons=None):
-        super().__init__(parent, fg_color=THEME["bg_main"])
+        super().__init__(parent, fg_color=BG_MAIN)
         self.grid_columnconfigure(0, weight=1)
 
         self.var_search = StringVar()
         self._search_after_id = None
         self._matieres_cache = []
 
+        # Précharger le cache pour de meilleures performances
+        try:
+            preload_matieres_cache()
+        except Exception as e:
+            print(f"⚠️ Erreur préchargement cache matières: {e}")
+
         self._build_header()
-        self._build_stats()
+        self._build_stats_section()
         self._build_cards_area()
 
         self.charger_matieres()
 
-    # ---------- HEADER ----------
-    def _build_header(self):
-        header = ctk.CTkFrame(self, fg_color=THEME["header_bg"], corner_radius=14)
-        header.pack(fill="x", padx=18, pady=(18,10))
-
-        left = ctk.CTkFrame(header, fg_color="transparent")
-        left.pack(side="left", padx=14, pady=12)
-        ctk.CTkLabel(left, text="Gestion des Matières",
-            font=(FONT_FAMILY, FONT_SIZE_HEADER, "bold"),
-            text_color=THEME["accent_blue"]).pack(anchor="w")
-        ctk.CTkLabel(left, text="Ajoutez, modifiez et recherchez vos matières en un clic.",
-            font=(FONT_FAMILY, max(FONT_SIZE_TEXT-2,10)),
-            text_color=THEME["secondary_text"]).pack(anchor="w", pady=(2,0))
-
-        right = ctk.CTkFrame(header, fg_color="transparent")
-        right.pack(side="right", padx=12, pady=12)
-
-        s_icon = load_ctk_icon(ICON_MAP.get("search","search.png"), (18,18))
-        x_icon = load_ctk_icon(ICON_MAP.get("close","close.png"), (16,16))
-
-        wrap = ctk.CTkFrame(right, fg_color=THEME["card_bg"], corner_radius=12,
-                            border_width=1, border_color=THEME["border_color"])
-        wrap.pack(side="left", padx=(0,8))
-        ctk.CTkLabel(wrap, text="", image=s_icon).pack(side="left", padx=(10,6), pady=6)
-        self.entry_search = ctk.CTkEntry(
-            wrap, width=260, corner_radius=10,
-            fg_color=THEME["card_bg"], border_color=THEME["card_bg"],
-            text_color=THEME["primary_text"],
-            placeholder_text="Rechercher une matière...",
-            textvariable=self.var_search, font=(FONT_FAMILY, FONT_SIZE_TEXT)
-        )
-        self.entry_search.pack(side="left", padx=(0,4), pady=6)
-        self.entry_search.bind("<Return>", lambda e: self._apply_search())
-
-        ctk.CTkButton(
-            wrap, width=30, text="✕" if x_icon is None else "",
-            image=None if x_icon is None else x_icon,
-            fg_color=THEME["card_bg"], text_color=THEME["secondary_text"],
-            hover_color=THEME["header_bg"], command=self._clear_search
-        ).pack(side="left", padx=(2,8), pady=6)
-
-        add_icon = load_ctk_icon(ICON_MAP.get("add","add.png"))
-        ref_icon = load_ctk_icon(ICON_MAP.get("refresh","refresh.png"))
-        ctk.CTkButton(right, text=" Ajouter", image=add_icon, compound="left",
-            font=(FONT_FAMILY, FONT_SIZE_TEXT, "bold"),
-            fg_color=THEME["accent_blue"], text_color=THEME["bg_main"],
-            hover_color="#45b69c", command=self.ajouter_matiere).pack(side="left", padx=6)
-        ctk.CTkButton(right, text=" Actualiser", image=ref_icon, compound="left",
-            font=(FONT_FAMILY, FONT_SIZE_TEXT, "bold"),
-            fg_color=THEME["card_bg"], text_color=THEME["primary_text"],
-            hover_color=THEME["header_bg"], command=self._refresh_all).pack(side="left")
-
+        # Bindings
         self.var_search.trace_add("write", self._on_search_change)
 
-    # ---------- STATS ----------
-    def _build_stats(self):
-        bar = ctk.CTkFrame(self, fg_color="transparent")
-        bar.pack(fill="x", padx=20, pady=(6,6))
-        self.lbl_count = ctk.CTkLabel(bar, text="", font=(FONT_FAMILY, FONT_SIZE_TEXT), text_color=THEME["secondary_text"])
-        self.lbl_count.pack(side="left")
+    def _build_header(self):
+        """Header magnifique avec design EduManager+"""
+        # Header principal avec gradient
+        header_frame = ctk.CTkFrame(self, fg_color=BG_SIDEBAR, corner_radius=20, border_width=1, border_color=BORDER_COLOR)
+        header_frame.pack(fill="x", padx=PADDING_MEDIUM, pady=(PADDING_MEDIUM, PADDING_SMALL))
+        
+        # Contenu du header
+        header_content = ctk.CTkFrame(header_frame, fg_color="transparent")
+        header_content.pack(fill="x", padx=PADDING_CARD, pady=PADDING_CARD)
+        
+        # Section gauche - Titre et description
+        left_section = ctk.CTkFrame(header_content, fg_color="transparent")
+        left_section.pack(side="left", fill="x", expand=True)
+        
+        # Titre avec icône magnifique
+        title_container = ctk.CTkFrame(left_section, fg_color="transparent")
+        title_container.pack(anchor="w")
+        
+        # Icône principale avec badge (couleur différente)
+        icon_badge = ctk.CTkFrame(title_container, fg_color=SUCCESS_GREEN, corner_radius=999, width=40, height=40)
+        icon_badge.pack_propagate(False)
+        icon_badge.pack(side="left", padx=(0, MARGIN_MEDIUM))
+        
+        main_icon = load_ctk_icon("book.png", (24, 24)) or load_ctk_icon("stacks.png", (24, 24))
+        if main_icon:
+            ctk.CTkLabel(icon_badge, text="", image=main_icon, fg_color="transparent").pack(expand=True)
+        else:
+            ctk.CTkLabel(icon_badge, text="📚", font=FONT_TITLE, text_color=TEXT_PRIMARY).pack(expand=True)
+        
+        # Titre magnifique
+        title_text = ctk.CTkLabel(title_container, text="Gestion des Matières",
+                                 font=FONT_TITLE, text_color=TEXT_PRIMARY)
+        title_text.pack(side="left")
+        
+        # Description élégante
+        desc_text = ctk.CTkLabel(left_section, text="Organisez et gérez vos matières scolaires avec style",
+                                 font=FONT_SECONDARY, text_color=TEXT_SECONDARY)
+        desc_text.pack(anchor="w", pady=(MARGIN_SMALL, 0))
+        
+        # Section droite - Actions et recherche
+        right_section = ctk.CTkFrame(header_content, fg_color="transparent")
+        right_section.pack(side="right", fill="y")
+        
+        # Barre de recherche moderne et élégante
+        search_frame = ctk.CTkFrame(right_section, fg_color=CARD_BG, corner_radius=20,
+                                  border_width=2, border_color=BORDER_COLOR, height=55)
+        search_frame.pack(side="right", padx=(0, MARGIN_MEDIUM))
+        
+        search_inner = ctk.CTkFrame(search_frame, fg_color="transparent")
+        search_inner.pack(fill="both", expand=True, padx=PADDING_MEDIUM, pady=PADDING_MEDIUM)
+        
+        # Icône de recherche avec effet
+        search_icon = load_ctk_icon("search.png", (20, 20))
+        if search_icon:
+            search_icon_frame = ctk.CTkFrame(search_inner, fg_color=SUCCESS_GREEN, corner_radius=999, width=32, height=32)
+            search_icon_frame.pack_propagate(False)
+            search_icon_frame.pack(side="left", padx=(0, MARGIN_MEDIUM))
+            ctk.CTkLabel(search_icon_frame, text="", image=search_icon, fg_color="transparent").pack(expand=True)
+        
+        # Champ de recherche amélioré
+        self.entry_search = ctk.CTkEntry(search_inner, placeholder_text="Rechercher une matière...",
+                                       textvariable=self.var_search, font=FONT_PRIMARY,
+                                       fg_color=BG_MAIN, text_color=TEXT_PRIMARY,
+                                       border_color=SUCCESS_GREEN, corner_radius=15,
+                                       height=45, width=280, border_width=2)
+        self.entry_search.pack(side="left", padx=(0, MARGIN_MEDIUM))
+        self.entry_search.bind("<Return>", lambda e: self._apply_search())
+        self.entry_search.bind("<FocusIn>", lambda e: self.entry_search.configure(border_color=ACCENT))
+        self.entry_search.bind("<FocusOut>", lambda e: self.entry_search.configure(border_color=SUCCESS_GREEN))
 
-    # ---------- CARDS ----------
+        # Bouton clear recherche moderne
+        clear_icon = load_ctk_icon("close.png", (18, 18))
+        clear_btn = ctk.CTkButton(search_inner, text="", image=clear_icon,
+                                fg_color="transparent", text_color=TEXT_SECONDARY,
+                                hover_color=HOVER_ERROR, command=self._clear_search,
+                                corner_radius=12, height=45, width=45,
+                                border_width=2, border_color=BORDER_COLOR)
+        clear_btn.pack(side="right")
+        
+
+    def _build_stats_section(self):
+        """Section statistiques magnifique avec boutons d'action"""
+        stats_container = ctk.CTkFrame(self, fg_color="transparent")
+        stats_container.pack(fill="x", padx=PADDING_MEDIUM, pady=(0, PADDING_SMALL))
+        
+        # Carte statistiques principale
+        stats_card = ctk.CTkFrame(stats_container, fg_color=CARD_BG, corner_radius=16,
+                                border_width=1, border_color=BORDER_COLOR)
+        stats_card.pack(fill="x")
+        
+        # Contenu des stats
+        stats_content = ctk.CTkFrame(stats_card, fg_color="transparent")
+        stats_content.pack(fill="x", padx=PADDING_CARD, pady=PADDING_CARD)
+        
+        # Section gauche - Stats
+        stats_left = ctk.CTkFrame(stats_content, fg_color="transparent")
+        stats_left.pack(side="left", fill="x", expand=True)
+        
+        # Icône statistiques (couleur différente)
+        stats_icon = load_ctk_icon("stats.png", (24, 24)) or load_ctk_icon("analytics.png", (24, 24))
+        if stats_icon:
+            icon_frame = ctk.CTkFrame(stats_left, fg_color=WARNING_YELLOW, corner_radius=999, width=36, height=36)
+            icon_frame.pack_propagate(False)
+            icon_frame.pack(side="left", padx=(0, MARGIN_MEDIUM))
+            ctk.CTkLabel(icon_frame, text="", image=stats_icon, fg_color="transparent").pack(expand=True)
+        
+        # Compteur principal
+        self.lbl_count = ctk.CTkLabel(stats_left, text="0 matières",
+                                     font=FONT_METRIC, text_color=TEXT_ACCENT)
+        self.lbl_count.pack(side="left", padx=(0, MARGIN_LARGE))
+        
+        # Stats supplémentaires
+        self.lbl_stats = ctk.CTkLabel(stats_left, text="Toutes les matières affichées",
+                                      font=FONT_SECONDARY, text_color=TEXT_SECONDARY)
+        self.lbl_stats.pack(side="left")
+        
+        # Section droite - Boutons d'action
+        stats_right = ctk.CTkFrame(stats_content, fg_color="transparent")
+        stats_right.pack(side="right")
+        
+        # Bouton ajouter avec icône (style transparent comme cours_view)
+        add_icon = load_ctk_icon("add.png", (18, 18))
+        add_btn = ctk.CTkButton(stats_right, text="Ajouter", image=add_icon, compound="left",
+                               font=FONT_BUTTON, fg_color="transparent", text_color=TEXT_PRIMARY,
+                               hover_color=HOVER_SUCCESS, command=self.ajouter_matiere,
+                               corner_radius=10, height=40, width=100,
+                               border_width=2, border_color=BORDER_COLOR)
+        add_btn.pack(side="left", padx=MARGIN_SMALL)
+        
+        # Bouton actualiser avec icône (style transparent comme cours_view)
+        refresh_icon = load_ctk_icon("refresh.png", (18, 18))
+        refresh_btn = ctk.CTkButton(stats_right, text="Actualiser", image=refresh_icon, compound="left",
+                                   font=FONT_BUTTON, fg_color="transparent", text_color=TEXT_PRIMARY,
+                                   hover_color=HOVER_PRIMARY, command=self._refresh_all,
+                                   corner_radius=10, height=40, width=100,
+                                   border_width=2, border_color=BORDER_COLOR)
+        refresh_btn.pack(side="left")
+        
+        # Effet hover sur la carte stats
+        def _enter(_):
+            stats_card.configure(border_color=ACCENT)
+        def _leave(_):
+            stats_card.configure(border_color=BORDER_COLOR)
+        
+        stats_card.bind("<Enter>", _enter)
+        stats_card.bind("<Leave>", _leave)
+
     def _build_cards_area(self):
+        """Zone des cartes avec scroll magnifique"""
         self.cards_area = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        self.cards_area.pack(fill="both", expand=True, padx=20, pady=(0,18))
-        self.cards_area.grid_columnconfigure((0,1,2), weight=1, uniform="col")
+        self.cards_area.pack(fill="both", expand=True, padx=PADDING_SMALL, pady=(0, PADDING_SMALL))
+        self.cards_area.grid_columnconfigure((0, 1, 2), weight=1, uniform="col")
 
-    # ---------- DATA FLOW ----------
     def charger_matieres(self, q=""):
+        """Charge les matières avec cache"""
         data = search_matieres(q) if q.strip() else get_all_matieres()
         self._matieres_cache = data
         self._render_cards(data)
         self._update_count(len(data))
 
     def _refresh_all(self):
+        """Actualise toutes les données"""
         self.var_search.set("")
         self.charger_matieres()
         self.entry_search.focus_set()
 
     def _update_count(self, n):
-        self.lbl_count.configure(text=f"{n} matière(s) affichée(s)")
+        """Met à jour les statistiques"""
+        self.lbl_count.configure(text=f"{n} matière{'s' if n > 1 else ''}")
+        
+        total_matieres = len(get_all_matieres())
+        if n < total_matieres:
+            self.lbl_stats.configure(text=f"({total_matieres - n} masquée{'s' if total_matieres - n > 1 else ''} par le filtre)")
+        else:
+            self.lbl_stats.configure(text="Toutes les matières affichées")
 
     def _clear_search(self):
+        """Efface la recherche"""
         self.var_search.set("")
         self.charger_matieres()
         self.entry_search.focus_set()
 
     def _apply_search(self):
+        """Applique la recherche"""
         self.charger_matieres(self.var_search.get())
 
     def _on_search_change(self, *_):
+        """Gestion du changement de recherche avec debounce"""
         if hasattr(self, "_search_after_id") and self._search_after_id:
-            try: self.after_cancel(self._search_after_id)
-            except: pass
-        self._search_after_id = self.after(self.DEBOUNCE_MS, self._apply_search)
+            try:
+                self.after_cancel(self._search_after_id)
+            except:
+                pass
+        self._search_after_id = self.after(250, self._apply_search)
 
-    # ---------- RENDER ----------
     def _render_cards(self, matieres):
+        """Rend les cartes des matières"""
         for w in self.cards_area.winfo_children():
             w.destroy()
 
         if not matieres:
-            ctk.CTkLabel(self.cards_area, text="Aucune matière trouvée.",
-                         font=(FONT_FAMILY, FONT_SIZE_SUBHEADER, "italic"),
-                         text_color=THEME["secondary_text"])\
-                .grid(row=0, column=0, padx=10, pady=40, sticky="nsew", columnspan=3)
+            self._render_empty_state()
             return
 
         for i, m in enumerate(matieres):
             r, c = divmod(i, 3)
-            self._create_matiere_card(m).grid(row=r, column=c, sticky="nsew", padx=10, pady=10)
+            card = self._create_matiere_card(m)
+            card.grid(row=r, column=c, sticky="nsew", padx=MARGIN_SMALL, pady=MARGIN_SMALL)
 
-    def _create_matiere_card(self, matiere: dict):
-        card = ctk.CTkFrame(self.cards_area, fg_color=THEME["card_bg"],
-                            corner_radius=18, border_width=1, border_color=THEME["border_color"])
-        card.grid_columnconfigure(0, weight=0)
-        card.grid_columnconfigure(1, weight=1)
+    def _render_empty_state(self):
+        """État vide magnifique"""
+        empty_frame = ctk.CTkFrame(self.cards_area, fg_color=CARD_BG, corner_radius=20,
+                                 border_width=1, border_color=BORDER_COLOR)
+        empty_frame.grid(row=0, column=0, padx=MARGIN_MEDIUM, pady=MARGIN_MEDIUM, 
+                        sticky="nsew", columnspan=3)
+        
+        # Icône d'état vide (couleur différente)
+        empty_icon = load_ctk_icon("folder.png", (64, 64)) or load_ctk_icon("book.png", (64, 64))
+        if empty_icon:
+            icon_frame = ctk.CTkFrame(empty_frame, fg_color=ERROR_RED, corner_radius=999, width=80, height=80)
+            icon_frame.pack_propagate(False)
+            icon_frame.pack(pady=(MARGIN_HERO, MARGIN_LARGE))
+            ctk.CTkLabel(icon_frame, text="", image=empty_icon, fg_color="transparent").pack(expand=True)
+        
+        # Titre
+        ctk.CTkLabel(empty_frame, text="Aucune matière trouvée",
+                     font=FONT_SUBTITLE, text_color=TEXT_PRIMARY).pack(pady=(0, MARGIN_SMALL))
+        
+        # Description
+        ctk.CTkLabel(empty_frame, text="Essayez de modifier votre recherche ou ajoutez une nouvelle matière",
+                     font=FONT_SECONDARY, text_color=TEXT_SECONDARY).pack(pady=(0, MARGIN_LARGE))
+        
+        # Bouton d'ajout (style transparent comme cours_view)
+        add_icon = load_ctk_icon("add.png", (20, 20))
+        add_btn = ctk.CTkButton(empty_frame, text="Ajouter une matière", image=add_icon, compound="left",
+                               font=FONT_BUTTON, fg_color="transparent", text_color=TEXT_PRIMARY,
+                               hover_color=HOVER_SUCCESS, command=self.ajouter_matiere,
+                               corner_radius=15, height=50, width=200,
+                               border_width=2, border_color=BORDER_COLOR)
+        add_btn.pack(pady=(0, MARGIN_HERO))
 
-        ctk.CTkFrame(card, fg_color=THEME["accent_blue"], width=8, corner_radius=18)\
-            .grid(row=0, column=0, rowspan=3, sticky="nsw")
-
-        body = ctk.CTkFrame(card, fg_color="transparent")
-        body.grid(row=0, column=1, sticky="nsew",
-                  padx=(self.BODY_SIDE_PADDING, self.BODY_SIDE_PADDING), pady=(10,6))
-        body.grid_columnconfigure(0, weight=1)
-
-        header = ctk.CTkFrame(body, fg_color="transparent")
-        header.grid(row=0, column=0, sticky="ew", pady=(2,6))
-        icon = load_ctk_icon(ICON_MAP.get("stacks","stacks.png"), (22,22))
-        ctk.CTkLabel(header, text="", image=icon).pack(side="left")
-        ctk.CTkLabel(header, text=matiere.get("nom","Sans nom"),
-                     font=(FONT_FAMILY, FONT_SIZE_SUBHEADER, "bold"),
-                     text_color=THEME["primary_text"]).pack(side="left", padx=(8,6))
-        initiale = (matiere.get("nom","M")[:1] or "M").upper()
-        ctk.CTkLabel(header, text=initiale, width=26, height=26,
-                     font=(FONT_FAMILY, FONT_SIZE_TEXT, "bold"),
-                     text_color=THEME["bg_main"], fg_color=THEME["accent_blue"],
-                     corner_radius=999).pack(side="right")
-
-        full = (matiere.get("description") or "").strip() or "Aucune description."
-        font_desc = tkfont.Font(family=FONT_FAMILY, size=FONT_SIZE_TEXT)
-        line_h = font_desc.metrics("linespace")
-
-        desc = ctk.CTkTextbox(
-            body, height=1,
-            fg_color=THEME["card_bg"], text_color=THEME["secondary_text"],
-            border_width=0, corner_radius=0
-        )
-        try: desc._textbox.configure(wrap="word")
-        except Exception: pass
-        desc.grid(row=1, column=0, sticky="ew", pady=(0,6))
-        desc.insert("1.0", full)
-        desc.configure(state="disabled")
-
-        def _resize_desc(_=None):
-            usable_w = max(body.winfo_width() - 2*self.BODY_SIDE_PADDING, 220)
-            avg_char_w = max(font_desc.measure("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")/52, 1)
-            chars_per_line = max(int(usable_w / avg_char_w), 10)
-            wrapped = textwrap.wrap(full, width=chars_per_line)
-            lines = max(1, len(wrapped))
-            target_h = lines * line_h + 6
-            try:
-                desc.configure(height=target_h)
-            except Exception:
-                pass
-
-        card.bind("<Configure>", _resize_desc)
-
-        footer = ctk.CTkFrame(card, fg_color="transparent")
-        footer.grid(row=2, column=1, sticky="ew",
-                    padx=(self.BODY_SIDE_PADDING, self.BODY_SIDE_PADDING), pady=(0,10))
-        e_ic = load_ctk_icon(ICON_MAP.get("edit","edit.png"))
-        d_ic = load_ctk_icon(ICON_MAP.get("delete","delete.png"))
-        ctk.CTkButton(footer, text="Modifier", image=e_ic, compound="left",
-                      font=(FONT_FAMILY, FONT_SIZE_TEXT, "bold"),
-                      fg_color=THEME["info_orange"], hover_color="#cc9f13",
-                      text_color=THEME["primary_text"],
-                      command=lambda m=matiere: self.modifier_matiere(m))\
-            .pack(side="left", expand=True, fill="x", padx=1)
-        ctk.CTkButton(footer, text="Supprimer", image=d_ic, compound="left",
-                      font=(FONT_FAMILY, FONT_SIZE_TEXT, "bold"),
-                      fg_color=THEME["error_red"], hover_color="#dc2626",
-                      text_color=THEME["primary_text"],
-                      command=lambda mid=matiere["id"]: self.supprimer_matiere(mid))\
-            .pack(side="left", expand=True, fill="x", padx=1)
+    def _create_matiere_card(self, matiere):
+        """Crée une carte de matière magnifique avec design amélioré"""
+        # Carte principale avec design moderne amélioré
+        card = ctk.CTkFrame(self.cards_area, fg_color=CARD_BG, corner_radius=24,
+                          border_width=2, border_color=BORDER_COLOR, height=220)
+        card.pack_propagate(False)
+        
+        # Barre latérale colorée avec gradient
+        sidebar = ctk.CTkFrame(card, fg_color=SUCCESS_GREEN, corner_radius=24, width=8)
+        sidebar.pack(side="left", fill="y", padx=(0, 0), pady=0)
+        
+        # Contenu principal avec padding amélioré
+        content_frame = ctk.CTkFrame(card, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True, padx=PADDING_LARGE, pady=PADDING_LARGE)
+        
+        # Header de la carte avec design amélioré
+        header_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, MARGIN_LARGE))
+        
+        # Icône matière avec badge coloré
+        matiere_icon = load_ctk_icon("book.png", (28, 28)) or load_ctk_icon("stacks.png", (28, 28))
+        if matiere_icon:
+            icon_frame = ctk.CTkFrame(header_frame, fg_color=WARNING_YELLOW, corner_radius=999, width=40, height=40)
+            icon_frame.pack_propagate(False)
+            icon_frame.pack(side="left", padx=(0, MARGIN_LARGE))
+            ctk.CTkLabel(icon_frame, text="", image=matiere_icon, fg_color="transparent").pack(expand=True)
+        
+        # Nom de la matière avec style amélioré
+        nom_matiere = matiere.get("nom_matiere", "Sans nom")
+        title_label = ctk.CTkLabel(header_frame, text=nom_matiere,
+                                 font=FONT_CARD_TITLE, text_color=TEXT_PRIMARY)
+        title_label.pack(side="left", fill="x", expand=True)
+        
+        # Badge avec initiale (couleur différente)
+        initiale = (nom_matiere[:1] or "M").upper()
+        badge = ctk.CTkFrame(header_frame, fg_color=ERROR_RED, corner_radius=999, width=32, height=32)
+        badge.pack_propagate(False)
+        badge.pack(side="right")
+        ctk.CTkLabel(badge, text=initiale, font=FONT_BUTTON, text_color=TEXT_PRIMARY,
+                    fg_color="transparent").pack(expand=True)
+        
+        # Code matière avec design amélioré
+        code_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        code_frame.pack(fill="x", pady=(0, MARGIN_LARGE))
+        
+        # Icône pour le code
+        code_icon = load_ctk_icon("tag.png", (16, 16)) or load_ctk_icon("edit.png", (16, 16))
+        if code_icon:
+            ctk.CTkLabel(code_frame, text="", image=code_icon).pack(side="left", padx=(0, MARGIN_SMALL))
+        
+        code_matiere = matiere.get("code_matiere", "") or "Aucun code"
+        code_label = ctk.CTkLabel(code_frame, text=f"Code: {code_matiere}",
+                                 font=FONT_SECONDARY, text_color=TEXT_SECONDARY)
+        code_label.pack(side="left")
+        
+        # Boutons d'action avec icônes seulement
+        actions_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        actions_frame.pack(fill="x", side="bottom")
+        
+        # Bouton modifier (icône seulement)
+        edit_icon = load_ctk_icon("edit.png", (20, 20))
+        edit_btn = ctk.CTkButton(actions_frame, text="", image=edit_icon,
+                                fg_color="transparent", text_color=TEXT_PRIMARY,
+                                hover_color=HOVER_WARNING, command=lambda m=matiere: self.modifier_matiere(m),
+                                corner_radius=12, height=40, width=40,
+                                border_width=2, border_color=BORDER_COLOR)
+        edit_btn.pack(side="left", padx=(0, MARGIN_MEDIUM))
+        
+        # Bouton supprimer (icône seulement)
+        delete_icon = load_ctk_icon("delete.png", (20, 20))
+        delete_btn = ctk.CTkButton(actions_frame, text="", image=delete_icon,
+                                  fg_color="transparent", text_color=TEXT_PRIMARY,
+                                  hover_color=HOVER_ERROR, command=lambda mid=matiere.get("id_matiere"): self.supprimer_matiere(mid),
+                                  corner_radius=12, height=40, width=40,
+                                  border_width=2, border_color=BORDER_COLOR)
+        delete_btn.pack(side="left")
+        
+        # Effet hover magnifique avec animation
+        def _enter(_):
+            card.configure(border_color=SUCCESS_GREEN, fg_color=BG_CARD_HOVER)
+            sidebar.configure(fg_color=ACCENT)
+        def _leave(_):
+            card.configure(border_color=BORDER_COLOR, fg_color=CARD_BG)
+            sidebar.configure(fg_color=SUCCESS_GREEN)
+        
+        card.bind("<Enter>", _enter)
+        card.bind("<Leave>", _leave)
+        for widget in [content_frame, header_frame, code_frame, actions_frame]:
+            widget.bind("<Enter>", _enter)
+            widget.bind("<Leave>", _leave)
 
         return card
 
-    # ---------- Actions ----------
     def ajouter_matiere(self):
+        """Ouvre le formulaire d'ajout"""
         self._open_form_dialog("Ajouter")
     
     def modifier_matiere(self, m):
+        """Ouvre le formulaire de modification"""
         self._open_form_dialog("Modifier", m)
 
     def supprimer_matiere(self, mid):
+        """Supprime une matière avec confirmation"""
         if messagebox.askyesno("Confirmation", f"Voulez-vous vraiment supprimer la matière #{mid} ?"):
             if delete_matiere(mid):
                 self.charger_matieres(self.var_search.get())
@@ -266,74 +422,104 @@ class MatieresView(ctk.CTkFrame):
             else:
                 messagebox.showerror("Erreur", "La suppression a échoué.")
 
-    # ---------- Formulaire ----------
     def _open_form_dialog(self, mode, data=None):
+        """Ouvre le formulaire magnifique"""
         top = ctk.CTkToplevel(self)
         top.title(f"{mode} une Matière")
-        top.geometry("520x420")
-        top.configure(fg_color=THEME["header_bg"])
+        top.geometry("600x500")
+        top.configure(fg_color=BG_MAIN)
         top.grab_set()
+        
+        # Centrer la fenêtre
         top.update_idletasks()
-        W,H = 520,420; x = (top.winfo_screenwidth()//2)-(W//2); y = (top.winfo_screenheight()//2)-(H//2)
-        top.geometry(f"{W}x{H}+{x}+{y}")
-
-        wrap = ctk.CTkFrame(top, fg_color=THEME["card_bg"], corner_radius=16,
-                            border_width=1, border_color=THEME["border_color"])
-        wrap.pack(fill="both", expand=True, padx=14, pady=14)
-        wrap.grid_rowconfigure(5, weight=1)
-        wrap.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkLabel(wrap, text=f"{mode} une Matière",
-                     font=(FONT_FAMILY, FONT_SIZE_HEADER, "bold"),
-                     text_color=THEME["accent_blue"]).grid(row=0, column=0, sticky="w", padx=16, pady=(12,6))
-
-        ctk.CTkLabel(wrap, text="Nom", font=(FONT_FAMILY, FONT_SIZE_TEXT),
-                     text_color=THEME["primary_text"]).grid(row=1, column=0, sticky="w", padx=16, pady=(4,2))
-        entry_nom = ctk.CTkEntry(wrap, placeholder_text="Ex: Mathématiques",
-                                 font=(FONT_FAMILY, FONT_SIZE_TEXT),
-                                 fg_color=THEME["header_bg"], text_color=THEME["primary_text"],
-                                 border_color=THEME["border_color"])
-        entry_nom.grid(row=2, column=0, sticky="ew", padx=16, pady=(0,8))
-
-        ctk.CTkLabel(wrap, text="Description", font=(FONT_FAMILY, FONT_SIZE_TEXT),
-                     text_color=THEME["primary_text"]).grid(row=3, column=0, sticky="w", padx=16, pady=(6,2))
-        entry_desc = ctk.CTkTextbox(wrap, height=160,
-                                    fg_color=THEME["header_bg"], text_color=THEME["primary_text"],
-                                    border_color=THEME["border_color"])
-        try: entry_desc._textbox.configure(wrap="word")
-        except Exception: pass
-        entry_desc.grid(row=4, column=0, sticky="nsew", padx=16, pady=(0,8))
-
+        x = (top.winfo_screenwidth() // 2) - (600 // 2)
+        y = (top.winfo_screenheight() // 2) - (500 // 2)
+        top.geometry(f"600x500+{x}+{y}")
+        
+        # Container principal
+        main_frame = ctk.CTkFrame(top, fg_color=CARD_BG, corner_radius=20,
+                                 border_width=1, border_color=BORDER_COLOR)
+        main_frame.pack(fill="both", expand=True, padx=PADDING_CARD, pady=PADDING_CARD)
+        
+        # Header du formulaire
+        header_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, PADDING_LARGE))
+        
+        # Icône du formulaire (couleur différente)
+        form_icon = load_ctk_icon("book.png", (32, 32))
+        if form_icon:
+            icon_frame = ctk.CTkFrame(header_frame, fg_color=SUCCESS_GREEN, corner_radius=999, width=48, height=48)
+            icon_frame.pack_propagate(False)
+            icon_frame.pack(side="left", padx=(0, MARGIN_MEDIUM))
+            ctk.CTkLabel(icon_frame, text="", image=form_icon, fg_color="transparent").pack(expand=True)
+        
+        # Titre du formulaire
+        title_label = ctk.CTkLabel(header_frame, text=f"{mode} une Matière",
+                                  font=FONT_TITLE, text_color=TEXT_ACCENT)
+        title_label.pack(side="left")
+        
+        # Formulaire
+        form_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        form_frame.pack(fill="both", expand=True)
+        
+        # Champ nom
+        ctk.CTkLabel(form_frame, text="Nom de la matière", font=FONT_BUTTON, text_color=TEXT_PRIMARY).pack(anchor="w", pady=(0, MARGIN_SMALL))
+        entry_nom = ctk.CTkEntry(form_frame, placeholder_text="Ex: Mathématiques",
+                               font=FONT_PRIMARY, fg_color=BG_MAIN, text_color=TEXT_PRIMARY,
+                               border_color=BORDER_COLOR, corner_radius=12, height=45)
+        entry_nom.pack(fill="x", pady=(0, PADDING_MEDIUM))
+        
+        # Champ code
+        ctk.CTkLabel(form_frame, text="Code matière", font=FONT_BUTTON, text_color=TEXT_PRIMARY).pack(anchor="w", pady=(0, MARGIN_SMALL))
+        entry_code = ctk.CTkEntry(form_frame, placeholder_text="Ex: MATH001",
+                                 font=FONT_PRIMARY, fg_color=BG_MAIN, text_color=TEXT_PRIMARY,
+                                 border_color=BORDER_COLOR, corner_radius=12, height=45)
+        entry_code.pack(fill="x", pady=(0, PADDING_LARGE))
+        
+        # Pré-remplir si modification
         if mode == "Modifier" and data:
-            entry_nom.insert(0, data.get("nom",""))
-            entry_desc.insert("1.0", data.get("description",""))
-
-        btns = ctk.CTkFrame(wrap, fg_color="transparent")
-        btns.grid(row=6, column=0, pady=(4,10))
+            entry_nom.insert(0, data.get("nom_matiere", ""))
+            entry_code.insert(0, data.get("code_matiere", ""))
+        
+        # Boutons
+        buttons_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
+        buttons_frame.pack(fill="x", side="bottom")
+        
         def on_save():
             nom = entry_nom.get().strip()
-            desc = entry_desc.get("1.0","end-1c").strip()
+            code = entry_code.get().strip()
             if not nom:
-                messagebox.showerror("Erreur","Le nom de la matière est obligatoire.", parent=top)
+                messagebox.showerror("Erreur", "Le nom de la matière est obligatoire.", parent=top)
                 return
-            if len(nom)>100:
-                messagebox.showerror("Erreur","Nom trop long (max 100).", parent=top)
+            if len(nom) > 100:
+                messagebox.showerror("Erreur", "Nom trop long (max 100).", parent=top)
                 return
-            ok = add_matiere(nom, desc) if mode=="Ajouter" else update_matiere(data["id"], nom, desc)
+            
+            ok = add_matiere(nom, code) if mode == "Ajouter" else update_matiere(data["id_matiere"], nom, code)
             if ok:
-                messagebox.showinfo("Succès", f"Matière {'ajoutée' if mode=='Ajouter' else 'modifiée'} avec succès.", parent=top)
+                messagebox.showinfo("Succès", f"Matière {'ajoutée' if mode == 'Ajouter' else 'modifiée'} avec succès.", parent=top)
                 self.charger_matieres(self.var_search.get())
                 top.destroy()
             else:
-                messagebox.showerror("Erreur", f"{mode} impossible. Vérifiez l’unicité du nom.", parent=top)
-
-        ctk.CTkButton(btns, text="💾 Enregistrer", font=(FONT_FAMILY, FONT_SIZE_TEXT, "bold"),
-                      fg_color=THEME["accent_blue"], text_color=THEME["bg_main"],
-                      hover_color="#45b69c", command=on_save).pack(side="left", padx=6)
-        ctk.CTkButton(btns, text="❌ Annuler", font=(FONT_FAMILY, FONT_SIZE_TEXT, "bold"),
-                      fg_color=THEME["error_red"], text_color=THEME["primary_text"],
-                      hover_color="#dc2626", command=top.destroy).pack(side="left", padx=6)
-
+                messagebox.showerror("Erreur", f"{mode} impossible. Vérifiez l'unicité du nom.", parent=top)
+        
+        # Bouton enregistrer (style transparent comme cours_view)
+        save_icon = load_ctk_icon("check.png", (18, 18))
+        save_btn = ctk.CTkButton(buttons_frame, text="Enregistrer", image=save_icon, compound="left",
+                                font=FONT_BUTTON, fg_color="transparent", text_color=TEXT_PRIMARY,
+                                hover_color=HOVER_SUCCESS, command=on_save,
+                                corner_radius=12, height=45, border_width=2, border_color=BORDER_COLOR)
+        save_btn.pack(side="left", fill="x", expand=True, padx=(0, MARGIN_MEDIUM))
+        
+        # Bouton annuler (style transparent comme cours_view)
+        cancel_icon = load_ctk_icon("close.png", (18, 18))
+        cancel_btn = ctk.CTkButton(buttons_frame, text="Annuler", image=cancel_icon, compound="left",
+                                  font=FONT_BUTTON, fg_color="transparent", text_color=TEXT_PRIMARY,
+                                  hover_color=HOVER_PRIMARY, command=top.destroy,
+                                  corner_radius=12, height=45, border_width=2, border_color=BORDER_COLOR)
+        cancel_btn.pack(side="left", fill="x", expand=True, padx=(MARGIN_MEDIUM, 0))
+        
+        # Bindings clavier
         top.bind("<Escape>", lambda e: top.destroy())
         top.bind("<Return>", lambda e: on_save())
         top.bind("<Control-s>", lambda e: on_save())

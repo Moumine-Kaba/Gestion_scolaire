@@ -4,6 +4,28 @@ import threading
 import time
 from tkinter import messagebox
 import os
+import sys
+from PIL import Image
+
+# Import du thème global
+try:
+    # Ajouter le chemin racine au sys.path
+    root_path = os.path.join(os.path.dirname(__file__), '../../../../..')
+    sys.path.insert(0, root_path)
+    
+    from resources.themes.theme import *
+    print("✅ Thème global importé pour les notifications")
+except ImportError as e:
+    print(f"⚠️ Erreur import thème: {e}")
+    # Fallback avec constantes locales
+    BG_MAIN = "#0A192F"
+    CARD_BG = "#0b1d34"
+    ACCENT = "#64FFDA"
+    TEXT = "#E2E8F0"
+    MUTED = "#8aa0b8"
+    SUCCESS_GREEN = "#059669"
+    ERROR_RED = "#DC2626"
+    WARNING_YELLOW = "#D97706"
 
 class CourseHistoryManager:
     """Gestionnaire de l'historique des cours terminés"""
@@ -47,6 +69,7 @@ class NotificationManager:
         self.parent = parent_widget
         self.notifications = []
         self.notification_frame = None
+        self.icons = self._load_notification_icons()
         self.setup_notification_area()
     
     def setup_notification_area(self):
@@ -60,6 +83,42 @@ class NotificationManager:
         )
         self.notification_frame.place(relx=1.0, rely=0.0, anchor="ne", x=-20, y=20)
         self.notification_frame.pack_propagate(False)
+    
+    def _load_notification_icons(self):
+        """Charge les icônes pour les notifications"""
+        icons = {}
+        try:
+            # Chemin vers les icônes
+            icons_path = os.path.join(os.path.dirname(__file__), '../../../../../../resources/icons')
+            
+            # Icônes pour les notifications
+            icon_files = {
+                'bell': 'bell.png',
+                'check_circle': 'check_circle.png',
+                'clock': 'clock_icon.png',
+                'book': 'book.png',
+                'person': 'person.png',
+                'classroom': 'classroom.png',
+                'close': 'close.png',
+                'view': 'view.png'
+            }
+            
+            for key, filename in icon_files.items():
+                icon_path = os.path.join(icons_path, filename)
+                if os.path.exists(icon_path):
+                    try:
+                        image = Image.open(icon_path)
+                        icons[key] = ctk.CTkImage(light_image=image, dark_image=image, size=(20, 20))
+                    except Exception as e:
+                        print(f"⚠️ Erreur chargement icône {filename}: {e}")
+                        icons[key] = None
+                else:
+                    icons[key] = None
+                    
+        except Exception as e:
+            print(f"⚠️ Erreur chargement icônes notifications: {e}")
+            
+        return icons
     
     def add_notification(self, course_data, notification_type="course_end"):
         """Ajoute une nouvelle notification"""
@@ -76,100 +135,159 @@ class NotificationManager:
         self.parent.after(10000, lambda: self.remove_notification(notification_id))
     
     def create_notification_widget(self, course_data, notification_type, notification_id):
-        """Crée le widget de notification"""
-        # Couleurs selon le type
+        """Crée le widget de notification avec thème EduManager+"""
+        # Couleurs selon le type (thème EduManager+)
         if notification_type == "course_end":
-            bg_color = "#F85149"  # Rouge pour fin de cours
-            icon_text = "🎓"
+            bg_color = ERROR_RED  # Rouge pour fin de cours
+            icon = self.icons.get('check_circle')
             title_text = "COURS TERMINÉ"
         elif notification_type == "course_start":
-            bg_color = "#3FB950"  # Vert pour début de cours
-            icon_text = "🚀"
+            bg_color = SUCCESS_GREEN  # Vert pour début de cours
+            icon = self.icons.get('clock')
             title_text = "COURS DÉMARRÉ"
         else:
-            bg_color = "#00D4FF"  # Bleu par défaut
-            icon_text = "📢"
+            bg_color = ACCENT  # Cyan par défaut
+            icon = self.icons.get('bell')
             title_text = "NOTIFICATION"
         
-        # Frame principal de la notification
+        # Frame principal de la notification (thème EduManager+)
         notification_widget = ctk.CTkFrame(
             self.notification_frame,
-            fg_color=bg_color,
-            corner_radius=12,
+            fg_color=CARD_BG,
+            border_color=bg_color,
             border_width=2,
-            border_color="#FFFFFF",
-            height=80
+            corner_radius=15,
+            height=90
         )
         
         # Header avec icône et titre
         header_frame = ctk.CTkFrame(notification_widget, fg_color="transparent")
         header_frame.pack(fill="x", padx=10, pady=(8, 4))
         
-        # Icône et titre
-        icon_label = ctk.CTkLabel(
-            header_frame,
-            text=icon_text,
-            font=("Segoe UI", 16),
-            text_color="#FFFFFF",
-            fg_color="transparent"
-        )
-        icon_label.pack(side="left")
+        # Icône (si disponible) et titre
+        if icon:
+            icon_label = ctk.CTkLabel(
+                header_frame,
+                image=icon,
+                text=""
+            )
+            icon_label.pack(side="left")
+        else:
+            # Fallback avec emoji
+            icon_label = ctk.CTkLabel(
+                header_frame,
+                text="🎓" if notification_type == "course_end" else "🚀" if notification_type == "course_start" else "📢",
+                font=("Segoe UI", 16),
+                text_color=bg_color
+            )
+            icon_label.pack(side="left")
         
         title_label = ctk.CTkLabel(
             header_frame,
             text=title_text,
             font=("Segoe UI", 12, "bold"),
-            text_color="#FFFFFF",
+            text_color=TEXT,
             fg_color="transparent"
         )
         title_label.pack(side="left", padx=(8, 0))
         
-        # Bouton fermer
-        close_btn = ctk.CTkButton(
-            header_frame,
-            text="✕",
-            font=("Segoe UI", 10, "bold"),
-            fg_color="transparent",
-            text_color="#FFFFFF",
-            hover_color="#CCCCCC",
-            command=lambda: self.remove_notification(notification_id),
-            width=20,
-            height=20,
-            corner_radius=10
-        )
+        # Bouton fermer avec icône
+        close_icon = self.icons.get('close')
+        if close_icon:
+            close_btn = ctk.CTkButton(
+                header_frame,
+                image=close_icon,
+                text="",
+                width=25,
+                height=25,
+                fg_color="transparent",
+                hover_color=MUTED,
+                command=lambda: self.remove_notification(notification_id)
+            )
+        else:
+            close_btn = ctk.CTkButton(
+                header_frame,
+                text="✕",
+                font=("Segoe UI", 10, "bold"),
+                fg_color="transparent",
+                text_color=TEXT,
+                hover_color=MUTED,
+                command=lambda: self.remove_notification(notification_id),
+                width=20,
+                height=20,
+                corner_radius=10
+            )
         close_btn.pack(side="right")
         
         # Contenu de la notification
         content_frame = ctk.CTkFrame(notification_widget, fg_color="transparent")
         content_frame.pack(fill="x", padx=10, pady=(0, 8))
         
-        # Informations du cours
-        info_text = f"📚 {course_data.get('matiere_nom', 'Inconnue')}\n"
-        info_text += f"👨‍🏫 {course_data.get('professeur_nom', 'Inconnu')}\n"
-        info_text += f"🏫 {course_data.get('classe_nom', 'Inconnue')} • 🚪 {course_data.get('salle_nom', 'N/A')}"
+        # Informations du cours avec icônes
+        course_info_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        course_info_frame.pack(fill="x")
         
-        info_label = ctk.CTkLabel(
-            content_frame,
-            text=info_text,
+        # Matière avec icône livre
+        book_icon = self.icons.get('book')
+        if book_icon:
+            book_label = ctk.CTkLabel(course_info_frame, image=book_icon, text="")
+            book_label.pack(side="left")
+        
+        course_info = f"{course_data.get('matiere_nom', 'Matière')} - {course_data.get('professeur_nom', 'Professeur')}"
+        course_label = ctk.CTkLabel(
+            course_info_frame,
+            text=course_info,
+            font=("Segoe UI", 11, "bold"),
+            text_color=TEXT
+        )
+        course_label.pack(side="left", padx=(5, 0))
+        
+        # Informations supplémentaires avec icônes
+        extra_info_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        extra_info_frame.pack(fill="x", pady=(2, 0))
+        
+        # Salle avec icône
+        classroom_icon = self.icons.get('classroom')
+        if classroom_icon:
+            classroom_label = ctk.CTkLabel(extra_info_frame, image=classroom_icon, text="")
+            classroom_label.pack(side="left")
+        
+        extra_info = f"Salle: {course_data.get('salle_nom', 'Non spécifiée')} | Classe: {course_data.get('classe_nom', 'Inconnue')}"
+        extra_label = ctk.CTkLabel(
+            extra_info_frame,
+            text=extra_info,
             font=("Segoe UI", 10),
-            text_color="#FFFFFF",
-            fg_color="transparent",
-            anchor="w"
+            text_color=MUTED
         )
-        info_label.pack(fill="x")
+        extra_label.pack(side="left", padx=(5, 0))
         
-        # Bouton d'action
-        action_btn = ctk.CTkButton(
-            notification_widget,
-            text="Voir détails",
-            font=("Segoe UI", 10, "bold"),
-            fg_color="#333333",
-            text_color="#FFFFFF",
-            hover_color="#555555",
-            command=lambda: self.show_course_details(course_data),
-            height=25,
-            corner_radius=8
-        )
+        # Bouton d'action avec icône
+        view_icon = self.icons.get('view')
+        if view_icon:
+            action_btn = ctk.CTkButton(
+                notification_widget,
+                image=view_icon,
+                text="Voir détails",
+                font=("Segoe UI", 10, "bold"),
+                fg_color=bg_color,
+                text_color=TEXT,
+                hover_color=ACCENT,
+                command=lambda: self.show_course_details(course_data),
+                height=25,
+                corner_radius=8
+            )
+        else:
+            action_btn = ctk.CTkButton(
+                notification_widget,
+                text="Voir détails",
+                font=("Segoe UI", 10, "bold"),
+                fg_color=bg_color,
+                text_color=TEXT,
+                hover_color=ACCENT,
+                command=lambda: self.show_course_details(course_data),
+                height=25,
+                corner_radius=8
+            )
         action_btn.pack(fill="x", padx=10, pady=(0, 8))
         
         return {
@@ -283,9 +401,10 @@ class CourseHistoryWindow:
         
         self.window = ctk.CTkToplevel(self.parent)
         self.window.title("📚 Historique des Cours Terminés")
-        self.window.geometry("800x600")
+        self.window.geometry("840x640")
         self.window.transient(self.parent)
         self.window.grab_set()
+        self.window.configure(fg_color=BG_MAIN)
         
         # Titre
         title_frame = ctk.CTkFrame(self.window, fg_color="transparent")
@@ -294,44 +413,49 @@ class CourseHistoryWindow:
         title_label = ctk.CTkLabel(
             title_frame,
             text="📚 Historique des Cours Terminés",
-            font=("Segoe UI", 20, "bold"),
-            text_color="#00D4FF"
+            font=("Segoe UI", 22, "bold"),
+            text_color=TEXT_ACCENT
         )
         title_label.pack(side="left")
         
-        # Bouton fermer
+        # Bouton fermer (avec icône)
         close_btn = ctk.CTkButton(
             title_frame,
-            text="✕",
-            font=("Segoe UI", 12, "bold"),
-            fg_color="#F85149",
-            text_color="#FFFFFF",
-            hover_color="#E03E3E",
+            text="Fermer",
+            image=self._load_icon("close.png", 18),
+            fg_color="transparent",
+            hover_color=BG_CARD_HOVER,
             command=self.window.destroy,
-            width=30,
-            height=30,
-            corner_radius=15
+            width=36,
+            height=36,
+            corner_radius=10,
+            border_width=1,
+            border_color=BORDER_COLOR
         )
         close_btn.pack(side="right")
         
-        # Bouton nettoyer
+        # Bouton nettoyer (avec icône)
         clear_btn = ctk.CTkButton(
             title_frame,
-            text="🧹 Nettoyer",
+            text="Nettoyer",
             font=("Segoe UI", 12, "bold"),
-            fg_color="#8B949E",
-            text_color="#FFFFFF",
-            hover_color="#6E7681",
+            fg_color=BG_CARD,
+            text_color=TEXT_PRIMARY,
+            hover_color=BG_CARD_HOVER,
             command=self.clear_history,
-            width=100,
-            height=30,
-            corner_radius=15
+            width=110,
+            height=36,
+            corner_radius=12,
+            border_width=1,
+            border_color=BORDER_COLOR,
+            image=self._load_icon("broom.png", 18) or self._load_icon("clean.png", 18)
         )
         clear_btn.pack(side="right", padx=(0, 10))
         
-        # Frame pour la liste
-        list_frame = ctk.CTkScrollableFrame(self.window, fg_color="transparent")
+        # Frame pour la liste (grille 2 colonnes)
+        list_frame = ctk.CTkScrollableFrame(self.window, fg_color=BG_CARD, corner_radius=16, border_width=1, border_color=BORDER_COLOR)
         list_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        list_frame.grid_columnconfigure((0, 1), weight=1, uniform="cols")
         
         # Charger et afficher les cours terminés
         self.load_completed_courses(list_frame)
@@ -351,22 +475,28 @@ class CourseHistoryWindow:
             no_courses_label.pack(pady=50)
             return
         
-        # Afficher les cours terminés (du plus récent au plus ancien)
-        for course in reversed(completed_courses):
-            self.create_course_item(parent_frame, course)
+        # Afficher les cours terminés (du plus récent au plus ancien) en 2 colonnes
+        for idx, course in enumerate(reversed(completed_courses)):
+            row = idx // 2
+            col = idx % 2
+            self.create_course_item(parent_frame, course, grid_position=(row, col))
     
-    def create_course_item(self, parent_frame, course):
+    def create_course_item(self, parent_frame, course, grid_position=None):
         """Crée un élément de cours terminé"""
         # Frame principal
         course_frame = ctk.CTkFrame(
             parent_frame,
-            fg_color="#21262D",
+            fg_color=BG_CARD,
             corner_radius=12,
-            border_width=2,
-            border_color="#30363D",
-            height=100
+            border_width=1,
+            border_color=BORDER_COLOR,
+            height=110
         )
-        course_frame.pack(fill="x", padx=5, pady=5)
+        if grid_position is None:
+            course_frame.pack(fill="x", padx=5, pady=5)
+        else:
+            r, c = grid_position
+            course_frame.grid(row=r, column=c, padx=8, pady=8, sticky="nsew")
         course_frame.pack_propagate(False)
         
         # Header avec icône et titre
@@ -374,13 +504,11 @@ class CourseHistoryWindow:
         header_frame.pack(fill="x", padx=15, pady=(10, 5))
         
         # Icône
-        icon_label = ctk.CTkLabel(
-            header_frame,
-            text="🎓",
-            font=("Segoe UI", 20),
-            text_color="#F85149",
-            fg_color="transparent"
-        )
+        icon_img = self._load_icon("check_circle.png", 20)
+        if icon_img:
+            icon_label = ctk.CTkLabel(header_frame, text="", image=icon_img, fg_color="transparent")
+        else:
+            icon_label = ctk.CTkLabel(header_frame, text="✅", font=("Segoe UI", 18), text_color=TEXT_ACCENT, fg_color="transparent")
         icon_label.pack(side="left")
         
         # Titre
@@ -388,7 +516,7 @@ class CourseHistoryWindow:
             header_frame,
             text=f"{course['matiere_nom']} - {course['professeur_nom']}",
             font=("Segoe UI", 14, "bold"),
-            text_color="#FFFFFF",
+            text_color=TEXT_PRIMARY,
             fg_color="transparent"
         )
         title_label.pack(side="left", padx=(10, 0))
@@ -398,7 +526,7 @@ class CourseHistoryWindow:
             header_frame,
             text=f"Terminé à {course['completed_at']}",
             font=("Segoe UI", 12),
-            text_color="#8B949E",
+            text_color=TEXT_SECONDARY,
             fg_color="transparent"
         )
         time_label.pack(side="right")
@@ -407,15 +535,26 @@ class CourseHistoryWindow:
         details_frame = ctk.CTkFrame(course_frame, fg_color="transparent")
         details_frame.pack(fill="x", padx=15, pady=(0, 10))
         
-        details_text = f"🏫 {course['classe_nom']} • 🚪 {course['salle_nom']} • ⏰ {course['duree']} min • 📅 {course['jour']} {course['heure']}"
+        details_text = f"{course['classe_nom']} • {course['salle_nom']} • {course['duree']} min • {course['jour']} {course['heure']}"
         details_label = ctk.CTkLabel(
             details_frame,
             text=details_text,
             font=("Segoe UI", 11),
-            text_color="#8B949E",
+            text_color=TEXT_SECONDARY,
             fg_color="transparent"
         )
         details_label.pack(anchor="w")
+
+    def _load_icon(self, filename, size):
+        try:
+            icons_path = os.path.join(os.path.dirname(__file__), '../../../../../../resources/icons')
+            path = os.path.join(icons_path, filename)
+            if os.path.exists(path):
+                img = Image.open(path)
+                return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
+        except Exception as e:
+            print(f"⚠️ Erreur chargement icône historique: {e}")
+        return None
     
     def clear_history(self):
         """Nettoie l'historique"""
@@ -451,6 +590,7 @@ class CourseTimer:
         self.is_running = False
         self.timer_thread = None
         self.current_time = datetime.now()
+        self._has_announced_end = False  # éviter les notifications en boucle
         
         # Widgets du minuteur
         self.timer_frame = None
@@ -519,6 +659,10 @@ class CourseTimer:
         """Boucle principale du minuteur"""
         while self.is_running:
             try:
+                # Si le parent ou les widgets n'existent plus, arrêter proprement
+                if not self._widget_exists(self.parent) or (self.timer_frame and not self._widget_exists(self.timer_frame)):
+                    self.stop_timer()
+                    break
                 self.current_time = datetime.now()
                 self._update_timer()
                 time.sleep(1)  # Mise à jour chaque seconde
@@ -568,11 +712,16 @@ class CourseTimer:
                 # Couleur rouge pour terminé
                 timer_color = "#F85149"
                 
-                # Déclencher l'alerte de fin de cours
-                self._trigger_course_end_alert()
+                # Déclencher l'alerte de fin de cours (une seule fois)
+                if not self._has_announced_end:
+                    self._has_announced_end = True
+                    self._trigger_course_end_alert()
+                    # Arrêter le minuteur pour éviter les callbacks récurrents
+                    self.stop_timer()
             
-            # Mise à jour des widgets (thread-safe)
-            self.parent.after(0, self._update_widgets, current_time_text, timer_text, status_text, timer_color)
+            # Mise à jour des widgets (thread-safe) si parent existe
+            if self._widget_exists(self.parent):
+                self.parent.after(0, self._update_widgets, current_time_text, timer_text, status_text, timer_color)
             
         except Exception as e:
             print(f"Erreur mise à jour minuteur: {e}")
@@ -580,9 +729,9 @@ class CourseTimer:
     def _update_widgets(self, current_time_text, timer_text, status_text, timer_color):
         """Met à jour les widgets de manière thread-safe"""
         try:
-            if self.current_time_label:
+            if self.current_time_label and self._widget_exists(self.current_time_label):
                 self.current_time_label.configure(text=current_time_text)
-            if self.timer_label and self.status_label:
+            if self.timer_label and self.status_label and self._widget_exists(self.timer_label) and self._widget_exists(self.status_label):
                 self.timer_label.configure(text=timer_text, text_color=timer_color)
                 self.status_label.configure(text=status_text)
         except Exception as e:
@@ -593,7 +742,13 @@ class CourseTimer:
         try:
             # Ajouter à l'historique des cours terminés
             if self.history_manager:
-                self.history_manager.add_completed_course(self.course_data)
+                try:
+                    # éviter les doublons simples consécutifs
+                    existing = self.history_manager.get_recent_courses(limit=1)
+                    if not existing or existing[-1].get('id') != self.course_data.get('id'):
+                        self.history_manager.add_completed_course(self.course_data)
+                except Exception:
+                    self.history_manager.add_completed_course(self.course_data)
             
             # Utiliser le système de notifications si disponible
             if self.notification_manager:
@@ -617,7 +772,7 @@ Le cours est maintenant terminé."""
                 self.parent.after(0, lambda: messagebox.showinfo("Cours Terminé", alert_message))
             
             # Callback personnalisé si fourni
-            if self.on_course_end:
+            if self.on_course_end and self._widget_exists(self.parent):
                 self.parent.after(0, lambda: self.on_course_end(self.course_data))
                 
         except Exception as e:
@@ -648,8 +803,27 @@ Le cours est maintenant terminé."""
     def destroy(self):
         """Nettoie le minuteur"""
         self.stop_timer()
-        if self.timer_frame:
-            self.timer_frame.destroy()
+        # Attendre brièvement que le thread s'arrête pour éviter des callbacks tardifs
+        try:
+            if self.timer_thread and self.timer_thread.is_alive():
+                self.timer_thread.join(timeout=0.2)
+        except Exception:
+            pass
+        if self.timer_frame and self._widget_exists(self.timer_frame):
+            try:
+                self.timer_frame.destroy()
+            except Exception:
+                pass
+        # Libérer les références pour éviter des updates
+        self.current_time_label = None
+        self.timer_label = None
+        self.status_label = None
+
+    def _widget_exists(self, widget):
+        try:
+            return bool(widget) and widget.winfo_exists()
+        except Exception:
+            return False
 
 class CourseTimerManager:
     """Gestionnaire global des minuteurs de cours"""
@@ -658,6 +832,7 @@ class CourseTimerManager:
         self.active_timers = {}
         self.notification_manager = None
         self.history_manager = CourseHistoryManager()
+        self._listeners = []  # callbacks on course end
         
         # Créer le gestionnaire de notifications si un parent est fourni
         if parent_widget:
@@ -686,7 +861,25 @@ class CourseTimerManager:
     
     def _on_course_end(self, course_data):
         """Callback appelé à la fin d'un cours"""
-        # Log supprimé - maintenant géré visuellement
+        # Notifier les auditeurs inscrits
+        try:
+            for listener in list(self._listeners):
+                try:
+                    listener(course_data)
+                except Exception as e:
+                    print(f"Erreur listener fin de cours: {e}")
+        except Exception as e:
+            print(f"Erreur notification des listeners: {e}")
+
+    def add_listener(self, callback):
+        """Ajoute un callback appelé quand un cours se termine."""
+        if callable(callback) and callback not in self._listeners:
+            self._listeners.append(callback)
+
+    def remove_listener(self, callback):
+        """Retire un callback inscrit."""
+        if callback in self._listeners:
+            self._listeners.remove(callback)
     
     def cleanup_all(self):
         """Nettoie tous les minuteurs"""

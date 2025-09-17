@@ -3,8 +3,8 @@ from tkinter import messagebox
 from datetime import datetime
 import sqlite3
 
-# Le chemin de la base de données est géré par la configuration utilisateur
-DB_PATH = r"C:\Users\Lenovo\Desktop\EduManager+\database\edumanager.db"
+# Le chemin de la base de données
+DB_PATH = r"database/edumanager.db"
 
 # --- CONTROLLERS (fonctions pour la base de données) ---
 

@@ -1,6 +1,6 @@
 import sqlite3
-# Note : Le chemin de la base de données est maintenant géré par l'instruction de l'utilisateur.
-DB_PATH = r"C:\Users\Lenovo\Desktop\EduManager+\database\edumanager.db"
+# Le chemin de la base de données
+DB_PATH = r"database/edumanager.db"
 
 def get_all_emplois():
     """

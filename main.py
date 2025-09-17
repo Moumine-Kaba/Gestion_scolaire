@@ -19,6 +19,23 @@ def main():
 
     print("🚀 Démarrage d'EduManager+...")
     print("✅ Vérifications terminées")
+    # Préchargement des données académiques pour accélérer les vues
+    try:
+        from src.modules.academic.classes.controllers.cours_controller import preload_academic_cache
+        from src.modules.academic.teachers.controllers.professeur_controller import preload_professeurs_cache
+        from src.modules.academic.classes.controllers.classe_controller import preload_classes_cache
+        from src.modules.academic.subjects.controllers.matiere_controller import preload_matieres_cache
+        from src.modules.administrative.maintenance.controllers.salle_controller import preload_salles_cache
+        from src.modules.academic.students.controllers.eleve_controller import preload_eleves_cache
+
+        preload_academic_cache()
+        preload_professeurs_cache()
+        preload_classes_cache()
+        preload_matieres_cache()
+        preload_salles_cache()
+        preload_eleves_cache()
+    except Exception as e:
+        print(f"⚠️ Préchargement académique ignoré: {e}")
     print("🚀 Lancement de l'application...")
 
     try:

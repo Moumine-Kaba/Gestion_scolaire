@@ -28,7 +28,26 @@ Système de minuteur/compteur dynamique pour le planning de cours avec :
 - ✅ **Performance optimisée** sans erreurs de rendu
 - ✅ **Stabilité garantie** pour tous les environnements
 
-## 🎯 Dernières Améliorations
+## 🎯 Dernières Améliorations Finales
+
+### 🎨 Design des Notifications avec Icônes et Thème EduManager+
+- **Icônes réelles** : Utilisation des icônes PNG de votre dossier `resources/icons/`
+- **Thème EduManager+** : Couleurs cohérentes avec votre thème sombre
+- **Design professionnel** : Notifications avec bordures colorées et coins arrondis
+- **Icônes contextuelles** : 
+  - 🔔 `bell.png` pour les notifications générales
+  - ✅ `check_circle.png` pour les cours terminés
+  - 🕐 `clock_icon.png` pour les cours démarrés
+  - 📚 `book.png` pour les matières
+  - 🏫 `classroom.png` pour les salles
+  - 👁️ `view.png` pour le bouton détails
+  - ❌ `close.png` pour fermer
+
+### 🔧 Corrections CRUD Complètes
+- **Modifier** : Formulaire pré-rempli avec données existantes
+- **Supprimer** : Confirmation et gestion d'erreurs améliorée
+- **Validation** : Vérification des données avant sauvegarde
+- **Feedback** : Messages de succès/erreur appropriés
 
 ### ⏰ Heure en Temps Réel
 - **Heure actuelle** affichée en gros (20pt) en haut de chaque carte
@@ -279,9 +298,9 @@ Le système utilise des threads pour la mise à jour en temps réel :
 - **Nettoyage automatique** des ressources
 - **Logs détaillés** pour le débogage
 
-## 🎉 Résultat Final
+## 🎉 Résultat Final Complet
 
-Un système de minuteur et notifications professionnel qui :
+Un système de minuteur et notifications **ultra-professionnel** qui :
 - ✅ Affiche le temps restant avant le cours
 - ✅ Compte le temps écoulé pendant le cours
 - ✅ Notifie élégamment à la fin (sans popups intrusifs)
@@ -298,5 +317,10 @@ Un système de minuteur et notifications professionnel qui :
 - ✅ **Heure actuelle** affichée en temps réel (20pt)
 - ✅ **Minuteur contextuel** avec informations détaillées
 - ✅ **Interface silencieuse** - notifications visuelles uniquement
+- ✅ **Icônes réelles** de votre dossier `resources/icons/`
+- ✅ **Thème EduManager+** cohérent avec votre design
+- ✅ **CRUD complet** : Ajouter, Modifier, Supprimer fonctionnels
+- ✅ **Formulaire pré-rempli** en mode modification
+- ✅ **Validation et feedback** appropriés
 
-Parfait pour un planning de cours professionnel et moderne ! 🎓✨
+**Parfait pour un planning de cours professionnel et moderne !** 🎓✨

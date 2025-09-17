@@ -9,6 +9,19 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 from tkinter import Toplevel
 from CTkTable import CTkTable
+from datetime import datetime
+
+# Import du système d'optimisation
+try:
+    from src.core.database.optimized_queries import (
+        get_all_eleves_fast, get_all_classes_fast, get_all_matieres_fast, 
+        get_notes_by_eleve_fast
+    )
+    print("✅ Requêtes optimisées importées pour NotesView")
+    USE_OPTIMIZED_QUERIES = True
+except ImportError as e:
+    print(f"⚠️ Requêtes optimisées non disponibles: {e}")
+    USE_OPTIMIZED_QUERIES = False
 
 # Assurez-vous que ces chemins sont corrects pour votre structure de projet
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -17,34 +30,48 @@ from src.modules.academic.students.controllers.eleve_controller import get_all_e
 from src.modules.academic.subjects.controllers.matiere_controller import get_all_matieres
 from src.modules.academic.classes.controllers.classe_controller import get_all_classes
 
-# =================== IMPORT THEME ET COULEURS NEUMORPHISM =====================
-THEME = {
-    "bg_main": "#233146",
-    "header_bg":"#0A192F",
-    "card_bg": "#2b2952",
-    "border_color": "#40546c",
-    "accent_blue": "#64FFDA",
-    "primary_text": "#E0E6F0",
-    "secondary_text": "#AAB5C6",
-    "error_red": "#FF6363",
-    "success_green": "#A0E7E5",
-    "warning_yellow": "#FFD700",
-    "info_orange": "#F97316",
-    "select_highlight": "#30435b",
-}
-FONT_FAMILY = "Segoe UI"
-FONT_SIZE_HEADER = 22
-FONT_SIZE_SUBHEADER = 18
-FONT_SIZE_TEXT = 14
+# Import du thème global
+try:
+    from resources.themes.theme import *
+    print("✅ Thème global importé pour les notes")
+except ImportError as e:
+    print(f"⚠️ Thème global non trouvé: {e}")
+    # Thème de fallback
+    BG_MAIN = "#233146"
+    BG_CARD = "#2b2952"
+    TEXT_PRIMARY = "#E0E6F0"
+    TEXT_SECONDARY = "#AAB5C6"
+    TEXT_ACCENT = "#64FFDA"
+    BORDER_COLOR = "#40546c"
+    SUCCESS_GREEN = "#A0E7E5"
+    WARNING_YELLOW = "#FFD700"
+    ERROR_RED = "#FF6363"
+    ACCENT = "#64FFDA"
+    MARGIN_SMALL = 8
+    MARGIN_MEDIUM = 12
+    MARGIN_LARGE = 20
+    FONT = "Segoe UI"
+    FONT_SIZE_TITLE = 24
+    FONT_SIZE_HEADER = 18
+    FONT_SIZE_TEXT = 14
+    FONT_SIZE_SMALL = 12
 
 def load_ctk_icon(icon_name, size=(20, 20)):
     try:
         from PIL import Image
-        ICON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "icons")
-        path = os.path.join(ICON_PATH, icon_name)
-        image = Image.open(path).resize(size, Image.Resampling.LANCZOS)
-        return ctk.CTkImage(light_image=image, dark_image=image)
-    except Exception:
+        # Chemin vers les icônes dans resources/icons
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))))
+        icon_path = os.path.join(project_root, "resources", "icons", icon_name)
+        
+        if os.path.exists(icon_path):
+            image = Image.open(icon_path).resize(size, Image.Resampling.LANCZOS)
+            return ctk.CTkImage(light_image=image, dark_image=image)
+        else:
+            print(f"⚠️ Icône non trouvée: {icon_path}")
+            return None
+    except Exception as e:
+        print(f"⚠️ Erreur chargement icône {icon_name}: {e}")
         return None
 
 ICON_MAP = {
@@ -57,7 +84,7 @@ ICON_MAP = {
     
 class NotesView(ctk.CTkFrame):
     def __init__(self, parent, icons):
-        super().__init__(parent, fg_color=THEME["bg_main"])
+        super().__init__(parent, fg_color=BG_MAIN)
         self.icons = icons
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -66,16 +93,72 @@ class NotesView(ctk.CTkFrame):
         self.selected_eleve_data = None
         self.selected_note_id = None
         
-        self.eleves = {e["id"]: e for e in get_all_eleves()}
-        self.classes = {c["id"]: c for c in get_all_classes()}
-        self.matieres = {m["id"]: m for m in get_all_matieres()}
-
+        # Cache pour optimiser les performances
+        self._data_cache = {}
+        self._cache_timestamp = 0
+        self._cache_duration = 30  # Cache valide pendant 30 secondes
+        
+        print("🚀 Chargement des données NotesView...")
+        
+        # Chargement initial des données avec cache
+        self._load_cached_data()
+        
+        print("✅ Données NotesView chargées")
         self._build_main_ui()
 
+    def _load_cached_data(self):
+        """Charge les données avec système de cache pour optimiser les performances"""
+        import time
+        current_time = time.time()
+        
+        # Vérifier si le cache est encore valide
+        if (current_time - self._cache_timestamp) < self._cache_duration and self._data_cache:
+            print("📋 Utilisation du cache pour les données")
+            self.eleves = self._data_cache.get('eleves', {})
+            self.classes = self._data_cache.get('classes', {})
+            self.matieres = self._data_cache.get('matieres', {})
+            return
+        
+        print("🔄 Chargement des données depuis la base...")
+        try:
+            # Utiliser les requêtes optimisées si disponibles
+            if USE_OPTIMIZED_QUERIES:
+                eleves_data = get_all_eleves_fast()
+                classes_data = get_all_classes_fast()
+                matieres_data = get_all_matieres_fast()
+            else:
+                # Fallback vers les requêtes normales
+                eleves_data = get_all_eleves()
+                classes_data = get_all_classes()
+                matieres_data = get_all_matieres()
+            
+            # Conversion en dictionnaires pour un accès rapide
+            self.eleves = {e["id"]: e for e in eleves_data} if eleves_data else {}
+            self.classes = {c["id"]: c for c in classes_data} if classes_data else {}
+            self.matieres = {m["id"]: m for m in matieres_data} if matieres_data else {}
+            
+            # Mise à jour du cache
+            self._data_cache = {
+                'eleves': self.eleves,
+                'classes': self.classes,
+                'matieres': self.matieres
+            }
+            self._cache_timestamp = current_time
+            
+            print(f"✅ Données chargées: {len(self.eleves)} élèves, {len(self.classes)} classes, {len(self.matieres)} matières")
+            
+        except Exception as e:
+            print(f"⚠️ Erreur chargement données: {e}")
+            # Fallback avec données vides
+            self.eleves = {}
+            self.classes = {}
+            self.matieres = {}
+
     def _refresh_all(self):
-        self.eleves = {e["id"]: e for e in get_all_eleves()}
-        self.classes = {c["id"]: c for c in get_all_classes()}
-        self.matieres = {m["id"]: m for m in get_all_matieres()}
+        """Rafraîchit toutes les données en invalidant le cache"""
+        print("🔄 Rafraîchissement des données...")
+        self._cache_timestamp = 0  # Invalider le cache
+        self._load_cached_data()
         
         self.selected_eleve_data = None
         self.selected_note_id = None
@@ -92,7 +175,7 @@ class NotesView(ctk.CTkFrame):
         main_frame.grid_rowconfigure(0, weight=1)
 
         # Panneau de gauche: Sélection des élèves
-        left_panel = ctk.CTkFrame(main_frame, fg_color=THEME["header_bg"], corner_radius=12)
+        left_panel = ctk.CTkFrame(main_frame, fg_color=BG_CARD, corner_radius=12)
         left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         left_panel.grid_columnconfigure(0, weight=1)
         left_panel.grid_rowconfigure(2, weight=1)
@@ -104,7 +187,7 @@ class NotesView(ctk.CTkFrame):
         right_panel.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
         right_panel.grid_columnconfigure(0, weight=1)
         right_panel.grid_rowconfigure(0, weight=1)
-        right_panel.grid_rowconfigure(1, weight=1)
+        right_panel.grid_rowconfigure(1, weight=4)
         
         self._build_notes_dashboard(right_panel)
         
@@ -113,36 +196,43 @@ class NotesView(ctk.CTkFrame):
         header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
         header_frame.grid_columnconfigure(0, weight=1)
         
-        ctk.CTkLabel(header_frame, text="SÉLECTIONNER UN ÉLÈVE", 
-                      font=(FONT_FAMILY, FONT_SIZE_SUBHEADER, "bold"),
-                      text_color=THEME["primary_text"]).grid(row=0, column=0, sticky="w")
+        # Titre avec icône
+        title_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        title_frame.grid(row=0, column=0, sticky="w")
+        
+        student_icon = load_ctk_icon(ICON_MAP.get("student"), size=(20, 20))
+        ctk.CTkLabel(title_frame, text="", image=student_icon).pack(side="left", padx=(0, 8))
+        ctk.CTkLabel(title_frame, text="NOTES DES ÉLÈVES", 
+                      font=(FONT, FONT_SIZE_HEADER, "bold"),
+                      text_color=TEXT_PRIMARY).pack(side="left")
         
         refresh_icon = load_ctk_icon(ICON_MAP.get("refresh"), size=(20, 20))
         ctk.CTkButton(header_frame, text="", image=refresh_icon, width=35,
-                      fg_color="transparent", hover_color=THEME["select_highlight"],
+                      fg_color="transparent", hover_color=BORDER_COLOR,
                       command=self._refresh_all).grid(row=0, column=1, sticky="e")
         
         selection_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
         selection_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
-        selection_frame.grid_columnconfigure((0, 1), weight=1, uniform="selection_col")
+        selection_frame.grid_columnconfigure(0, weight=55)
+        selection_frame.grid_columnconfigure(1, weight=45)
         
-        classe_options = ["Sélectionnez une classe..."] + [c["nom"] for c in self.classes.values()]
+        classe_options = ["Classe..."] + [c["nom"] for c in self.classes.values()]
         self.classe_dropdown = ctk.CTkComboBox(
             selection_frame, values=classe_options,
             command=self._on_classe_selected,
-            font=(FONT_FAMILY, FONT_SIZE_TEXT),
-            fg_color=THEME["card_bg"],
-            dropdown_fg_color=THEME["card_bg"],
-            dropdown_hover_color=THEME["select_highlight"],
-            border_color=THEME["border_color"]
+            font=(FONT, FONT_SIZE_TEXT),
+            fg_color=BG_CARD,
+            dropdown_fg_color=BG_CARD,
+            dropdown_hover_color=BORDER_COLOR,
+            border_color=BORDER_COLOR
         )
         self.classe_dropdown.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         
         self.search_entry = ctk.CTkEntry(
             selection_frame, placeholder_text="Rechercher...",
-            font=(FONT_FAMILY, FONT_SIZE_TEXT),
-            fg_color=THEME["card_bg"],
-            border_color=THEME["border_color"]
+            font=(FONT, FONT_SIZE_TEXT),
+            fg_color=BG_CARD,
+            border_color=BORDER_COLOR
         )
         self.search_entry.grid(row=0, column=1, sticky="ew", padx=(5, 0))
         self.search_entry.bind("<KeyRelease>", self._filter_eleves)
@@ -159,16 +249,16 @@ class NotesView(ctk.CTkFrame):
         top_dashboard.grid_columnconfigure(0, weight=2)
         top_dashboard.grid_columnconfigure(1, weight=1)
         
-        self.chart_frame = ctk.CTkFrame(top_dashboard, fg_color=THEME["header_bg"], corner_radius=12)
-        self.chart_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=(0, 10))
+        self.chart_frame = ctk.CTkFrame(top_dashboard, fg_color=BG_CARD, corner_radius=12)
+        self.chart_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=(0, 1))
         self.chart_frame.grid_propagate(False)
         
-        self.stats_container = ctk.CTkFrame(top_dashboard, fg_color=THEME["header_bg"], corner_radius=12)
-        self.stats_container.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=(0, 10))
+        self.stats_container = ctk.CTkFrame(top_dashboard, fg_color=BG_CARD, corner_radius=12)
+        self.stats_container.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=(0, 1))
         self.stats_container.grid_propagate(False)
 
-        self.table_panel = ctk.CTkFrame(parent_frame, fg_color=THEME["header_bg"], corner_radius=12)
-        self.table_panel.grid(row=1, column=0, sticky="nsew", pady=(10, 0))
+        self.table_panel = ctk.CTkFrame(parent_frame, fg_color=BG_CARD, corner_radius=12)
+        self.table_panel.grid(row=1, column=0, sticky="nsew", pady=(1, 0))
         self.table_panel.grid_columnconfigure(0, weight=1)
         self.table_panel.grid_rowconfigure(1, weight=1)
         
@@ -180,12 +270,12 @@ class NotesView(ctk.CTkFrame):
     
     def _build_table_header(self, parent_frame):
         header_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
-        header_frame.grid(row=0, column=0, sticky="ew", padx=15, pady=10)
+        header_frame.grid(row=0, column=0, sticky="ew", padx=15, pady=3)
         header_frame.grid_columnconfigure(0, weight=1)
         
         self.notes_title = ctk.CTkLabel(header_frame, text="Détails des notes",
-                                        font=(FONT_FAMILY, FONT_SIZE_SUBHEADER, "bold"),
-                                        text_color=THEME["primary_text"])
+                                        font=(FONT, FONT_SIZE_HEADER, "bold"),
+                                        text_color=TEXT_PRIMARY)
         self.notes_title.grid(row=0, column=0, sticky="w")
         
         actions_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
@@ -196,27 +286,23 @@ class NotesView(ctk.CTkFrame):
         delete_icon = load_ctk_icon(ICON_MAP.get("delete"), size=(18, 18))
         export_icon = load_ctk_icon(ICON_MAP.get("export"), size=(18, 18))
 
-        ctk.CTkButton(actions_frame, text=" Ajouter", image=add_icon, compound="left",
-                      font=(FONT_FAMILY, FONT_SIZE_TEXT - 2, "bold"),
-                      fg_color=THEME["accent_blue"], text_color=THEME["bg_main"],
-                      hover_color="#45b69c", command=self.ajouter).pack(side="left", padx=3)
-        ctk.CTkButton(actions_frame, text=" Modifier", image=edit_icon, compound="left",
-                      font=(FONT_FAMILY, FONT_SIZE_TEXT - 2, "bold"),
-                      fg_color=THEME["info_orange"], text_color=THEME["bg_main"],
-                      hover_color="#cc9f13", command=self.modifier).pack(side="left", padx=3)
-        ctk.CTkButton(actions_frame, text=" Supprimer", image=delete_icon, compound="left",
-                      font=(FONT_FAMILY, FONT_SIZE_TEXT - 2, "bold"),
-                      fg_color=THEME["error_red"], text_color=THEME["bg_main"],
-                      hover_color="#dc2626", command=self.supprimer).pack(side="left", padx=3)
-        ctk.CTkButton(actions_frame, text=" Exporter", image=export_icon, compound="left",
-                      font=(FONT_FAMILY, FONT_SIZE_TEXT - 2, "bold"),
-                      fg_color=THEME["card_bg"], text_color=THEME["primary_text"],
-                      hover_color=THEME["select_highlight"], command=self.exporter_notes).pack(side="left", padx=3)
+        ctk.CTkButton(actions_frame, text="", image=add_icon,
+                      fg_color="transparent", hover_color=BORDER_COLOR,
+                      width=35, height=35, command=self.ajouter).pack(side="left", padx=3)
+        ctk.CTkButton(actions_frame, text="", image=edit_icon,
+                      fg_color="transparent", hover_color=BORDER_COLOR,
+                      width=35, height=35, command=self.modifier).pack(side="left", padx=3)
+        ctk.CTkButton(actions_frame, text="", image=delete_icon,
+                      fg_color="transparent", hover_color=BORDER_COLOR,
+                      width=35, height=35, command=self.supprimer).pack(side="left", padx=3)
+        ctk.CTkButton(actions_frame, text="", image=export_icon,
+                      fg_color="transparent", hover_color=BORDER_COLOR,
+                      width=35, height=35, command=self.exporter_notes).pack(side="left", padx=3)
     
     def _setup_class_dropdown(self):
-        classe_options = ["Sélectionnez une classe..."] + [c["nom"] for c in self.classes.values()]
+        classe_options = ["Classe..."] + [c["nom"] for c in self.classes.values()]
         self.classe_dropdown.configure(values=classe_options)
-        self.classe_dropdown.set("Sélectionnez une classe...")
+        self.classe_dropdown.set("Classe...")
 
     def _on_classe_selected(self, selected_class_name):
         self.selected_eleve_data = None
@@ -235,7 +321,7 @@ class NotesView(ctk.CTkFrame):
 
         filtered_eleves = list(self.eleves.values())
         
-        if selected_classe_name != "Sélectionnez une classe...":
+        if selected_classe_name != "Classe...":
             classe_id = next((cid for cid, cdata in self.classes.items() if cdata["nom"] == selected_classe_name), None)
             if classe_id:
                 filtered_eleves = [e for e in filtered_eleves if e.get("classe_id") == classe_id]
@@ -247,19 +333,48 @@ class NotesView(ctk.CTkFrame):
             ]
 
         if not filtered_eleves:
-            ctk.CTkLabel(self.eleve_list_frame, text="Aucun élève trouvé", 
-                          text_color=THEME["secondary_text"]).pack(pady=10)
+            no_students_frame = ctk.CTkFrame(self.eleve_list_frame, fg_color=BG_CARD, corner_radius=8)
+            no_students_frame.pack(fill="x", padx=5, pady=10)
+            
+            ctk.CTkLabel(no_students_frame, text="🔍 Aucun élève trouvé", 
+                          font=(FONT, FONT_SIZE_TEXT, "italic"),
+                          text_color=TEXT_SECONDARY).pack(pady=15)
         
         for eleve in filtered_eleves:
             eleve_name = f"{eleve['nom']} {eleve['prenom']}"
-            btn = ctk.CTkButton(self.eleve_list_frame, text=eleve_name, 
-                                 command=lambda e=eleve: self.display_eleve_notes(e),
-                                 font=(FONT_FAMILY, FONT_SIZE_TEXT),
-                                 fg_color=THEME["card_bg"],
-                                 hover_color=THEME["select_highlight"],
-                                 corner_radius=10,
-                                 text_color=THEME["primary_text"])
-            btn.pack(fill="x", padx=5, pady=4)
+            
+            # Créer un frame pour chaque élève avec icône
+            eleve_frame = ctk.CTkFrame(self.eleve_list_frame, fg_color=BG_CARD, corner_radius=8)
+            eleve_frame.pack(fill="x", padx=5, pady=3)
+            
+            # Icône élève
+            student_icon = load_ctk_icon(ICON_MAP.get("student"), size=(16, 16))
+            icon_label = ctk.CTkLabel(eleve_frame, text="", image=student_icon)
+            icon_label.pack(side="left", padx=(10, 8), pady=8)
+            
+            # Nom de l'élève
+            name_label = ctk.CTkLabel(eleve_frame, text=eleve_name,
+                                      font=(FONT, FONT_SIZE_TEXT),
+                                      text_color=TEXT_PRIMARY)
+            name_label.pack(side="left", fill="x", expand=True, padx=(0, 10), pady=8)
+            
+            # Rendre le frame cliquable
+            eleve_frame.bind("<Button-1>", lambda e, eleve=eleve: self.display_eleve_notes(eleve))
+            icon_label.bind("<Button-1>", lambda e, eleve=eleve: self.display_eleve_notes(eleve))
+            name_label.bind("<Button-1>", lambda e, eleve=eleve: self.display_eleve_notes(eleve))
+            
+            # Effet de survol
+            def on_enter(event, frame=eleve_frame):
+                frame.configure(fg_color=BORDER_COLOR)
+            def on_leave(event, frame=eleve_frame):
+                frame.configure(fg_color=BG_CARD)
+                
+            eleve_frame.bind("<Enter>", on_enter)
+            eleve_frame.bind("<Leave>", on_leave)
+            icon_label.bind("<Enter>", on_enter)
+            icon_label.bind("<Leave>", on_leave)
+            name_label.bind("<Enter>", on_enter)
+            name_label.bind("<Leave>", on_leave)
 
     def display_eleve_notes(self, eleve_data):
         self.selected_eleve_data = eleve_data
@@ -274,17 +389,68 @@ class NotesView(ctk.CTkFrame):
         for widget in self.table_container.winfo_children():
             widget.destroy()
         
-        ctk.CTkLabel(self.chart_frame, text="Sélectionnez un élève pour visualiser ses notes.",
-                      font=(FONT_FAMILY, FONT_SIZE_SUBHEADER, "italic"),
-                      text_color=THEME["secondary_text"]).pack(expand=True, padx=20, pady=20)
+        # Message dans le graphique
+        ctk.CTkLabel(self.chart_frame, text="📊 Évolution des notes",
+                      font=(FONT, FONT_SIZE_HEADER, "bold"),
+                      text_color=TEXT_PRIMARY).pack(pady=(20, 10))
+        ctk.CTkLabel(self.chart_frame, text="cliquez sur un élève",
+                      font=(FONT, FONT_SIZE_TEXT, "italic"),
+                      text_color=TEXT_SECONDARY).pack(pady=(0, 20))
         
-        ctk.CTkLabel(self.stats_container, text="Aucune donnée à afficher.",
-                      font=(FONT_FAMILY, FONT_SIZE_TEXT, "italic"),
-                      text_color=THEME["secondary_text"]).pack(expand=True, padx=10, pady=10)
+        # Statistiques par défaut
+        self._create_default_stats()
         
-        ctk.CTkLabel(self.table_container, text="Aucune note à afficher.",
-                      font=(FONT_FAMILY, FONT_SIZE_SUBHEADER, "italic"),
-                      text_color=THEME["secondary_text"]).pack(expand=True, padx=20, pady=20)
+        # Tableau vide par défaut
+        self._create_empty_table()
+
+    def _create_default_stats(self):
+        """Crée les statistiques par défaut avec des valeurs vides"""
+        stats_frame = ctk.CTkFrame(self.stats_container, fg_color="transparent")
+        stats_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Titre des statistiques
+        ctk.CTkLabel(stats_frame, text="📈 Statistiques",
+                      font=(FONT, FONT_SIZE_HEADER, "bold"),
+                      text_color=TEXT_PRIMARY).pack(pady=(0, 15))
+        
+        # Statistiques vides
+        stats_data = [
+            ("Moyenne Générale", "0.00", TEXT_SECONDARY),
+            ("Meilleure Note", "0.00", TEXT_SECONDARY),
+            ("Pire Note", "0.00", TEXT_SECONDARY),
+            ("Nombre de notes", "0", TEXT_SECONDARY)
+        ]
+        
+        for label, value, color in stats_data:
+            stat_frame = ctk.CTkFrame(stats_frame, fg_color=BG_CARD, corner_radius=8)
+            stat_frame.pack(fill="x", pady=5)
+            
+            ctk.CTkLabel(stat_frame, text=label,
+                          font=(FONT, FONT_SIZE_TEXT - 2),
+                          text_color=TEXT_SECONDARY).pack(side="left", padx=10, pady=8)
+            
+            ctk.CTkLabel(stat_frame, text=value,
+                          font=(FONT, FONT_SIZE_TEXT, "bold"),
+                          text_color=color).pack(side="right", padx=10, pady=8)
+
+    def _create_empty_table(self):
+        """Crée un tableau vide par défaut"""
+        # En-têtes du tableau
+        headers = ["Matière", "Note", "Coeff.", "Date", "Commentaire"]
+        
+        # Créer le tableau fixe avec les en-têtes et 10 lignes vides
+        self.notes_table = CTkTable(
+            master=self.table_container,
+            values=[headers] + [["-", "-", "-", "-", "-"]] * 10,  # 10 lignes vides fixes
+            colors=[["#2b2952", "#2b2952"], ["#2b2952", "#2b2952"]],
+            header_color="#1a1a2e",
+            hover_color="#40546c",
+            text_color="#E0E6F0",
+            font=(FONT, FONT_SIZE_TEXT - 2),
+            command=self._on_table_select,
+            corner_radius=8
+        )
+        self.notes_table.pack(fill="both", expand=True, padx=10, pady=10)
 
     def rafraichir_liste(self):
         self.selected_note_id = None
@@ -303,9 +469,7 @@ class NotesView(ctk.CTkFrame):
             widget.destroy()
 
         if not notes:
-            ctk.CTkLabel(self.stats_container, text="Aucune statistique à afficher.",
-                          font=(FONT_FAMILY, FONT_SIZE_TEXT, "italic"),
-                          text_color=THEME["secondary_text"]).pack(expand=True, padx=10, pady=10)
+            self._create_default_stats()
             return
 
         df = pd.DataFrame(notes)
@@ -321,13 +485,13 @@ class NotesView(ctk.CTkFrame):
         else:
             moyenne_generale = meilleure_note = pire_note = nombre_notes = 0
 
-        self._create_stats_card(self.stats_container, "Moyenne Générale", f"{moyenne_generale:.2f}", THEME["accent_blue"], ICON_MAP.get("grade"))
-        self._create_stats_card(self.stats_container, "Meilleure Note", f"{meilleure_note}", THEME["success_green"], ICON_MAP.get("grade"))
-        self._create_stats_card(self.stats_container, "Pire Note", f"{pire_note}", THEME["error_red"], ICON_MAP.get("grade"))
-        self._create_stats_card(self.stats_container, "Nombre de notes", f"{nombre_notes}", THEME["info_orange"], ICON_MAP.get("subject"))
+        self._create_stats_card(self.stats_container, "Moyenne Générale", f"{moyenne_generale:.2f}", TEXT_ACCENT, ICON_MAP.get("grade"))
+        self._create_stats_card(self.stats_container, "Meilleure Note", f"{meilleure_note}", SUCCESS_GREEN, ICON_MAP.get("grade"))
+        self._create_stats_card(self.stats_container, "Pire Note", f"{pire_note}", ERROR_RED, ICON_MAP.get("grade"))
+        self._create_stats_card(self.stats_container, "Nombre de notes", f"{nombre_notes}", WARNING_YELLOW, ICON_MAP.get("subject"))
 
     def _create_stats_card(self, parent, title, value, color, icon_name):
-        card = ctk.CTkFrame(parent, fg_color=THEME["card_bg"], corner_radius=10, height=60)
+        card = ctk.CTkFrame(parent, fg_color=BG_CARD, corner_radius=10, height=60)
         card.pack(fill="x", pady=4, padx=8)
         card.grid_columnconfigure(1, weight=1)
         
@@ -335,8 +499,8 @@ class NotesView(ctk.CTkFrame):
         if icon:
             ctk.CTkLabel(card, text="", image=icon, fg_color="transparent").grid(row=0, column=0, rowspan=2, padx=10, pady=8)
             
-        ctk.CTkLabel(card, text=title, font=(FONT_FAMILY, FONT_SIZE_TEXT-2), text_color=THEME["secondary_text"]).grid(row=0, column=1, sticky="w")
-        ctk.CTkLabel(card, text=value, font=(FONT_FAMILY, FONT_SIZE_SUBHEADER-2, "bold"), text_color=color).grid(row=1, column=1, sticky="w")
+        ctk.CTkLabel(card, text=title, font=(FONT, FONT_SIZE_TEXT-2), text_color=TEXT_SECONDARY).grid(row=0, column=1, sticky="w")
+        ctk.CTkLabel(card, text=value, font=(FONT, FONT_SIZE_HEADER-2, "bold"), text_color=color).grid(row=1, column=1, sticky="w")
 
     def _create_grade_evolution_chart(self, notes):
         for widget in self.chart_frame.winfo_children():
@@ -344,21 +508,21 @@ class NotesView(ctk.CTkFrame):
 
         if not notes:
             ctk.CTkLabel(self.chart_frame, text="Aucune donnée à afficher.",
-                          font=(FONT_FAMILY, FONT_SIZE_SUBHEADER, "italic"),
-                          text_color=THEME["secondary_text"]).pack(expand=True, padx=20, pady=20)
+                          font=(FONT, FONT_SIZE_HEADER, "italic"),
+                          text_color=TEXT_SECONDARY).pack(expand=True, padx=20, pady=20)
             return
 
         df = pd.DataFrame(notes)
-        df['date'] = pd.to_datetime(df['date'], errors='coerce')
+        df['date'] = pd.to_datetime(df['date_evaluation'], errors='coerce')
         df.sort_values(by='date', inplace=True)
         df.dropna(subset=['date', 'note', 'coefficient'], inplace=True)
         
-        fig, ax = plt.subplots(figsize=(6, 4), facecolor=THEME["header_bg"])
-        fig.patch.set_facecolor(THEME["header_bg"])
+        fig, ax = plt.subplots(figsize=(6, 4), facecolor=BG_CARD)
+        fig.patch.set_facecolor(BG_CARD)
         
         if not df.empty:
-            colors = plt.cm.viridis(np.linspace(0, 1, len(df['matiere_id'].unique())))
-            for i, (matiere_id, group) in enumerate(df.groupby('matiere_id')):
+            colors = plt.cm.viridis(np.linspace(0, 1, len(df['id_matiere'].unique())))
+            for i, (matiere_id, group) in enumerate(df.groupby('id_matiere')):
                 matiere_nom = self.matieres.get(matiere_id, {}).get("nom", "Inconnue")
                 ax.plot(group['date'], group['note'], marker='o', linestyle='-', label=matiere_nom, color=colors[i])
             
@@ -367,20 +531,19 @@ class NotesView(ctk.CTkFrame):
             df['rolling_avg'] = df['note'].rolling(window=window_size).mean()
             ax.plot(df['date'], df['rolling_avg'], color='red', linestyle='--', label=f'Moyenne mobile ({window_size})', linewidth=2)
 
-
-        ax.set_title("Évolution des notes", color=THEME["primary_text"], font=FONT_FAMILY, fontsize=FONT_SIZE_SUBHEADER)
-        ax.set_xlabel("Date", color=THEME["secondary_text"], font=FONT_FAMILY, fontsize=FONT_SIZE_TEXT-2)
-        ax.set_ylabel("Note", color=THEME["secondary_text"], font=FONT_FAMILY, fontsize=FONT_SIZE_TEXT-2)
+        ax.set_title("Évolution des notes", color=TEXT_PRIMARY, font=FONT, fontsize=FONT_SIZE_HEADER)
+        ax.set_xlabel("Date", color=TEXT_SECONDARY, font=FONT, fontsize=FONT_SIZE_TEXT-2)
+        ax.set_ylabel("Note", color=TEXT_SECONDARY, font=FONT, fontsize=FONT_SIZE_TEXT-2)
         
-        ax.tick_params(axis='x', colors=THEME["secondary_text"], rotation=45, labelsize=10)
-        ax.tick_params(axis='y', colors=THEME["secondary_text"], labelsize=10)
+        ax.tick_params(axis='x', colors=TEXT_SECONDARY, rotation=45, labelsize=10)
+        ax.tick_params(axis='y', colors=TEXT_SECONDARY, labelsize=10)
         
-        ax.set_facecolor(THEME["card_bg"])
-        ax.spines['bottom'].set_color(THEME["border_color"])
-        ax.spines['left'].set_color(THEME["border_color"])
+        ax.set_facecolor(BG_CARD)
+        ax.spines['bottom'].set_color(BORDER_COLOR)
+        ax.spines['left'].set_color(BORDER_COLOR)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        ax.legend(facecolor=THEME["card_bg"], edgecolor=THEME["border_color"], labelcolor=THEME["secondary_text"], fontsize=10)
+        ax.legend(facecolor=BG_CARD, edgecolor=BORDER_COLOR, labelcolor=TEXT_SECONDARY, fontsize=10)
 
         plt.tight_layout()
         
@@ -393,32 +556,35 @@ class NotesView(ctk.CTkFrame):
             widget.destroy()
 
         if not notes:
-            ctk.CTkLabel(self.table_container, text="Aucune note trouvée pour cet élève.",
-                          font=(FONT_FAMILY, FONT_SIZE_SUBHEADER, "italic"),
-                          text_color=THEME["secondary_text"]).pack(expand=True, padx=20, pady=20)
+            self._create_empty_table()
             return
 
         headers = ["Matière", "Note", "Coeff.", "Date", "Commentaire"]
         data = [headers]
         
+        # Ajouter les notes existantes
         for note in notes:
-            matiere_nom = self.matieres.get(note.get("matiere_id"), {}).get("nom", "Inconnue")
+            matiere_nom = self.matieres.get(note.get("id_matiere"), {}).get("nom", "Inconnue")
             data.append([
                 matiere_nom,
                 note.get("note"),
                 note.get("coefficient"),
-                note.get("date"),
+                note.get("date_evaluation"),
                 note.get("commentaire", "Aucun")
             ])
+        
+        # Compléter avec des lignes vides pour avoir toujours 10 lignes de données
+        while len(data) < 11:  # 1 header + 10 lignes de données
+            data.append(["-", "-", "-", "-", "-"])
             
         self.note_table = CTkTable(
             self.table_container, 
             values=data, 
-            header_color=THEME["card_bg"],
-            fg_color=THEME["header_bg"],
-            hover_color=THEME["select_highlight"],
-            text_color=THEME["primary_text"],
-            font=(FONT_FAMILY, FONT_SIZE_TEXT),
+            header_color=BG_CARD,
+            fg_color=BG_CARD,
+            hover_color=BORDER_COLOR,
+            text_color=TEXT_PRIMARY,
+            font=(FONT, FONT_SIZE_TEXT),
             command=self._on_table_select,
             corner_radius=10,
             wraplength=150
@@ -432,7 +598,7 @@ class NotesView(ctk.CTkFrame):
         self.selected_item_data = None
         row_index = cell.get("row")
         if row_index > 0:
-            self.selected_note_id = self.notes_data[row_index - 1].get("id")
+            self.selected_note_id = self.notes_data[row_index - 1].get("id_note")
             self.selected_item_data = self.notes_data[row_index - 1]
 
     def ajouter(self):
@@ -462,14 +628,14 @@ class NotesView(ctk.CTkFrame):
         popup = ctk.CTkToplevel(self)
         popup.title(f"{mode} une Note")
         popup.geometry("450x550")
-        popup.configure(fg_color=THEME["bg_main"])
+        popup.configure(fg_color=BG_MAIN)
         popup.grab_set()
 
         ctk.CTkLabel(popup, text=f"{mode} une Note",
-                      font=(FONT_FAMILY, FONT_SIZE_SUBHEADER, "bold"),
-                      text_color=THEME["accent_blue"]).pack(pady=(20, 10))
+                      font=(FONT, FONT_SIZE_HEADER, "bold"),
+                      text_color=TEXT_ACCENT).pack(pady=(20, 10))
         
-        form_frame = ctk.CTkFrame(popup, fg_color=THEME["header_bg"], corner_radius=12)
+        form_frame = ctk.CTkFrame(popup, fg_color=BG_CARD, corner_radius=12)
         form_frame.pack(fill="both", expand=True, padx=20, pady=(10, 20))
         form_frame.grid_columnconfigure(0, weight=1)
 
@@ -480,22 +646,22 @@ class NotesView(ctk.CTkFrame):
 
         def create_form_entry(parent, label_text, widget_type, row, default_value=None, options=None):
             ctk.CTkLabel(parent, text=label_text,
-                          font=(FONT_FAMILY, FONT_SIZE_TEXT),
-                          text_color=THEME["secondary_text"]).grid(row=row, column=0, sticky="w", pady=5)
+                          font=(FONT, FONT_SIZE_TEXT),
+                          text_color=TEXT_SECONDARY).grid(row=row, column=0, sticky="w", pady=5)
             
             if widget_type == "entry":
-                widget = ctk.CTkEntry(parent, font=(FONT_FAMILY, FONT_SIZE_TEXT), fg_color=THEME["card_bg"], border_color=THEME["border_color"])
+                widget = ctk.CTkEntry(parent, font=(FONT, FONT_SIZE_TEXT), fg_color=BG_CARD, border_color=BORDER_COLOR)
                 if default_value is not None:
                     widget.insert(0, default_value)
             elif widget_type == "combo":
                 widget = ctk.CTkComboBox(parent, values=options, state="readonly",
-                                          font=(FONT_FAMILY, FONT_SIZE_TEXT), fg_color=THEME["card_bg"],
-                                          border_color=THEME["border_color"], dropdown_fg_color=THEME["card_bg"],
-                                          dropdown_hover_color=THEME["select_highlight"])
+                                          font=(FONT, FONT_SIZE_TEXT), fg_color=BG_CARD,
+                                          border_color=BORDER_COLOR, dropdown_fg_color=BG_CARD,
+                                          dropdown_hover_color=BORDER_COLOR)
                 if default_value is not None:
                     widget.set(default_value)
             elif widget_type == "textbox":
-                widget = ctk.CTkTextbox(parent, height=80, font=(FONT_FAMILY, FONT_SIZE_TEXT), fg_color=THEME["card_bg"], border_color=THEME["border_color"])
+                widget = ctk.CTkTextbox(parent, height=80, font=(FONT, FONT_SIZE_TEXT), fg_color=BG_CARD, border_color=BORDER_COLOR)
                 if default_value is not None:
                     widget.insert("0.0", default_value)
             
@@ -513,12 +679,12 @@ class NotesView(ctk.CTkFrame):
         comment_entry = create_form_entry(inner_form_frame, "Commentaire:", "textbox", 5)
         
         if mode == "Modifier" and data:
-            if data.get("matiere_id") is not None and data["matiere_id"] in self.matieres:
-                matiere_info = self.matieres[data["matiere_id"]]
+            if data.get("id_matiere") is not None and data["id_matiere"] in self.matieres:
+                matiere_info = self.matieres[data["id_matiere"]]
                 matiere_combo.set(f"{matiere_info['id']} - {matiere_info['nom']}")
             note_entry.insert(0, str(data.get("note", "")))
             coeff_entry.insert(0, str(data.get("coefficient", "1")))
-            date_entry.insert(0, data.get("date", ""))
+            date_entry.insert(0, data.get("date_evaluation", ""))
             commentaire_text = data.get("commentaire", "")
             if commentaire_text is not None:
                 comment_entry.insert("0.0", str(commentaire_text))
@@ -537,11 +703,11 @@ class NotesView(ctk.CTkFrame):
                     return
 
                 note_data = {
-                    "eleve_id": self.selected_eleve_data['id'],
-                    "matiere_id": matiere_id,
+                    "id_eleve": self.selected_eleve_data['id'],
+                    "id_matiere": matiere_id,
                     "note": note_value,
                     "coefficient": coefficient,
-                    "date": date_note,
+                    "date_evaluation": date_note,
                     "commentaire": commentaire
                 }
                 
@@ -549,7 +715,7 @@ class NotesView(ctk.CTkFrame):
                     add_note(note_data)
                     messagebox.showinfo("Succès", "Note ajoutée avec succès.", parent=popup)
                 else:
-                    note_data["id"] = data.get("id")
+                    note_data["id_note"] = data.get("id_note")
                     update_note(note_data)
                     messagebox.showinfo("Succès", "Note mise à jour avec succès.", parent=popup)
                 
@@ -565,11 +731,11 @@ class NotesView(ctk.CTkFrame):
         btn_frame.pack(pady=(10, 20))
         ctk.CTkButton(btn_frame, text="Annuler", command=popup.destroy,
                       fg_color="gray", hover_color="#6e6e6e",
-                      font=(FONT_FAMILY, FONT_SIZE_TEXT, "bold")).pack(side="left", padx=10)
+                      font=(FONT, FONT_SIZE_TEXT, "bold")).pack(side="left", padx=10)
         ctk.CTkButton(btn_frame, text="Enregistrer", command=save,
-                      fg_color=THEME["accent_blue"], text_color=THEME["bg_main"],
+                      fg_color=TEXT_ACCENT, text_color=BG_MAIN,
                       hover_color="#45b69c",
-                      font=(FONT_FAMILY, FONT_SIZE_TEXT, "bold")).pack(side="left", padx=10)
+                      font=(FONT, FONT_SIZE_TEXT, "bold")).pack(side="left", padx=10)
 
     def exporter_notes(self):
         if not self.selected_eleve_data:
@@ -595,15 +761,15 @@ class NotesView(ctk.CTkFrame):
                 writer = csv.writer(f)
                 writer.writerow(["ID", "Élève", "Matière", "Note", "Coefficient", "Date", "Commentaire"])
                 for note in notes:
-                    eleve_name = f"{self.eleves.get(note['eleve_id'], {}).get('nom', 'Inconnu')} {self.eleves.get(note['eleve_id'], {}).get('prenom', '')}"
-                    matiere_name = self.matieres.get(note["matiere_id"], {}).get("nom", "Inconnue")
+                    eleve_name = f"{self.eleves.get(note['id_eleve'], {}).get('nom', 'Inconnu')} {self.eleves.get(note['id_eleve'], {}).get('prenom', '')}"
+                    matiere_name = self.matieres.get(note["id_matiere"], {}).get("nom", "Inconnue")
                     writer.writerow([
-                        note.get("id"),
+                        note.get("id_note"),
                         eleve_name,
                         matiere_name,
                         note.get("note"),
                         note.get("coefficient", 1),
-                        note.get("date"),
+                        note.get("date_evaluation"),
                         note.get("commentaire")
                     ])
             messagebox.showinfo("Exporter", f"Les notes de l'élève ont été exportées avec succès dans {file_path}")

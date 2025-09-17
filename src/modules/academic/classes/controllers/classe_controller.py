@@ -12,7 +12,27 @@ def _connect():
     """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row  # Ligne cruciale pour retourner des dictionnaires
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA temp_store=MEMORY;")
+        conn.execute("PRAGMA cache_size=-10000;")
+    except Exception:
+        pass
     return conn
+
+# ====== CACHE MÉMOIRE ======
+_CACHE = {"classes_all": None}
+
+def _invalidate_cache():
+    _CACHE["classes_all"] = None
+
+def preload_classes_cache():
+    try:
+        _CACHE["classes_all"] = get_all_classes()
+        print("⚡ Cache classes préchargé")
+    except Exception as e:
+        print(f"⚠️ Préchargement classes ignoré: {e}")
 
 def get_all_classes():
     """
@@ -22,17 +42,21 @@ def get_all_classes():
         list: Une liste de dictionnaires, où chaque dictionnaire représente une classe.
     """
     try:
+        if _CACHE.get("classes_all") is not None:
+            return _CACHE["classes_all"]
         with _connect() as conn:
             cur = conn.cursor()
             # Utilisation directe de 'c.*' pour récupérer toutes les colonnes,
             # ou lister les colonnes par leur nom d'origine.
             cur.execute("""
-                SELECT c.id_classe, c.nom_classe, c.niveau, c.annee_scolaire, c.id_professeur_principal, c.salle_id
+                SELECT c.id_classe as id, c.nom_classe as nom, c.niveau, c.annee_scolaire, c.id_professeur_principal, c.salle_id
                 FROM classes c
                 ORDER BY c.nom_classe
             """)
             rows = cur.fetchall()
-            return [dict(row) for row in rows]
+            data = [dict(row) for row in rows]
+            _CACHE["classes_all"] = data
+            return data
     except Exception as e:
         print(f"[Classe] Erreur get_all_classes: {e}")
         return []
@@ -56,6 +80,7 @@ def add_class(nom, niveau, annee_scolaire, prof_id, salle_id):
                 VALUES (?, ?, ?, ?, ?)
             """, (nom, niveau, annee_scolaire, prof_id, salle_id))
             conn.commit()
+            _invalidate_cache()
     except Exception as e:
         print(f"[Classe] Erreur add_class: {e}")
 
@@ -80,6 +105,7 @@ def update_class_data(classe_id, nom, niveau, annee_scolaire, prof_id, salle_id)
                 WHERE id=?
             """, (nom, niveau, annee_scolaire, prof_id, salle_id, classe_id))
             conn.commit()
+            _invalidate_cache()
     except Exception as e:
         print(f"[Classe] Erreur update_class_data: {e}")
 
@@ -95,6 +121,7 @@ def delete_class(classe_id):
             cur = conn.cursor()
             cur.execute("DELETE FROM classes WHERE id_classe=?", (classe_id,))
             conn.commit()
+            _invalidate_cache()
     except Exception as e:
         print(f"[Classe] Erreur delete_class: {e}")
 

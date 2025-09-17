@@ -109,9 +109,13 @@ class CoursManagerView(ctk.CTkFrame):
     def __init__(self, parent, icons):
         super().__init__(parent, fg_color="transparent")
         
+        print("🚀 Initialisation CoursManagerView...")
+        
         # S'assurer que toutes les icônes nécessaires sont présentes
         self.icons = icons
         self._ensure_required_icons()
+        
+        print("✅ Icônes configurées")
         
         self.current_mode = "enseignements"  # Mode par défaut
         
@@ -124,16 +128,28 @@ class CoursManagerView(ctk.CTkFrame):
         self._last_refresh_time = 0
         self._refresh_throttle = 0.5  # 500ms de throttling
         
+        print("🚀 Initialisation du gestionnaire de minuteurs...")
         # Gestionnaire de minuteurs avec notifications
         self.timer_manager = timer_manager
         if not hasattr(timer_manager, 'notification_manager') or timer_manager.notification_manager is None:
             timer_manager.notification_manager = timer_manager.notification_manager = NotificationManager(self)
         
-        # Fenêtre d'historique des cours terminés
+        # Fenêtre d'historique des cours terminés + compteur badge
         self.history_window = CourseHistoryWindow(self, timer_manager.history_manager)
+        self._completed_count = len(self.timer_manager.history_manager.get_completed_courses())
+        # S'abonner aux fins de cours pour incrémenter le badge
+        try:
+            self.timer_manager.add_listener(self._on_course_completed)
+        except Exception as e:
+            print(f"⚠️ Impossible d'abonner le listener fin de cours: {e}")
         
+        print("✅ Gestionnaire de minuteurs initialisé")
+        
+        print("🚀 Configuration de l'interface...")
         self.setup_ui()
         self.refresh_view()
+        
+        print("✅ CoursManagerView initialisée")
     
     def destroy(self):
         """Nettoie les ressources lors de la destruction de la vue"""
@@ -156,7 +172,8 @@ class CoursManagerView(ctk.CTkFrame):
             "search": "resources/icons/search.png",
             "clock": "resources/icons/clock.png",
             "check": "resources/icons/check.png",
-            "close": "resources/icons/close.png"
+            "close": "resources/icons/close.png",
+            "bell": "resources/icons/bell.png"
         }
         
         # Ajouter les icônes manquantes
@@ -224,20 +241,39 @@ class CoursManagerView(ctk.CTkFrame):
         )
         add_btn.pack(side="right", padx=(10, 0))
         
-        # Bouton notifications (historique des cours terminés)
-        notifications_btn = ctk.CTkButton(
-            right_section,
-            text="📚 Historique",
-            fg_color="#00D4FF",
-            text_color="#FFFFFF",
-            hover_color="#0099CC",
+        # Bouton notifications style "sans fond" avec badge incrémental
+        self._notif_btn_container = ctk.CTkFrame(right_section, fg_color="transparent")
+        self._notif_btn_container.pack(side="right", padx=(10, 0))
+
+        bell_icon = load_icon(self.icons.get("bell"), 18)
+        self._notif_btn = ctk.CTkButton(
+            self._notif_btn_container,
+            text="",
+            image=bell_icon,
+            fg_color="transparent",
+            text_color=TEXT_PRIMARY,
+            hover_color=BG_CARD_HOVER,
             command=self.show_course_history,
             corner_radius=10,
             height=40,
-            width=120,
-            font=("Segoe UI", 12, "bold")
+            width=40,
+            border_width=2,
+            border_color=BORDER_COLOR
         )
-        notifications_btn.pack(side="right", padx=(10, 0))
+        self._notif_btn.pack(side="left")
+
+        # Badge
+        self._badge_frame = ctk.CTkFrame(self._notif_btn_container, fg_color=TEXT_ACCENT, corner_radius=12)
+        self._badge_label = ctk.CTkLabel(self._badge_frame, text=str(self._completed_count), font=("Segoe UI", 10, "bold"), text_color=WHITE)
+        self._badge_label.pack(padx=6, pady=2)
+        # positionner badge en haut à droite du bouton
+        self._badge_frame.place(in_=self._notif_btn, relx=1, rely=0, x=-6, y=-6, anchor="ne")
+        # Masquer si 0
+        if (self._completed_count or 0) <= 0:
+            try:
+                self._badge_frame.place_forget()
+            except Exception:
+                pass
         
         # Champ de recherche
         search_frame = ctk.CTkFrame(right_section, fg_color=BG_CARD_HOVER, corner_radius=15, border_width=1, border_color=BORDER_COLOR)
@@ -320,6 +356,26 @@ class CoursManagerView(ctk.CTkFrame):
     def show_course_history(self):
         """Affiche l'historique des cours terminés"""
         self.history_window.show_history()
+
+    def _on_course_completed(self, course_data):
+        """Incrémente le badge quand un cours se termine."""
+        try:
+            self._completed_count = len(self.timer_manager.history_manager.get_completed_courses())
+            if hasattr(self, "_badge_label"):
+                self._badge_label.configure(text=str(self._completed_count))
+                # Afficher/Masquer
+                if (self._completed_count or 0) > 0:
+                    try:
+                        self._badge_frame.place(in_=self._notif_btn, relx=1, rely=0, x=-6, y=-6, anchor="ne")
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        self._badge_frame.place_forget()
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"⚠️ Erreur mise à jour badge: {e}")
     
     def _parse_course_time(self, time_str):
         """Parse une heure au format HH:MM"""
@@ -550,7 +606,18 @@ class CoursManagerView(ctk.CTkFrame):
     
     def edit_cours(self, cours_id):
         """Modifie un cours"""
-        messagebox.showinfo("Info", f"Modification du cours ID: {cours_id}")
+        try:
+            # Récupérer les données du cours
+            cours_data = get_cours_by_id(cours_id)
+            if cours_data:
+                # Ouvrir le formulaire de modification
+                form = CoursForm(self, "Modifier", cours_data)
+                form.wait_window()
+                self.refresh_view()
+            else:
+                messagebox.showerror("Erreur", "Cours introuvable")
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de la récupération du cours: {e}")
     
     def delete_cours(self, cours_id):
         """Supprime un cours"""
@@ -782,6 +849,10 @@ class CoursForm(ctk.CTkToplevel):
                                        fg_color=BG_CARD, border_color=BORDER_COLOR)
         self.duree_entry.pack(fill="x", pady=(0, 25))
 
+        # Pré-remplir les champs en mode modification
+        if self.mode == "Modifier" and self.data:
+            self._populate_fields()
+
         # Boutons d'action avec design moderne
         btn_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
         btn_frame.pack(fill="x", padx=25, pady=(0, 25))
@@ -801,6 +872,45 @@ class CoursForm(ctk.CTkToplevel):
                                   height=45, corner_radius=12, width=140,
                                   border_color=BORDER_COLOR, border_width=2)
         cancel_btn.pack(side="left")
+
+    def _populate_fields(self):
+        """Pré-remplit les champs avec les données du cours en mode modification"""
+        try:
+            if not self.data:
+                return
+                
+            # Professeur
+            if self.data.get('professeur_nom'):
+                self.prof_var.set(self.data['professeur_nom'])
+            
+            # Classe
+            if self.data.get('classe_nom'):
+                self.classe_var.set(self.data['classe_nom'])
+            
+            # Matière
+            if self.data.get('matiere_nom'):
+                self.matiere_var.set(self.data['matiere_nom'])
+            
+            # Salle
+            if self.data.get('salle_nom'):
+                self.salle_var.set(self.data['salle_nom'])
+            
+            # Jour
+            if self.data.get('jour'):
+                self.jour_var.set(self.data['jour'])
+            
+            # Heure
+            if self.data.get('heure'):
+                self.heure_var.set(self.data['heure'])
+            
+            # Durée
+            if self.data.get('duree'):
+                self.duree_var.set(str(self.data['duree']))
+                
+            print(f"✅ Champs pré-remplis pour le cours ID: {self.data.get('id')}")
+            
+        except Exception as e:
+            print(f"⚠️ Erreur pré-remplissage des champs: {e}")
 
     def _save_data(self):
         """Valide et enregistre les données du formulaire."""
@@ -877,27 +987,50 @@ class CoursForm(ctk.CTkToplevel):
         except ValueError:
             duree_int = 60
         
-        # Ajout du cours via le contrôleur cours
+        # Ajout ou modification du cours via le contrôleur cours
         try:
-            from src.modules.academic.classes.controllers.cours_controller import add_cours
+            from src.modules.academic.classes.controllers.cours_controller import add_cours, update_cours
             
-            if add_cours(
-                professeur_id=prof_id,
-                classe_id=classe_id,
-                matiere_id=matiere_id,
-                salle_id=salle_id,
-                jour=jour,
-                heure=heure,
-                duree=duree_int
-            ):
-                messagebox.showinfo("Succès", "Cours ajouté avec succès!")
-                self.parent.refresh_view()
-                self.destroy()
+            if self.mode == "Ajouter":
+                # Ajout d'un nouveau cours
+                if add_cours(
+                    professeur_id=prof_id,
+                    classe_id=classe_id,
+                    matiere_id=matiere_id,
+                    salle_id=salle_id,
+                    jour=jour,
+                    heure=heure,
+                    duree=duree_int
+                ):
+                    messagebox.showinfo("Succès", "Cours ajouté avec succès!")
+                    self.parent.refresh_view()
+                    self.destroy()
+                else:
+                    messagebox.showerror("Erreur", "Erreur lors de l'ajout du cours")
             else:
-                messagebox.showerror("Erreur", "Erreur lors de l'ajout du cours")
+                # Modification d'un cours existant
+                if self.data and self.data.get('id'):
+                    if update_cours(
+                        id=self.data['id'],
+                        professeur_id=prof_id,
+                        classe_id=classe_id,
+                        matiere_id=matiere_id,
+                        salle_id=salle_id,
+                        jour=jour,
+                        heure=heure,
+                        duree=duree_int,
+                        statut="Actif"
+                    ):
+                        messagebox.showinfo("Succès", "Cours modifié avec succès!")
+                        self.parent.refresh_view()
+                        self.destroy()
+                    else:
+                        messagebox.showerror("Erreur", "Erreur lors de la modification du cours")
+                else:
+                    messagebox.showerror("Erreur", "Données du cours manquantes pour la modification")
                 
         except Exception as e:
-            messagebox.showerror("Erreur", f"Erreur lors de l'ajout du cours: {e}")
+            messagebox.showerror("Erreur", f"Erreur lors de la sauvegarde du cours: {e}")
             print(f"❌ Erreur save_cours: {e}")
 
 # Classes de compatibilité pour les anciennes vues

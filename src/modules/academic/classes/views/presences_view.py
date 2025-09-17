@@ -9,7 +9,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-DB_PATH = r"C:\Users\Lenovo\Desktop\EduManager+\database\edumanager.db"
+DB_PATH = r"database/edumanager.db"
 ICON_DIR = r"C:\Users\Lenovo\Desktop\EduManager+\assets\icons"
 
 ICON_MAP = {

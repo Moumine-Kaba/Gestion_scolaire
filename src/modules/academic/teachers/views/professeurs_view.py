@@ -329,8 +329,9 @@ class ProfessorsDashboard(ctk.CTkFrame):
         ctk.CTkLabel(header, text="Gestion des Professeurs", font=(FONT, 20, "bold"),
                      text_color=THEME["accent_blue"], fg_color="transparent").pack(side="left", padx=15)
         ctk.CTkButton(header, text="Ajouter", image=self.icon_cache.get("add"), compound="left",
-                      font=(FONT, 12, "bold"), fg_color=THEME["accent_blue"], text_color=THEME["bg_main"],
+                      font=(FONT, 12, "bold"), fg_color="transparent", text_color=THEME["primary_text"],
                       hover_color="#9FE8FF", corner_radius=8, height=30,
+                      border_width=2, border_color=THEME["border_color"],
                       command=self.add_professor).pack(side="right", padx=15)
 
         stats_frame = ctk.CTkFrame(self, fg_color=THEME["bg_main"])
@@ -358,9 +359,10 @@ class ProfessorsDashboard(ctk.CTkFrame):
         ]
         for txt, icn, color, cmd in reversed(btns):
             ctk.CTkButton(action_bar, text=txt, image=self.icon_cache.get(icn), compound="left",
-                          font=(FONT, 10, "bold"), fg_color=color,
-                          text_color=THEME["bg_main"] if color == THEME["accent_blue"] else THEME["primary_text"],
-                          hover_color="#415A77", corner_radius=8, command=cmd, height=28
+                          font=(FONT, 10, "bold"), fg_color="transparent",
+                          text_color=THEME["primary_text"],
+                          hover_color="#415A77", corner_radius=8, command=cmd, height=28,
+                          border_width=2, border_color=THEME["border_color"]
             ).pack(side="right", padx=4, pady=8)
 
         search_frame = ctk.CTkFrame(action_bar, fg_color=THEME["card_bg"], corner_radius=8, 
@@ -511,7 +513,7 @@ class TeacherTable(ctk.CTkFrame):
             col_frame.pack_propagate(False)
             
             ctk.CTkLabel(col_frame, text=text, font=(FONT, 13, "bold"), 
-                         text_color="#00FF41", fg_color="transparent").pack(expand=True)
+                         text_color="#FFFFFF", fg_color="transparent").pack(expand=True)
         
         # Corps du tableau transparent
         self.table_body = ctk.CTkScrollableFrame(main_container, fg_color="transparent", corner_radius=0)
@@ -566,27 +568,8 @@ class TeacherTable(ctk.CTkFrame):
             row_frame.bind("<Button-1>", lambda e, pid=data.get('id'): on_select(pid))
 
             for j, val in enumerate(row_values):
-                # Couleurs néon et gris pour chaque champ
-                text_color = "#FFFFFF"  # Blanc par défaut
-                
-                # Couleurs néon spéciales pour certains champs
-                if j == 0:  # Matricule
-                    text_color = "#00FF41"  # Vert néon
-                elif j == 1:  # Nom
-                    text_color = "#FFFFFF"  # Blanc pur
-                elif j == 2:  # Prénom
-                    text_color = "#FFFFFF"  # Blanc pur
-                elif j == 3:  # Sexe
-                    if str(val).lower() == "homme":
-                        text_color = "#00BFFF"  # Bleu néon
-                    elif str(val).lower() == "femme":
-                        text_color = "#FF1493"  # Rose néon
-                elif j == 4:  # Spécialité
-                    text_color = "#FFD700"  # Jaune néon
-                elif j == 5:  # Email
-                    text_color = "#FF00FF"  # Magenta néon
-                elif j == 6:  # Téléphone
-                    text_color = "#00FFFF"  # Cyan néon
+                # Texte blanc pour tous les champs
+                text_color = "#FFFFFF"  # Blanc pour tous les champs
                 
                 # Texte avec style néon
                 display_text = str(val)

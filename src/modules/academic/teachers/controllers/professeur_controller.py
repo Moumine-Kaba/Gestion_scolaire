@@ -8,6 +8,13 @@ def connect_db():
     """Crée et retourne une connexion à la base de données."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA temp_store=MEMORY;")
+        conn.execute("PRAGMA cache_size=-8000;")
+    except Exception:
+        pass
     return conn
 
 def create_table():
@@ -30,11 +37,27 @@ def create_table():
     conn.commit()
     conn.close()
 
+# ====== CACHE MÉMOIRE ======
+_CACHE = {"professeurs_all": None}
+
+def _invalidate_cache():
+    _CACHE["professeurs_all"] = None
+
+def preload_professeurs_cache():
+    try:
+        _CACHE["professeurs_all"] = get_all_professeurs()
+        print("⚡ Cache professeurs préchargé")
+    except Exception as e:
+        print(f"⚠️ Préchargement professeurs ignoré: {e}")
+
 def get_all_professeurs():
     """
     Liste tous les professeurs de la base de données.
     Retourne une liste de dictionnaires.
     """
+    cached = _CACHE.get("professeurs_all")
+    if cached is not None:
+        return cached
     conn = connect_db()
     cur = conn.cursor()
     cur.execute("""
@@ -44,7 +67,9 @@ def get_all_professeurs():
     """)
     rows = cur.fetchall()
     conn.close()
-    return [dict(row) for row in rows]
+    data = [dict(row) for row in rows]
+    _CACHE["professeurs_all"] = data
+    return data
 
 def add_professeur(data):
     """
@@ -68,6 +93,7 @@ def add_professeur(data):
     ))
     conn.commit()
     conn.close()
+    _invalidate_cache()
 
 def update_professeur(data):
     """
@@ -93,6 +119,7 @@ def update_professeur(data):
     ))
     conn.commit()
     conn.close()
+    _invalidate_cache()
 
 def delete_professeur(prof_id):
     """Supprime un professeur selon son ID."""
@@ -101,6 +128,7 @@ def delete_professeur(prof_id):
     cur.execute("DELETE FROM professeurs WHERE id=?", (prof_id,))
     conn.commit()
     conn.close()
+    _invalidate_cache()
 
 def get_professeur(prof_id):
     """Récupère un professeur par son ID. Retourne un dictionnaire ou None."""

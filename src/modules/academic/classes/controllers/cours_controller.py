@@ -5,11 +5,55 @@ from datetime import datetime
 # Chemin de base de données centralisé
 DB_PATH = "database/edumanager.db"
 
+# =================== CACHE MÉMOIRE SIMPLE ===================
+# Objectif: éviter des lectures répétées coûteuses en DB.
+_CACHE = {
+    "cours_all": None,
+    "enseignements_all": None,
+    "emplois_all": None,
+    "stats": None,
+}
+
+def _invalidate_cache(*keys):
+    if not keys:
+        for k in list(_CACHE.keys()):
+            _CACHE[k] = None
+        return
+    for k in keys:
+        if k in _CACHE:
+            _CACHE[k] = None
+
+def preload_academic_cache():
+    """Précharge les principales données académiques en cache.
+    À appeler au démarrage de l'application (splash/login)."""
+    try:
+        # Cours unifiés
+        _CACHE["cours_all"] = get_all_cours()
+        # Enseignements
+        _CACHE["enseignements_all"] = get_all_enseignements()
+        # Emplois du temps
+        _CACHE["emplois_all"] = get_all_emplois()
+        # Statistiques
+        _CACHE["stats"] = get_cours_stats()
+        # Note: listes auxiliaires (profs/classes/matières/salles) sont rapides et appelées à la demande
+        print("⚡ Préchargement académique terminé")
+    except Exception as e:
+        print(f"⚠️ Erreur lors du préchargement du cache académique: {e}")
+
 def _connect():
     """Connexion à la base de données avec gestion d'erreur"""
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row  # Permet d'accéder aux colonnes par leur nom
+        # PRAGMA de performance
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+            conn.execute("PRAGMA temp_store=MEMORY;")
+            conn.execute("PRAGMA mmap_size=134217728;")  # 128MB
+            conn.execute("PRAGMA cache_size=-20000;")     # ~20MB cache
+        except Exception:
+            pass
         return conn
     except Exception as e:
         print(f"❌ Erreur connexion DB: {e}")
@@ -42,6 +86,17 @@ def _ensure_tables():
             
             conn.commit()
             print("✅ Table unifiée cours créée/vérifiée avec succès")
+            # Index pour accélérer les jointures et filtres
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_cours_prof ON cours(professeur_id);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_cours_classe ON cours(classe_id);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_cours_matiere ON cours(matiere_id);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_cours_salle ON cours(salle_id);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_cours_type ON cours(type);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_cours_jour_heure ON cours(jour, heure);")
+                conn.commit()
+            except Exception as ie:
+                print(f"⚠️ Erreur création index cours: {ie}")
             
     except Exception as e:
         print(f"❌ Erreur création table: {e}")
@@ -54,24 +109,31 @@ _ensure_tables()
 def get_all_cours():
     """Récupère tous les cours avec les noms associés (sans distinction de type)"""
     try:
+        # Cache
+        if _CACHE.get("cours_all") is not None:
+            return _CACHE["cours_all"]
         with _connect() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT 
-                    c.id, c.professeur_id, c.classe_id, c.matiere_id, c.salle_id,
-                    c.jour, c.heure, c.duree, c.statut, c.description,
-                    p.nom || ' ' || p.prenom as professeur_nom,
-                    cl.nom_classe as classe_nom,
-                    m.nom_matiere as matiere_nom,
-                    s.nom_salle as salle_nom
+                    c.id_cours, c.professeur_id, c.classe_id, c.matiere_id, c.salle_id,
+                    c.date, c.heure_debut, c.heure_fin, c.statut, c.nom as description,
+                    p.nom as professeur_nom,
+                    p.prenom as professeur_prenom,
+                    cl.nom as classe_nom,
+                    cl.niveau as classe_niveau,
+                    m.nom as matiere_nom,
+                    s.nom as salle_nom
                 FROM cours c
                 LEFT JOIN professeurs p ON c.professeur_id = p.id_professeur
                 LEFT JOIN classes cl ON c.classe_id = cl.id_classe
                 LEFT JOIN matieres m ON c.matiere_id = m.id_matiere
                 LEFT JOIN salles s ON c.salle_id = s.id_salle
-                ORDER BY c.id DESC
+                ORDER BY c.date DESC, c.heure_debut DESC
             """)
-            return [dict(row) for row in cursor.fetchall()]
+            data = [dict(row) for row in cursor.fetchall()]
+            _CACHE["cours_all"] = data
+            return data
     except Exception as e:
         print(f"❌ Erreur get_all_cours: {e}")
         return []
@@ -79,25 +141,30 @@ def get_all_cours():
 def get_all_enseignements():
     """Récupère tous les enseignements avec les noms associés"""
     try:
+        if _CACHE.get("enseignements_all") is not None:
+            return _CACHE["enseignements_all"]
         with _connect() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT 
-                    c.id, c.professeur_id, c.classe_id, c.matiere_id, c.salle_id,
-                    c.jour as jours_cours, c.duree as duree_cours, c.statut, c.description,
-                    p.nom || ' ' || p.prenom as professeur_nom,
-                    cl.nom_classe as classe_nom,
-                    m.nom_matiere as matiere_nom,
-                    s.nom_salle as salle_nom
+                    c.id_cours, c.professeur_id, c.classe_id, c.matiere_id, c.salle_id,
+                    c.date, c.heure_debut, c.heure_fin, c.statut, c.nom as description,
+                    p.nom as professeur_nom,
+                    p.prenom as professeur_prenom,
+                    cl.nom as classe_nom,
+                    cl.niveau as classe_niveau,
+                    m.nom as matiere_nom,
+                    s.nom as salle_nom
                 FROM cours c
                 LEFT JOIN professeurs p ON c.professeur_id = p.id_professeur
                 LEFT JOIN classes cl ON c.classe_id = cl.id_classe
                 LEFT JOIN matieres m ON c.matiere_id = m.id_matiere
                 LEFT JOIN salles s ON c.salle_id = s.id_salle
-                WHERE c.type = 'enseignement'
-                ORDER BY c.id DESC
+                ORDER BY c.date DESC, c.heure_debut DESC
             """)
-            return [dict(row) for row in cursor.fetchall()]
+            data = [dict(row) for row in cursor.fetchall()]
+            _CACHE["enseignements_all"] = data
+            return data
     except Exception as e:
         print(f"❌ Erreur get_all_enseignements: {e}")
         return []
@@ -113,6 +180,7 @@ def add_cours(professeur_id, classe_id, matiere_id, salle_id=None, jour='Lundi',
             """, (professeur_id, classe_id, matiere_id, salle_id, jour, heure, duree, statut, description))
             conn.commit()
             print(f"✅ Cours ajouté: Prof {professeur_id}, Classe {classe_id}, Matière {matiere_id}")
+            _invalidate_cache("cours_all", "enseignements_all", "emplois_all", "stats")
             return True
     except Exception as e:
         print(f"❌ Erreur add_cours: {e}")
@@ -130,6 +198,7 @@ def update_cours(id, professeur_id, classe_id, matiere_id, salle_id, jour, heure
             """, (professeur_id, classe_id, matiere_id, salle_id, jour, heure, duree, statut, description, id))
             conn.commit()
             print(f"✅ Cours {id} mis à jour")
+            _invalidate_cache("cours_all", "enseignements_all", "emplois_all", "stats")
             return True
     except Exception as e:
         print(f"❌ Erreur update_cours: {e}")
@@ -143,6 +212,7 @@ def delete_cours(id):
             cursor.execute("DELETE FROM cours WHERE id=?", (id,))
             conn.commit()
             print(f"✅ Cours {id} supprimé")
+            _invalidate_cache("cours_all", "enseignements_all", "emplois_all", "stats")
             return True
     except Exception as e:
         print(f"❌ Erreur delete_cours: {e}")
@@ -252,6 +322,8 @@ def get_enseignement_by_id(id):
 def get_all_emplois():
     """Récupère tous les emplois du temps avec les noms associés"""
     try:
+        if _CACHE.get("emplois_all") is not None:
+            return _CACHE["emplois_all"]
         with _connect() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -281,7 +353,9 @@ def get_all_emplois():
                     END,
                     c.heure
             """)
-            return [dict(row) for row in cursor.fetchall()]
+            data = [dict(row) for row in cursor.fetchall()]
+            _CACHE["emplois_all"] = data
+            return data
     except Exception as e:
         print(f"❌ Erreur get_all_emplois: {e}")
         return []
@@ -297,6 +371,7 @@ def add_emploi(jour, heure, matiere_id, professeur_id, classe_id=None, salle_id=
             """, (jour, heure, matiere_id, professeur_id, classe_id, salle_id))
             conn.commit()
             print(f"✅ Emploi ajouté: {jour} {heure} - Matière {matiere_id}")
+            _invalidate_cache("emplois_all", "cours_all", "stats")
             return True
     except Exception as e:
         print(f"❌ Erreur add_emploi: {e}")
@@ -314,6 +389,7 @@ def update_emploi(id, jour, heure, matiere_id, professeur_id, classe_id=None, sa
             """, (jour, heure, matiere_id, professeur_id, classe_id, salle_id, id))
             conn.commit()
             print(f"✅ Emploi {id} mis à jour")
+            _invalidate_cache("emplois_all", "cours_all", "stats")
             return True
     except Exception as e:
         print(f"❌ Erreur update_emploi: {e}")
@@ -327,6 +403,7 @@ def delete_emploi(id):
             cursor.execute("DELETE FROM cours WHERE id=? AND type='emploi'", (id,))
             conn.commit()
             print(f"✅ Emploi {id} supprimé")
+            _invalidate_cache("emplois_all", "cours_all", "stats")
             return True
     except Exception as e:
         print(f"❌ Erreur delete_emploi: {e}")
@@ -420,30 +497,42 @@ def get_enseignements_by_professeur(professeur_id):
 def get_cours_stats():
     """Récupère les statistiques des cours"""
     try:
+        if _CACHE.get("stats") is not None:
+            return _CACHE["stats"]
         with _connect() as conn:
             cursor = conn.cursor()
             
-            # Statistiques enseignements
-            cursor.execute("SELECT COUNT(*) as total_enseignements FROM enseignement")
-            enseignements_count = cursor.fetchone()[0]
+            # Statistiques cours (utiliser la vraie table cours)
+            cursor.execute("SELECT COUNT(*) as total_cours FROM cours")
+            cours_count = cursor.fetchone()[0]
             
-            cursor.execute("SELECT COUNT(*) as enseignements_actifs FROM enseignement WHERE statut = 'Actif'")
-            enseignements_actifs = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) as cours_termines FROM cours WHERE statut = 'termine'")
+            cours_termines = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) as cours_en_cours FROM cours WHERE statut = 'en_cours'")
+            cours_en_cours = cursor.fetchone()[0]
             
             # Statistiques emplois du temps
-            cursor.execute("SELECT COUNT(*) as total_emplois FROM emplois_du_temps")
-            emplois_count = cursor.fetchone()[0]
+            try:
+                cursor.execute("SELECT COUNT(*) as total_emplois FROM emplois_du_temps")
+                emplois_count = cursor.fetchone()[0]
+            except:
+                emplois_count = 0
             
-            return {
-                'total_enseignements': enseignements_count,
-                'enseignements_actifs': enseignements_actifs,
+            data = {
+                'total_cours': cours_count,
+                'cours_termines': cours_termines,
+                'cours_en_cours': cours_en_cours,
                 'total_emplois': emplois_count
             }
+            _CACHE["stats"] = data
+            return data
     except Exception as e:
         print(f"❌ Erreur get_cours_stats: {e}")
         return {
-            'total_enseignements': 0,
-            'enseignements_actifs': 0,
+            'total_cours': 0,
+            'cours_termines': 0,
+            'cours_en_cours': 0,
             'total_emplois': 0
         }
 
