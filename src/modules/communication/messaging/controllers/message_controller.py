@@ -87,3 +87,7 @@ def delete_message(message_id):
     finally:
         if conn:
             conn.close()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM messages WHERE id=?", (message_id,))
+    conn.commit()
+    conn.close()

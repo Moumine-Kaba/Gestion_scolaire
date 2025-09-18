@@ -24,7 +24,7 @@ ICON_PATH_BASE = os.path.join(os.path.dirname(__file__), "assets", "icons")
 
 ICON_MAP = {
     "eleves": "book.png",
-    "filles": "eleves.png",
+    "filles": "person.png",
     "garcons": "person.png",
     "classes": "cover.png",
     "profs": "profs.png",

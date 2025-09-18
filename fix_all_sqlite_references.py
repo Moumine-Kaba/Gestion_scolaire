@@ -144,3 +144,5 @@ if __name__ == "__main__":
     print("\n🎉 Correction terminée !")
     print("📝 Vérifiez que l'application fonctionne maintenant avec SQL Server.")
 
+
+

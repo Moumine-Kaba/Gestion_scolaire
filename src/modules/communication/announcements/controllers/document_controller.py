@@ -84,3 +84,7 @@ def delete_document(doc_id):
     finally:
         if conn:
             conn.close()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM documents WHERE id=?", (doc_id,))
+    conn.commit()
+    conn.close()

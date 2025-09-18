@@ -280,3 +280,4 @@ def delete_eleve(eleve_id: int) -> None:
         conn.commit()
         conn.close()
     
+    _invalidate_cache()

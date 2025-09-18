@@ -82,3 +82,5 @@ if __name__ == "__main__":
     print(f"\n🎯 {len(fixed_files)} fichiers corrigés")
     print("🎉 Correction SQL terminée !")
 
+
+

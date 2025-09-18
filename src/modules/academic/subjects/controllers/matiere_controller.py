@@ -165,3 +165,4 @@ def delete_matiere(matiere_id):
                 return True
     except Exception as e:
         print(f"Erreur lors de la suppression de la matière : {e}")
+    return False

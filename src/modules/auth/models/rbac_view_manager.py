@@ -83,7 +83,7 @@ class RBACViewManager:
             # Vues par défaut avec leurs permissions par rôle
             default_views = [
                 ("dashboard", "Dashboard", "Tableau de bord principal", "auth", "home.png", 0),
-                ("eleves", "Élèves", "Gestion des élèves", "academic", "eleves.png", 1),
+                ("eleves", "Élèves", "Gestion des élèves", "academic", "person.png", 1),
                 ("professeurs", "Professeurs", "Gestion des professeurs", "academic", "person.png", 2),
                 ("classes", "Classes", "Gestion des classes", "academic", "class.png", 3),
                 ("salles", "Salles", "Gestion des salles", "administrative", "classroom.png", 4),

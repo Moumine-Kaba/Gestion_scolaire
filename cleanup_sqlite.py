@@ -256,3 +256,5 @@ if __name__ == "__main__":
         print("\n⚠️ Migration incomplète détectée!")
         print("Veuillez terminer la migration avant de nettoyer les traces SQLite")
 
+
+

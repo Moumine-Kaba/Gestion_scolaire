@@ -1118,7 +1118,7 @@ class DashboardEleves(ctk.CTkFrame):
         
         # Charger l'icône élève depuis les ressources
         try:
-            eleve_icon = ctk.CTkImage(light_image=Image.open("resources/icons/eleves.png"), size=(32, 32))
+            eleve_icon = ctk.CTkImage(light_image=Image.open("resources/icons/person.png"), size=(32, 32))
             icon_label = ctk.CTkLabel(title_inner, image=eleve_icon, text="")
             icon_label.pack(side="left", padx=(0, 10))
         except:
@@ -1519,7 +1519,7 @@ class DashboardEleves(ctk.CTkFrame):
         
         # Charger l'icône élève depuis les ressources
         try:
-            eleve_icon = ctk.CTkImage(light_image=Image.open("resources/icons/eleves.png"), size=(32, 32))
+            eleve_icon = ctk.CTkImage(light_image=Image.open("resources/icons/person.png"), size=(32, 32))
             icon_label = ctk.CTkLabel(title_inner, image=eleve_icon, text="")
             icon_label.pack(side="left", padx=(0, 10))
         except:
