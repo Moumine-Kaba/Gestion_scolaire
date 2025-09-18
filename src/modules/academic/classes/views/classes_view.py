@@ -124,33 +124,135 @@ def get_icon_path(icon_name):
     return ICONS_PATH.get(icon_name, "")
 
 def get_db_connection_direct():
+    """Connexion SQL Server directe."""
     try:
-        conn = get_db_connection_direct()
-        # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
+        import pyodbc
+        connection_string = (
+            "DRIVER={ODBC Driver 17 for SQL Server};"
+            "SERVER=.;"
+            "DATABASE=EduManager;"
+            "Trusted_Connection=yes;"
+        )
+        conn = pyodbc.connect(connection_string)
         return conn
     except Exception as e:
         print(f"⚠️ Erreur connexion DB: {e}")
         return None
 
 def get_all_classes():
-    """Récupère toutes les classes depuis la base de données centralisée"""
+    """Récupère toutes les classes avec leurs statistiques depuis la base de données centralisée"""
     conn = get_db_connection_direct()
     if conn is None: 
         return []
     try:
         cursor = conn.cursor()
-        # Utiliser les noms de colonnes corrects selon la structure de la DB
+        # Requête optimisée avec jointure pour récupérer les statistiques des élèves
         cursor.execute("""
-            SELECT c.id_classe as id, c.nom_classe as nom, c.niveau, c.annee_scolaire as annee,
-                   c.id_professeur_principal as prof_id, c.salle_id
+            SELECT c.id_classe as id, c.nom_classe as nom, c.niveau, c.capacite,
+                   COUNT(e.id_eleve) as nb_eleves,
+                   COUNT(CASE WHEN e.genre = 'M' THEN 1 END) as nb_garcons,
+                   COUNT(CASE WHEN e.genre = 'F' THEN 1 END) as nb_filles
             FROM classes c
-            ORDER BY c.nom_classe
+            LEFT JOIN eleves e ON c.id_classe = e.id_classe
+            GROUP BY c.id_classe, c.nom_classe, c.niveau, c.capacite
+            ORDER BY c.niveau, c.nom_classe
         """)
         classes = cursor.fetchall()
-        return [dict(row) for row in classes]
+        # Convertir les tuples en dictionnaires
+        result = []
+        for row in classes:
+            result.append({
+                'id': row[0],
+                'nom': row[1],
+                'niveau': row[2],
+                'capacite': row[3],
+                'nb_eleves': row[4],
+                'nb_garcons': row[5],
+                'nb_filles': row[6]
+            })
+        return result
     except Exception as e:
         print(f"Erreur lors de la récupération des classes : {e}")
         return []
+    finally:
+        if conn: 
+            conn.close()
+
+def get_classes_statistics():
+    """Récupère les statistiques globales des classes"""
+    conn = get_db_connection_direct()
+    if conn is None: 
+        return {}
+    try:
+        cursor = conn.cursor()
+        
+        # Statistiques globales
+        cursor.execute("""
+            SELECT 
+                COUNT(DISTINCT c.id_classe) as total_classes,
+                COUNT(e.id_eleve) as total_eleves,
+                COUNT(CASE WHEN e.genre = 'M' THEN 1 END) as total_garcons,
+                COUNT(CASE WHEN e.genre = 'F' THEN 1 END) as total_filles,
+                AVG(CAST(COUNT(e.id_eleve) AS FLOAT)) as moyenne_eleves_par_classe
+            FROM classes c
+            LEFT JOIN eleves e ON c.id_classe = e.id_classe
+        """)
+        
+        stats = cursor.fetchone()
+        if stats:
+            return {
+                'total_classes': stats[0] or 0,
+                'total_eleves': stats[1] or 0,
+                'total_garcons': stats[2] or 0,
+                'total_filles': stats[3] or 0,
+                'moyenne_eleves_par_classe': round(stats[4] or 0, 1)
+            }
+        
+        return {}
+        
+    except Exception as e:
+        print(f"Erreur lors de la récupération des statistiques : {e}")
+        return {}
+    finally:
+        if conn: 
+            conn.close()
+
+def get_classes_by_niveau():
+    """Récupère les classes groupées par niveau avec leurs statistiques"""
+    conn = get_db_connection_direct()
+    if conn is None: 
+        return {}
+    try:
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT 
+                c.niveau,
+                COUNT(DISTINCT c.id_classe) as nb_classes,
+                COUNT(e.id_eleve) as nb_eleves,
+                COUNT(CASE WHEN e.genre = 'M' THEN 1 END) as nb_garcons,
+                COUNT(CASE WHEN e.genre = 'F' THEN 1 END) as nb_filles
+            FROM classes c
+            LEFT JOIN eleves e ON c.id_classe = e.id_classe
+            GROUP BY c.niveau
+            ORDER BY c.niveau
+        """)
+        
+        niveaux = {}
+        for row in cursor.fetchall():
+            niveau = row[0] or 'Non défini'
+            niveaux[niveau] = {
+                'nb_classes': row[1] or 0,
+                'nb_eleves': row[2] or 0,
+                'nb_garcons': row[3] or 0,
+                'nb_filles': row[4] or 0
+            }
+        
+        return niveaux
+        
+    except Exception as e:
+        print(f"Erreur lors de la récupération des classes par niveau : {e}")
+        return {}
     finally:
         if conn: 
             conn.close()
@@ -163,9 +265,9 @@ def add_class(nom, prof_id, salle_id, niveau, annee):
     try:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO classes (nom_classe, niveau, annee_scolaire, id_professeur_principal, salle_id, effectif) 
-            VALUES (?, ?, ?, ?, ?, 0)
-        """, (nom, niveau, annee, prof_id, salle_id))
+            INSERT INTO classes (nom_classe, niveau, capacite, statut) 
+            VALUES (?, ?, ?, ?)
+        """, (nom, niveau, 0, 'Active'))
         conn.commit()
         return True
     except Exception as e:
@@ -184,10 +286,9 @@ def update_class_data(classe_id, nom, prof_id, salle_id, niveau, annee):
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE classes 
-            SET nom_classe = ?, niveau = ?, annee_scolaire = ?, 
-                id_professeur_principal = ?, salle_id = ? 
+            SET nom_classe = ?, niveau = ?, capacite = ?
             WHERE id_classe = ?
-        """, (nom, niveau, annee, prof_id, salle_id, classe_id))
+        """, (nom, niveau, 0, classe_id))
         conn.commit()
         return True
     except Exception as e:

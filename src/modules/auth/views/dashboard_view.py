@@ -273,7 +273,7 @@ def draw_vertical_gradient_bar(cnv, x, y, w, h, base_color, steps=28, radius=6):
 
 # =================== MAPPING ICONES / ACTIONS =====================
 ICON_MAP = {
-    "dashboard": "home", "eleves": "eleves", "utilisateurs": "group",
+    "dashboard": "home", "eleves": "eleve", "utilisateurs": "group",
     "person": "person", "classes": "class", "profs": "person",
     "salles": "classroom", "logout": "logout", "presences": "check",
     "notes": "grade", "bulletins": "stats", "paiements": "transfer",

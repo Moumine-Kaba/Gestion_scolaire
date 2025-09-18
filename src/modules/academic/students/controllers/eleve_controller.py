@@ -79,7 +79,8 @@ def get_all_eleves(classe_id: Optional[int] = None) -> List[Dict[str, Any]]:
         rows = cur.fetchall()
         data = [dict(r) for r in rows]
         if classe_id is None:
-            
+            pass  # Pas d'action spéciale pour toutes les classes
+        
         return data
 
 # ---------- SELECT (fiche complète) ----------

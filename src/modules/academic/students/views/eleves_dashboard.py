@@ -142,41 +142,73 @@ ICONS_DIR = ICONS_DIR_ABS if os.path.isdir(ICONS_DIR_ABS) else ICONS_DIR_REL
 _ICON_CACHE = {}  # Cache des icônes PIL → CTkImage
 
 def get_icon(name: str, size=(24, 24)):
-    """Cache d'icônes PIL → CTkImage optimisé."""
-    key = f"{name}_{size[0]}x{size[1]}"
-    if key in _ICON_CACHE:
-        return _ICON_CACHE[key]
-    
-    icon_path = os.path.join(ICONS_DIR, f"{name}.png")
-    if not os.path.exists(icon_path):
-        # Retourner une icône par défaut simple
-        return None
-    
+    """Cache d'icônes PIL → CTkImage optimisé avec gestion d'erreur améliorée."""
     try:
+        key = f"{name}_{size[0]}x{size[1]}"
+        if key in _ICON_CACHE:
+            return _ICON_CACHE[key]
+        
+        # Essayer d'abord le nom exact
+        icon_path = os.path.join(ICONS_DIR, f"{name}.png")
+        
+        # Si pas trouvé, essayer avec le mapping
+        if not os.path.exists(icon_path) and name in ICON_MAP:
+            mapped_name = ICON_MAP[name]
+            icon_path = os.path.join(ICONS_DIR, f"{mapped_name}.png")
+        
+        if not os.path.exists(icon_path):
+            print(f"⚠️ Icône '{name}' non trouvée: {icon_path}")
+            print(f"📁 Répertoire icônes: {ICONS_DIR}")
+            print(f"📁 Répertoire existe: {os.path.exists(ICONS_DIR)}")
+            if os.path.exists(ICONS_DIR):
+                available_icons = [f for f in os.listdir(ICONS_DIR) if f.endswith('.png')]
+                print(f"📁 Icônes disponibles: {available_icons[:10]}...")  # Afficher les 10 premières
+            return None
+        
         pil_img = Image.open(icon_path).convert("RGBA")
         # Optimiser la taille pour réduire la charge
         pil_img = pil_img.resize(size, Image.Resampling.LANCZOS)
         ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=size)
         _ICON_CACHE[key] = ctk_img
+        print(f"✅ Icône '{name}' chargée avec succès: {icon_path}")
         return ctk_img
     except Exception as e:
         print(f"⚠️ Erreur icône {name}: {e}")
         return None
 
+# =================== HELPERS =====================
+def calculate_age(date_naissance):
+    """Calcule l'âge à partir de la date de naissance"""
+    if not date_naissance:
+        return "—"
+    try:
+        today = datetime.date.today()
+        age = today.year - date_naissance.year - ((today.month, today.day) < (date_naissance.month, date_naissance.day))
+        return str(age)
+    except:
+        return "—"
+
 # =================== MAPPING ICONES =====================
 ICON_MAP = {
-    "eleves": "eleves", "filles": "eleves", "garcons": "person", "classes": "cover",
-    "profs": "profs", "ajouter": "add", "edit": "edit", "delete": "delete",
+    "eleves": "eleve", "filles": "eleve", "garcons": "person", "classes": "class",
+    "profs": "person", "ajouter": "add", "edit": "edit", "delete": "delete",
     "detail": "detail", "transferer": "transfer", "refresh": "refresh", "search": "search",
-    "group": "group", "person": "person", "home": "home", "logout": "logout"
+    "group": "group", "person": "person", "home": "home", "logout": "logout",
+    "analytics": "stats", "settings": "settings", "stats": "stats", "csv": "csv"
 }
 
 # =================== SQLITE HELPERS =====================
 def get_conn():
-    """Connexion SQLite avec timeout + WAL + row_factory."""
+    """Connexion SQL Server avec gestion d'erreurs."""
     try:
-        conn = get_db_connection_direct()  # pyright: ignore[reportUndefinedVariable]
-        # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
+        import pyodbc
+        connection_string = (
+            "DRIVER={ODBC Driver 17 for SQL Server};"
+            "SERVER=.;"
+            "DATABASE=EduManager;"
+            "Trusted_Connection=yes;"
+        )
+        conn = pyodbc.connect(connection_string)
         return conn
     except Exception as e:
         print(f"⚠️ Connexion DB échouée: {e}")
@@ -210,7 +242,7 @@ def get_stats_count_any(*table_candidates) -> int:
             pass
 
 def get_stats_eleves(classe_id=None):
-    """Récupère les statistiques des élèves avec les vraies données."""
+    """Récupère les statistiques des élèves avec les vraies données de la base."""
     conn = get_conn()
     if not conn:
         return {"total": 0, "filles": 0, "garcons": 0, "classes": 0, "profs": 0}
@@ -220,14 +252,14 @@ def get_stats_eleves(classe_id=None):
         stats = {}
         
         if classe_id is None:
-            # Statistiques globales
+            # Statistiques globales avec les vraies données
             cur.execute("SELECT COUNT(*) FROM eleves")
             stats["total"] = cur.fetchone()[0] or 0
             
-            cur.execute("SELECT COUNT(*) FROM eleves WHERE genre LIKE 'F%' OR genre LIKE 'f%'")
+            cur.execute("SELECT COUNT(*) FROM eleves WHERE genre = 'F'")
             stats["filles"] = cur.fetchone()[0] or 0
             
-            cur.execute("SELECT COUNT(*) FROM eleves WHERE genre LIKE 'M%' OR genre LIKE 'm%'")
+            cur.execute("SELECT COUNT(*) FROM eleves WHERE genre = 'M'")
             stats["garcons"] = cur.fetchone()[0] or 0
             
             cur.execute("SELECT COUNT(*) FROM classes")
@@ -240,14 +272,14 @@ def get_stats_eleves(classe_id=None):
             except:
                 stats["profs"] = 0
         else:
-            # Statistiques pour une classes spécifique
+            # Statistiques pour une classe spécifique avec les vraies données
             cur.execute("SELECT COUNT(*) FROM eleves WHERE id_classe=?", (classe_id,))
             stats["total"] = cur.fetchone()[0] or 0
             
-            cur.execute("SELECT COUNT(*) FROM eleves WHERE (genre LIKE 'F%' OR genre LIKE 'f%') AND id_classe=?", (classe_id,))
+            cur.execute("SELECT COUNT(*) FROM eleves WHERE genre = 'F' AND id_classe=?", (classe_id,))
             stats["filles"] = cur.fetchone()[0] or 0
             
-            cur.execute("SELECT COUNT(*) FROM eleves WHERE (genre LIKE 'M%' OR genre LIKE 'm%') AND id_classe=?", (classe_id,))
+            cur.execute("SELECT COUNT(*) FROM eleves WHERE genre = 'M' AND id_classe=?", (classe_id,))
             stats["garcons"] = cur.fetchone()[0] or 0
             
             stats["classes"] = 1
@@ -264,7 +296,7 @@ def get_stats_eleves(classe_id=None):
             pass
 
 def fetch_effectifs_par_classe(limit: int = 10):
-    """Retourne [(nom_classe, effectif)] sur base classes et eleves."""
+    """Retourne [(nom_classe, effectif)] avec les vraies données de la base."""
     conn = get_conn()
     if not conn:
         return []
@@ -288,7 +320,7 @@ def fetch_effectifs_par_classe(limit: int = 10):
             pass
 
 def get_all_classes():
-    """Récupère toutes les classes depuis la base de données"""
+    """Récupère toutes les classes avec les vraies données de la base."""
     conn = get_conn()
     if not conn:
         return []
@@ -305,31 +337,99 @@ def get_all_classes():
         except:
             pass
 
-def get_eleves_list(classe_id=None):
-    """Récupère la liste des élèves avec les vraies données - Optimisé."""
+def get_eleves_list(classe_id=None, search_term="", page=1, page_size=50):
+    """Récupère la liste des élèves avec pagination et recherche - Optimisé pour 1000+ élèves."""
     conn = get_conn()
     if not conn:
         return []
     try:
         cur = conn.cursor()
-        if classe_id is None:
-            cur.execute("""
-                SELECT id_eleve, nom, prenom, genre, date_naissance, statut, id_classe 
-                FROM eleves 
-                ORDER BY nom, prenom
-                LIMIT 1000
-            """)
+        
+        # Calculer l'offset pour la pagination
+        offset = (page - 1) * page_size
+        
+        # Construire la requête avec recherche et pagination
+        base_query = """
+            SELECT e.id_eleve, e.nom, e.prenom, e.genre, e.date_naissance, e.id_classe, c.nom_classe as classe_nom
+            FROM eleves e
+            LEFT JOIN classes c ON e.id_classe = c.id_classe
+        """
+        
+        where_conditions = []
+        params = []
+        
+        # Filtre par classe
+        if classe_id is not None:
+            where_conditions.append("e.id_classe = ?")
+            params.append(classe_id)
+        
+        # Filtre par terme de recherche
+        if search_term:
+            where_conditions.append("(e.nom LIKE ? OR e.prenom LIKE ? OR c.nom_classe LIKE ?)")
+            search_pattern = f"%{search_term}%"
+            params.extend([search_pattern, search_pattern, search_pattern])
+        
+        # Construire la requête finale
+        if where_conditions:
+            query = base_query + " WHERE " + " AND ".join(where_conditions)
         else:
-            cur.execute("""
-                SELECT id_eleve, nom, prenom, genre, date_naissance, statut, id_classe 
-                FROM eleves 
-                WHERE id_classe=? 
-                ORDER BY nom, prenom
-            """, (classe_id,))
+            query = base_query
+        
+        query += " ORDER BY e.nom, e.prenom OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
+        params.extend([offset, page_size])
+        
+        cur.execute(query, params)
         return cur.fetchall()
+        
     except Exception as e:
         print(f"⚠️ get_eleves_list: {e}")
         return []
+    finally:
+        try:
+            conn.close()
+        except:
+            pass
+
+def get_eleves_count(classe_id=None, search_term=""):
+    """Récupère le nombre total d'élèves pour la pagination."""
+    conn = get_conn()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+        
+        base_query = """
+            SELECT COUNT(*)
+            FROM eleves e
+            LEFT JOIN classes c ON e.id_classe = c.id_classe
+        """
+        
+        where_conditions = []
+        params = []
+        
+        # Filtre par classe
+        if classe_id is not None:
+            where_conditions.append("e.id_classe = ?")
+            params.append(classe_id)
+        
+        # Filtre par terme de recherche
+        if search_term:
+            where_conditions.append("(e.nom LIKE ? OR e.prenom LIKE ? OR c.nom_classe LIKE ?)")
+            search_pattern = f"%{search_term}%"
+            params.extend([search_pattern, search_pattern, search_pattern])
+        
+        # Construire la requête finale
+        if where_conditions:
+            query = base_query + " WHERE " + " AND ".join(where_conditions)
+        else:
+            query = base_query
+        
+        cur.execute(query, params)
+        return cur.fetchone()[0] or 0
+        
+    except Exception as e:
+        print(f"⚠️ get_eleves_count: {e}")
+        return 0
     finally:
         try:
             conn.close()
@@ -358,7 +458,7 @@ def get_classe_name(classe_id):
             pass
 
 def get_classe_id_by_name(classe_name):
-    """Récupère l'ID d'une classes par son nom."""
+    """Récupère l'ID d'une classe par son nom."""
     if classe_name is None:
         return None
     conn = get_conn()
@@ -427,6 +527,17 @@ class DashboardEleves(ctk.CTkFrame):
         self.classes_map = {}
         self.last_action_time = None
         self.last_action_type = None
+        
+        # Variables pour la pagination et la recherche
+        self.current_page = 1
+        self.page_size = 50
+        self.total_pages = 1
+        self.search_term = ""
+        self.total_eleves = 0
+        
+        # Variables pour la navigation Windows 11 style
+        self.current_view = "classes"  # "classes" ou "students"
+        self.navigation_stack = []  # Pour gérer l'historique de navigation
 
         # Configuration de la grille principale
         self.grid_rowconfigure(0, weight=1)
@@ -443,53 +554,182 @@ class DashboardEleves(ctk.CTkFrame):
 
     def _create_main_content(self):
         """Crée le contenu principal avec le design du dashboard principal"""
-        main_frame = ctk.CTkFrame(self, fg_color="transparent")
-        main_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=10)
-        main_frame.grid_rowconfigure(3, weight=1)
-        main_frame.grid_columnconfigure(0, weight=1)
+        self.main_content_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.main_content_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=10)
+        self.main_content_frame.grid_rowconfigure(3, weight=1)  # Le graphique prendra l'espace restant
+        self.main_content_frame.grid_columnconfigure(0, weight=1)
 
         # Création des sections
-        self._create_header(main_frame)
-        self._create_stats_cards(main_frame)
-        self._create_chart_section(main_frame)
-        self._create_crud_buttons_section(main_frame)
+        self._create_breadcrumb(self.main_content_frame)
+        self._create_header(self.main_content_frame)
+        self._create_stats_cards(self.main_content_frame)
+        self._create_chart_section(self.main_content_frame)
+
+    def _create_breadcrumb(self, parent):
+        """Crée le breadcrumb de navigation style Windows 11"""
+        self.breadcrumb_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self.breadcrumb_frame.pack(fill="x", pady=(0, PADDING_SMALL))
+        
+        # Conteneur pour le breadcrumb
+        breadcrumb_container = ctk.CTkFrame(self.breadcrumb_frame, fg_color="transparent")
+        breadcrumb_container.pack(side="left")
+        
+        # Bouton retour (visible seulement quand on est dans la vue étudiants)
+        self.back_button = ctk.CTkButton(
+            breadcrumb_container, 
+            text="←", 
+            width=30, 
+            height=30,
+            fg_color="transparent", 
+            hover_color=BG_CARD_HOVER,
+            text_color=TEXT_ACCENT,
+            font=("Segoe UI", 16, "bold"),
+            command=self.navigate_back,
+            corner_radius=6
+        )
+        self.back_button.pack(side="left", padx=(0, 8))
+        
+        # Texte du breadcrumb
+        self.breadcrumb_label = ctk.CTkLabel(
+            breadcrumb_container,
+            text="Élèves",
+            font=("Segoe UI", 14, "bold"),
+            text_color=TEXT_ACCENT
+        )
+        self.breadcrumb_label.pack(side="left")
+        
+        # Initialiser l'état
+        self.update_breadcrumb()
+
+    def update_breadcrumb(self):
+        """Met à jour le breadcrumb selon la vue actuelle"""
+        if self.current_view == "classes":
+            self.breadcrumb_label.configure(text="Élèves")
+            self.back_button.pack_forget()
+        elif self.current_view == "students":
+            classe_name = self.selected_classe if self.selected_classe else "Classe"
+            self.breadcrumb_label.configure(text=f"Élèves > {classe_name}")
+            self.back_button.pack(side="left", padx=(0, 8), before=self.breadcrumb_label)
+
+    def navigate_back(self):
+        """Retourne à la vue précédente"""
+        if self.current_view == "students":
+            self.show_classes_view()
+
+    def show_classes_view(self):
+        """Affiche la vue des classes"""
+        self.current_view = "classes"
+        self.selected_classe = None
+        self.selected_classe_id = None
+        self.update_breadcrumb()
+        
+        # Restaurer le contenu original
+        self.clear_main_content()
+        self._create_header(self.main_content_frame)
+        self._create_stats_cards(self.main_content_frame)
+        self._create_chart_section(self.main_content_frame)
+        
+        # Rafraîchir les données sans appeler refresh_dashboard pour éviter la boucle
+        self.load_eleves_data()
+        graph_data = fetch_effectifs_par_classe(limit=50)
+        self.update_chart(graph_data)
+
+    def show_students_view(self, classe_name, classe_id):
+        """Affiche la vue des étudiants d'une classe"""
+        self.current_view = "students"
+        self.selected_classe = classe_name
+        self.selected_classe_id = classe_id
+        self.update_breadcrumb()
+        self.refresh_dashboard()
 
     def _create_header(self, parent):
-        """Header moderne avec thème global et marges optimisées"""
+        """Header moderne en deux sections avec boutons sans fond élégants"""
         header_frame = ctk.CTkFrame(parent, fg_color="transparent")
         header_frame.pack(fill="x", pady=(0, PADDING_MEDIUM))
         header_frame.grid_columnconfigure(0, weight=1)
         header_frame.grid_columnconfigure(1, weight=1)
 
-        # Section gauche - Titre principal avec meilleures marges
-        greetings_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
-        greetings_frame.grid(row=0, column=0, sticky="w", padx=(PADDING_MEDIUM, 0))
+        # =================== SECTION GAUCHE - TITRE ET DESCRIPTION ===================
+        left_section = ctk.CTkFrame(header_frame, fg_color="transparent")
+        left_section.grid(row=0, column=0, sticky="w", padx=(PADDING_MEDIUM, 0))
 
-        greeting_content = ctk.CTkFrame(greetings_frame, fg_color="transparent")
-        greeting_content.pack(anchor="w", pady=(PADDING_SMALL, 0))
+        # Titre principal avec icône
+        title_frame = ctk.CTkFrame(left_section, fg_color="transparent")
+        title_frame.pack(anchor="w", pady=(PADDING_SMALL, 0))
 
-        greeting_icon = get_icon("eleves", (32, 32))
-        if greeting_icon:
-            glb = ctk.CTkLabel(greeting_content, text="", image=greeting_icon, text_color=TEXT_ACCENT)
-            glb._imgref = greeting_icon
-            glb.pack(side="left", padx=(0, PADDING_SMALL))
+        # Icône principale
+        main_icon = get_icon("eleve", (32, 32))
+        if main_icon:
+            icon_label = ctk.CTkLabel(title_frame, text="", image=main_icon, text_color=TEXT_ACCENT)
+            icon_label._imgref = main_icon
+            icon_label.pack(side="left", padx=(0, PADDING_SMALL))
 
-        ctk.CTkLabel(greeting_content, text="Gestion des Élèves",font=FONT_HERO, text_color=TEXT_ACCENT).pack(side="left")
-        ctk.CTkLabel(greetings_frame, text="Tableau de bord intelligent des élèves de l'établissement",font=FONT_SECONDARY, text_color=TEXT_SECONDARY).pack(anchor="w", pady=(MARGIN_SMALL, 0))
+        # Titre principal
+        ctk.CTkLabel(title_frame, text="Élèves", font=FONT_HERO, text_color=TEXT_ACCENT).pack(side="left")
+        
+        # Description
+        ctk.CTkLabel(left_section, text="statistiques des élèves", 
+                     font=("Segoe UI", 14), text_color=TEXT_SECONDARY).pack(anchor="w", pady=(MARGIN_SMALL, 0))
 
-        # Section droite - Recherche et rafraîchissement avec meilleures marges
-        search_refresh_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
-        search_refresh_frame.grid(row=0, column=1, sticky="e", padx=(0, PADDING_MEDIUM))
+        # =================== SECTION DROITE - ACTIONS ET RECHERCHE ===================
+        right_section = ctk.CTkFrame(header_frame, fg_color="transparent")
+        right_section.grid(row=0, column=1, sticky="e", padx=(0, PADDING_MEDIUM))
+
+        # Conteneur principal pour les actions
+        actions_container = ctk.CTkFrame(right_section, fg_color="transparent")
+        actions_container.pack(side="right")
+
+        # Barre de recherche
+        search_frame = ctk.CTkFrame(actions_container, fg_color="transparent")
+        search_frame.pack(side="left", padx=(0, PADDING_MEDIUM))
 
         self.search_var = ctk.StringVar()
-        self.search_entry = ctk.CTkEntry(search_refresh_frame, placeholder_text="Rechercher un élève...", width=250, fg_color=BG_CARD, text_color=TEXT_PRIMARY, border_color=BORDER_COLOR,
-                         corner_radius=12, font=FONT_SECONDARY, textvariable=self.search_var,
-                         placeholder_text_color=TEXT_MUTED)
+        self.search_entry = ctk.CTkEntry(search_frame, placeholder_text="Rechercher un élève...", 
+                                        width=220, fg_color=BG_CARD, text_color=TEXT_PRIMARY, 
+                                        border_color=BORDER_COLOR, corner_radius=10, font=FONT_SECONDARY, 
+                                        textvariable=self.search_var, placeholder_text_color=TEXT_MUTED)
         self.search_entry.pack(side="left", padx=(0, PADDING_SMALL))
+        self.search_entry.bind("<KeyRelease>", self.on_search_change)
 
-        refresh_icon = get_icon("refresh", (20, 20))
-        btn_refresh = ctk.CTkButton(search_refresh_frame, text="", image=refresh_icon, width=45, height=45, fg_color=BG_CARD, hover_color=BG_CARD_HOVER, corner_radius=12,
-                                    command=self.refresh_dashboard, border_width=1, border_color=BORDER_COLOR)
+        # Icône de recherche
+        search_icon = get_icon("search", (20, 20))
+        if search_icon:
+            search_btn = ctk.CTkButton(search_frame, text="", image=search_icon, width=40, height=40,
+                                      fg_color="transparent", hover_color=BG_CARD_HOVER, corner_radius=8,
+                                      command=self.on_search_change, border_width=0)
+            search_btn._imgref = search_icon
+            search_btn.pack(side="left")
+
+        # Boutons d'action avec couleurs harmonisées
+        buttons_frame = ctk.CTkFrame(actions_container, fg_color="transparent")
+        buttons_frame.pack(side="left")
+
+        # Bouton Ajouter Élève
+        add_icon = get_icon("add", (22, 22))
+        btn_add = ctk.CTkButton(buttons_frame, text="", width=45, height=45,
+                               fg_color="transparent", hover_color=BG_CARD_HOVER, corner_radius=8,
+                               command=self.ajouter_eleve, border_width=1, border_color=BORDER_COLOR,
+                               image=add_icon if add_icon else None)
+        if add_icon:
+            btn_add._imgref = add_icon
+        btn_add.pack(side="left", padx=(0, 8))
+
+        # Bouton Voir tous les élèves
+        group_icon = get_icon("group", (22, 22))
+        btn_group = ctk.CTkButton(buttons_frame, text="", width=45, height=45,
+                                 fg_color="transparent", hover_color=BG_CARD_HOVER, corner_radius=8,
+                                 command=self.afficher_tous_eleves_classe, border_width=1, border_color=BORDER_COLOR,
+                                 image=group_icon if group_icon else None)
+        if group_icon:
+            btn_group._imgref = group_icon
+        btn_group.pack(side="left", padx=(0, 8))
+
+        # Bouton Rafraîchir
+        refresh_icon = get_icon("refresh", (22, 22))
+        btn_refresh = ctk.CTkButton(buttons_frame, text="", width=45, height=45,
+                                   fg_color="transparent", hover_color=BG_CARD_HOVER, corner_radius=8,
+                                   command=self.refresh_dashboard, border_width=1, border_color=BORDER_COLOR,
+                                   image=refresh_icon if refresh_icon else None)
         if refresh_icon:
             btn_refresh._imgref = refresh_icon
         btn_refresh.pack(side="left")
@@ -554,9 +794,233 @@ class DashboardEleves(ctk.CTkFrame):
         self.refresh_stats()
 
     def refresh_dashboard(self):
-        """Rafraîchit le dashboard"""
+        """Rafraîchit le dashboard selon la vue actuelle"""
         self.update_last_action("Rafraîchissement", "Actualisation des données")
-        self.update_dashboard_for_classe(self.selected_classe)
+        
+        if self.current_view == "classes":
+            # Vue des classes - afficher les statistiques générales
+            # Ne pas appeler update_dashboard_for_classe pour éviter la boucle infinie
+            # Charger les données des élèves avec pagination
+            self.load_eleves_data()
+            # Mise à jour du graphique avec toutes les classes
+            graph_data = fetch_effectifs_par_classe(limit=50)
+            self.update_chart(graph_data)
+        elif self.current_view == "students":
+            # Vue des étudiants - afficher la liste des étudiants de la classe sélectionnée
+            self.show_students_list()
+
+    def show_students_list(self):
+        """Affiche la liste des étudiants de la classe sélectionnée dans la zone principale"""
+        if not self.selected_classe_id:
+            return
+            
+        if not hasattr(self, 'main_content_frame') or not self.main_content_frame.winfo_exists():
+            return
+            
+        # Récupérer les étudiants de la classe
+        eleves_classe = get_eleves_list(self.selected_classe_id)
+        
+        if not eleves_classe:
+            # Afficher un message si aucun étudiant
+            self.clear_main_content()
+            no_students_frame = ctk.CTkFrame(self.main_content_frame, fg_color=BG_CARD, corner_radius=12)
+            no_students_frame.pack(fill="both", expand=True, padx=20, pady=20)
+            
+            no_students_label = ctk.CTkLabel(
+                no_students_frame,
+                text=f"Aucun élève trouvé dans la classe {self.selected_classe}",
+                font=("Segoe UI", 16),
+                text_color=TEXT_MUTED
+            )
+            no_students_label.pack(expand=True)
+            return
+        
+        # Nettoyer le contenu principal
+        self.clear_main_content()
+        
+        # Créer le conteneur pour la liste des étudiants
+        students_container = ctk.CTkFrame(self.main_content_frame, fg_color=BG_CARD, corner_radius=12)
+        students_container.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # En-tête avec informations de la classe
+        header_frame = ctk.CTkFrame(students_container, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 20))
+        
+        # Titre
+        title_label = ctk.CTkLabel(
+            header_frame,
+            text=f"Élèves de la classe {self.selected_classe}",
+            font=("Segoe UI", 20, "bold"),
+            text_color=TEXT_ACCENT
+        )
+        title_label.pack(side="left")
+        
+        # Nombre d'élèves
+        count_label = ctk.CTkLabel(
+            header_frame,
+            text=f"({len(eleves_classe)} élève{'s' if len(eleves_classe) > 1 else ''})",
+            font=("Segoe UI", 14),
+            text_color=TEXT_MUTED
+        )
+        count_label.pack(side="left", padx=(10, 0))
+        
+        # Barre de recherche
+        search_frame = ctk.CTkFrame(students_container, fg_color="transparent")
+        search_frame.pack(fill="x", pady=(0, 20))
+        
+        search_entry = ctk.CTkEntry(
+            search_frame,
+            placeholder_text="Rechercher un élève par nom, prénom ou statut...",
+            fg_color=BG_MAIN,
+            text_color=TEXT_PRIMARY,
+            border_color=BORDER_COLOR,
+            placeholder_text_color=TEXT_MUTED,
+            height=40
+        )
+        search_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        
+        # Boutons d'action
+        buttons_frame = ctk.CTkFrame(search_frame, fg_color="transparent")
+        buttons_frame.pack(side="right")
+        
+        # Bouton Modifier
+        edit_icon = get_icon("edit", (18, 18))
+        btn_edit = ctk.CTkButton(
+            buttons_frame, 
+            text="Modifier", 
+            image=edit_icon if edit_icon else None,
+            command=self.modifier_eleve,
+            fg_color="transparent", 
+            hover_color=BG_CARD_HOVER, 
+            text_color=TEXT_ACCENT,
+            corner_radius=8, 
+            height=40, 
+            width=100, 
+            font=("Segoe UI", 12, "bold"), 
+            border_width=1, 
+            border_color=BORDER_COLOR
+        )
+        btn_edit.pack(side="left", padx=(0, 8))
+        
+        # Bouton Supprimer
+        delete_icon = get_icon("delete", (18, 18))
+        btn_delete = ctk.CTkButton(
+            buttons_frame, 
+            text="Supprimer", 
+            image=delete_icon if delete_icon else None,
+            command=self.supprimer_eleve,
+            fg_color="transparent", 
+            hover_color=BG_CARD_HOVER, 
+            text_color=TEXT_ACCENT,
+            corner_radius=8, 
+            height=40, 
+            width=100, 
+            font=("Segoe UI", 12, "bold"), 
+            border_width=1, 
+            border_color=BORDER_COLOR
+        )
+        btn_delete.pack(side="left", padx=(0, 8))
+        
+        # Bouton Exporter
+        export_icon = get_icon("csv", (18, 18))
+        btn_export = ctk.CTkButton(
+            buttons_frame, 
+            text="Exporter", 
+            image=export_icon if export_icon else None,
+            command=self.exporter_eleves,
+            fg_color="transparent", 
+            hover_color=BG_CARD_HOVER, 
+            text_color=TEXT_ACCENT,
+            corner_radius=8, 
+            height=40, 
+            width=100, 
+            font=("Segoe UI", 12, "bold"), 
+            border_width=1, 
+            border_color=BORDER_COLOR
+        )
+        btn_export.pack(side="left")
+        
+        # Tableau des étudiants
+        table_frame = ctk.CTkFrame(students_container, fg_color="transparent")
+        table_frame.pack(fill="both", expand=True)
+        
+        # Configuration du style Treeview
+        style = ttk.Style()
+        style.theme_use('clam')
+        
+        # Style des en-têtes
+        style.configure("Treeview.Heading", 
+                       background="transparent", 
+                       foreground=TEXT_ACCENT, 
+                       padding=(20, 15),
+                       borderwidth=1,
+                       relief="solid")
+        
+        # Style des lignes
+        style.configure("Treeview", 
+                       background=BG_CARD, 
+                       foreground=TEXT_PRIMARY, 
+                       rowheight=50,
+                       borderwidth=0,
+                       fieldbackground=BG_CARD)
+        
+        # Créer le tableau
+        columns = ("Nom", "Prénom", "Genre", "Naissance", "Âge", "Statut")
+        self.students_table = ttk.Treeview(table_frame, columns=columns, show="headings", style="Treeview")
+        
+        # Configuration des colonnes
+        column_widths = {"Nom": 150, "Prénom": 150, "Genre": 80, "Naissance": 120, "Âge": 60, "Statut": 100}
+        for col in columns:
+            self.students_table.heading(col, text=col)
+            self.students_table.column(col, width=column_widths[col], anchor="center")
+        
+        # Barre de défilement
+        scrollbar = ctk.CTkScrollbar(table_frame, orientation="vertical", command=self.students_table.yview,
+                                    fg_color=BORDER_COLOR, button_color=BG_CARD, button_hover_color=TEXT_ACCENT)
+        self.students_table.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack du tableau et de la barre de défilement
+        self.students_table.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        scrollbar.pack(side="right", fill="y")
+        
+        # Remplir le tableau avec les données
+        for eleve in eleves_classe:
+            _id, nom, prenom, genre, naissance, statut, cid = eleve
+            age = calculate_age(naissance)
+            
+            # Insérer dans le tableau
+            item = self.students_table.insert("", "end", values=(nom, prenom, genre, naissance, age, statut))
+            
+            # Appliquer les couleurs selon le statut
+            if statut == "Actif":
+                self.students_table.tag_configure("actif", foreground="#27AE60")
+                self.students_table.item(item, tags=(self.students_table.item(item, "tags")[0], "actif"))
+            elif statut == "Inactif":
+                self.students_table.tag_configure("inactif", foreground="#E74C3C")
+                self.students_table.item(item, tags=(self.students_table.item(item, "tags")[0], "inactif"))
+        
+        # Stocker les données pour les boutons CRUD
+        self.eleves_data = eleves_classe
+        
+        # Bind des événements
+        self.students_table.bind("<<TreeviewSelect>>", self.on_students_table_select)
+
+    def clear_main_content(self):
+        """Nettoie le contenu principal en préservant le breadcrumb"""
+        if not hasattr(self, 'main_content_frame') or not self.main_content_frame.winfo_exists():
+            return
+            
+        # Garder le breadcrumb et nettoyer le reste
+        children = list(self.main_content_frame.winfo_children())
+        for widget in children[1:]:  # Skip le breadcrumb (index 0)
+            widget.destroy()
+
+    def on_students_table_select(self, event):
+        """Gère la sélection dans le tableau des étudiants"""
+        selected_items = self.students_table.selection()
+        if selected_items:
+            # Mettre à jour l'état de sélection pour les boutons CRUD
+            pass
 
     def refresh_stats_for_classe(self, classe_id):
         """Met à jour les statistiques pour une classes spécifique"""
@@ -624,10 +1088,10 @@ class DashboardEleves(ctk.CTkFrame):
             .pack(side="left", padx=PADDING_SMALL)
 
         # Créer les labels et les stocker dans les listes
-        value_label = ctk.CTkLabel(wrap, text=str(value), font=("Segoe UI", 18, "bold"), text_color=TEXT_PRIMARY)
+        value_label = ctk.CTkLabel(wrap, text=str(value), font=("Segoe UI", 22, "bold"), text_color=TEXT_PRIMARY)
         value_label.pack(anchor="w", padx=PADDING_SMALL)
         
-        subtext_label = ctk.CTkLabel(wrap, text="Mise à jour en temps réel", font=("Segoe UI", 9), text_color=TEXT_SECONDARY)
+        subtext_label = ctk.CTkLabel(wrap, text="Mise à jour en temps réel", font=("Segoe UI", 11), text_color=TEXT_SECONDARY)
         subtext_label.pack(anchor="w", padx=PADDING_SMALL, pady=(0, MARGIN_SMALL))
 
         pb_bg = ctk.CTkFrame(wrap, fg_color=BG_CARD_HOVER, corner_radius=8, height=8, border_width=1, border_color=BORDER_COLOR)
@@ -650,85 +1114,28 @@ class DashboardEleves(ctk.CTkFrame):
             parent, fg_color=BG_CARD,
             corner_radius=10, border_width=1, border_color=BORDER_COLOR
         )
-        self.chart_container.pack(fill="x", pady=(0, 8))
+        self.chart_container.pack(fill="both", expand=True, pady=(0, 0))
         
-        ctk.CTkLabel(self.chart_container, text="Répartition des Élèves par Classe", font=("Segoe UI", 22, "bold"), text_color=TEXT_PRIMARY).pack(padx=10, pady=(10, 4), anchor="w")
-        ctk.CTkLabel(self.chart_container, text="Distribution des effectifs par classes", font=("Segoe UI", 11), text_color=TEXT_SECONDARY).pack(padx=10, pady=(0, 8), anchor="w")
-
-    def _create_crud_buttons_section(self, parent):
-        """Section des boutons CRUD juste après le graphique"""
-        crud_container = ctk.CTkFrame(
-            parent, fg_color=BG_CARD,
-            corner_radius=12, border_width=1, border_color=BORDER_COLOR
-        )
-        crud_container.pack(fill="x", pady=(PADDING_SMALL, 0))
+        # Header du graphique avec icône et titre
+        chart_header = ctk.CTkFrame(self.chart_container, fg_color="transparent")
+        chart_header.pack(fill="x", padx=15, pady=(20, 10))
         
-        # Conteneur des boutons avec espacement optimisé
-        buttons_frame = ctk.CTkFrame(crud_container, fg_color="transparent")
-        buttons_frame.pack(fill="x", padx=PADDING_MEDIUM, pady=(PADDING_MEDIUM, PADDING_MEDIUM))
+        # Titre avec icône
+        title_frame = ctk.CTkFrame(chart_header, fg_color="transparent")
+        title_frame.pack(anchor="w")
         
-        # Configuration de la grille pour centrer les boutons (3 colonnes seulement)
-        for i in range(3):
-            buttons_frame.grid_columnconfigure(i, weight=1)
+        # Icône pour le graphique
+        chart_icon = get_icon("stats", (28, 28))
+        if chart_icon:
+            icon_label = ctk.CTkLabel(title_frame, text="", image=chart_icon, text_color=TEXT_ACCENT)
+            icon_label._imgref = chart_icon
+            icon_label.pack(side="left", padx=(0, 10))
         
-        # Bouton Ajouter
-        add_icon = get_icon("add", (20, 20))
-        btn_add = ctk.CTkButton(
-            buttons_frame, 
-            text="Ajouter Élève", 
-            image=add_icon, fg_color=SUCCESS_GREEN, text_color=WHITE, hover_color=HOVER_SUCCESS,
-            command=self.ajouter_eleve,
-            corner_radius=15, 
-            height=50,
-            width=150, border_width=2, border_color=SUCCESS_GREEN,
-        )
-        if add_icon:
-            btn_add._imgref = add_icon
-        btn_add.grid(row=0, column=0, padx=PADDING_SMALL, pady=PADDING_SMALL)
+        # Titre principal
+        ctk.CTkLabel(title_frame, text="Répartition des Élèves par Classe", font=("Segoe UI", 26, "bold"), text_color=TEXT_PRIMARY).pack(side="left")
         
-        # Bouton Afficher tous les élèves
-        show_all_icon = get_icon("group", (20, 20))
-        btn_show_all = ctk.CTkButton(
-            buttons_frame, 
-            text="Voir tous les élèves", 
-            image=show_all_icon, fg_color="transparent", text_color=TEXT_ACCENT, hover_color=BG_CARD_HOVER,
-            command=self.afficher_tous_eleves_classe,
-            corner_radius=15, 
-            height=50,
-            width=180, border_width=2, border_color=TEXT_ACCENT,
-        )
-        if show_all_icon:
-            btn_show_all._imgref = show_all_icon
-        btn_show_all.grid(row=0, column=1, padx=PADDING_SMALL, pady=PADDING_SMALL)
-        
-        # Bouton Transfert
-        transfer_icon = get_icon("transfer", (20, 20))
-        btn_transfer = ctk.CTkButton(
-            buttons_frame, 
-            text="Transfert", 
-            image=transfer_icon, fg_color=WARNING_ORANGE, text_color=WHITE, hover_color=HOVER_WARNING,
-            command=self.transferer_eleve,
-            corner_radius=15, 
-            height=50,
-            width=130, border_width=2, border_color=WARNING_ORANGE,
-        )
-        if transfer_icon:
-            btn_transfer._imgref = transfer_icon
-        btn_transfer.grid(row=0, column=2, padx=PADDING_SMALL, pady=PADDING_SMALL)
-        
-        # Affichage des actions récentes
-        self.action_info_frame = ctk.CTkFrame(crud_container, fg_color="transparent")
-        self.action_info_frame.pack(fill="x", padx=PADDING_MEDIUM, pady=(0, PADDING_SMALL))
-        
-        # Label pour les actions récentes
-        self.action_label = ctk.CTkLabel(
-            self.action_info_frame,
-            text="Dernière action : Aucune", text_color=TEXT_SECONDARY
-        )
-        self.action_label.pack(side="left")
-        
-        # Initialiser l'heure actuelle
-        self.update_last_action("Initialisation", "Dashboard chargé")
+        # Description avec plus d'espace
+        ctk.CTkLabel(self.chart_container, text="Distribution des effectifs par classes", font=("Segoe UI", 13), text_color=TEXT_SECONDARY).pack(padx=15, pady=(0, 30), anchor="w")
 
     def _create_sidebar(self):
         """Sidebar magnifique avec thème global et design premium"""
@@ -816,13 +1223,15 @@ class DashboardEleves(ctk.CTkFrame):
         else:
             # Organiser les classes par niveau
             classes_par_niveau = {}
-            for nom, niveau in classes:
+            for classe in classes:
+                nom = classe[0]  # nom_classe
+                niveau = classe[1]  # niveau
                 if niveau not in classes_par_niveau:
                     classes_par_niveau[niveau] = []
                 classes_par_niveau[niveau].append(nom)
             
-            # Créer les sections dans l'ordre souhaité
-            niveaux_order = ["PRIMAIRE", "COLLÈGE", "LYCÉE"]
+            # Créer les sections dans l'ordre logique du système français
+            niveaux_order = ["Primaire", "Collège", "Lycée"]
             
             for niveau in niveaux_order:
                 if niveau in classes_par_niveau:
@@ -833,8 +1242,12 @@ class DashboardEleves(ctk.CTkFrame):
                     )
                     section_title.pack(anchor="w", pady=(PADDING_MEDIUM, MARGIN_SMALL), padx=PADDING_SMALL)
                     
-                    # Boutons des classes de cette section
-                    for nom in classes_par_niveau[niveau]:
+                    # Boutons des classes de cette section (triées par ordre logique)
+                    classes_sorted = sorted(classes_par_niveau[niveau], key=lambda x: (
+                        int(x.split('°')[0]) if '°' in x and x.split('°')[0].isdigit() else 999,
+                        x
+                    ))
+                    for nom in classes_sorted:
                         btn = ctk.CTkButton(
                             self.classe_btns_frame, 
                             text=nom, font=FONT_SMALL, fg_color=BG_CARD, text_color=TEXT_PRIMARY, hover_color=BG_CARD_HOVER,
@@ -864,28 +1277,89 @@ class DashboardEleves(ctk.CTkFrame):
     def update_dashboard_for_classe(self, classe_name):
         """Met à jour le dashboard pour une classes spécifique"""
         try:
+            if classe_name is None:
+                # Retour à la vue des classes
+                self.show_classes_view()
+                return
+                
             # Convertir le nom de classes en ID si nécessaire
-            classe_id = None
-            if classe_name is not None:
-                classe_id = get_classe_id_by_name(classe_name)
-                if classe_id is None:
-                    print(f"⚠️ Classe '{classe_name}' introuvable")
-                    return
+            classe_id = get_classe_id_by_name(classe_name)
+            if classe_id is None:
+                print(f"⚠️ Classe '{classe_name}' introuvable")
+                return
             
-            self.selected_classe = classe_name  # Garder le nom pour l'affichage
-            self.selected_classe_id = classe_id  # Stocker l'ID pour les requêtes DB
-            self.update_btn_states(classe_name)
+            # Naviguer vers la vue des étudiants de cette classe
+            self.show_students_view(classe_name, classe_id)
             
-            # Mise à jour des statistiques avec données de la classes
-            self.refresh_stats_for_classe(classe_id)
-            
-            # Mise à jour du graphique
-            graph_data = fetch_effectifs_par_classe()
-            self.update_chart(graph_data)
-            
-            print(f"✅ Dashboard mis à jour pour la classes: {classe_name} (ID: {classe_id})")
+            print(f"✅ Navigation vers la classe: {classe_name} (ID: {classe_id})")
         except Exception as e:
-            print(f"⚠️ Erreur mise à jour dashboard: {e}")
+            print(f"⚠️ Erreur navigation: {e}")
+
+    def on_search_change(self, event=None):
+        """Gère les changements dans la recherche"""
+        self.search_term = self.search_var.get()
+        self.current_page = 1  # Retour à la première page
+        self.load_eleves_data()
+
+    def load_eleves_data(self):
+        """Charge les données des élèves avec pagination"""
+        try:
+            # Récupérer le nombre total d'élèves
+            self.total_eleves = get_eleves_count(self.selected_classe_id, self.search_term)
+            
+            # Calculer le nombre total de pages
+            self.total_pages = max(1, (self.total_eleves + self.page_size - 1) // self.page_size)
+            
+            # S'assurer que la page actuelle est valide
+            if self.current_page > self.total_pages:
+                self.current_page = self.total_pages
+            
+            # Charger les élèves de la page actuelle
+            eleves_data = get_eleves_list(
+                classe_id=self.selected_classe_id,
+                search_term=self.search_term,
+                page=self.current_page,
+                page_size=self.page_size
+            )
+            
+            # Mettre à jour l'affichage des élèves
+            self.update_eleves_display(eleves_data)
+            
+            # Mettre à jour les contrôles de pagination
+            self.update_pagination_controls()
+            
+        except Exception as e:
+            print(f"⚠️ Erreur lors du chargement des données: {e}")
+
+    def update_eleves_display(self, eleves_data):
+        """Met à jour l'affichage de la liste des élèves"""
+        # Cette méthode sera implémentée selon l'interface existante
+        # Pour l'instant, on affiche juste les données dans la console
+        print(f"📊 Affichage de {len(eleves_data)} élèves (page {self.current_page}/{self.total_pages})")
+        for eleve in eleves_data[:5]:  # Afficher seulement les 5 premiers
+            print(f"   - {eleve[2]} {eleve[1]} ({eleve[6] if len(eleve) > 6 else 'N/A'})")
+
+    def update_pagination_controls(self):
+        """Met à jour les contrôles de pagination"""
+        # Cette méthode créera les boutons de pagination
+        # Pour l'instant, on affiche juste les informations
+        print(f"📄 Page {self.current_page} sur {self.total_pages} ({self.total_eleves} élèves au total)")
+
+    def go_to_page(self, page):
+        """Va à une page spécifique"""
+        if 1 <= page <= self.total_pages:
+            self.current_page = page
+            self.load_eleves_data()
+
+    def next_page(self):
+        """Va à la page suivante"""
+        if self.current_page < self.total_pages:
+            self.go_to_page(self.current_page + 1)
+
+    def previous_page(self):
+        """Va à la page précédente"""
+        if self.current_page > 1:
+            self.go_to_page(self.current_page - 1)
 
     def update_chart(self, data):
         """Met à jour le graphique avec les données - Graphique en aires avec gradient amélioré"""
@@ -915,28 +1389,28 @@ class DashboardEleves(ctk.CTkFrame):
         chart_names = [x[0] for x in filtered_data]
         chart_counts = [x[1] for x in filtered_data]
 
-        # Création du graphique en aires avec gradient (hauteur optimisée)
-        fig = plt.Figure(figsize=(8, 3.8), dpi=100)
+        # Création du graphique en aires avec gradient (hauteur augmentée)
+        fig = plt.Figure(figsize=(8, 5.2), dpi=100)
         ax = fig.add_subplot(111)
         
         # Créer le graphique en aires avec gradient
         x_pos = range(len(chart_names))
         
-        # Graphique en aires avec gradient amélioré
-        ax.fill_between(x_pos, chart_counts, alpha=0.4, color=ACCENT_BLUE, label='Effectifs')
-        ax.plot(x_pos, chart_counts, color=ACCENT_BLUE, linewidth=3, marker='o', markersize=8, markerfacecolor=WHITE, markeredgecolor=ACCENT_BLUE, markeredgewidth=3)
+        # Graphique en aires avec gradient amélioré - utiliser les couleurs du thème
+        ax.fill_between(x_pos, chart_counts, alpha=0.4, color=TEXT_ACCENT, label='Effectifs')
+        ax.plot(x_pos, chart_counts, color=TEXT_ACCENT, linewidth=3, marker='o', markersize=8, markerfacecolor=BG_CARD, markeredgecolor=TEXT_ACCENT, markeredgewidth=3)
         
-        # Ajouter des points de données avec des couleurs différentes et améliorées
-        colors = [ACCENT_BLUE, SUCCESS_GREEN, WARNING_ORANGE, ERROR_RED, PRIMARY_BLUE, 
+        # Ajouter des points de données avec des couleurs du thème
+        colors = [TEXT_ACCENT, SUCCESS_GREEN, WARNING_ORANGE, ERROR_RED, PRIMARY_BLUE, 
                  "#8b5cf6", "#06b6d4", "#84cc16", "#f59e0b", "#ef4444", "#10b981", "#3b82f6"]
         for i, (x, y) in enumerate(zip(x_pos, chart_counts)):
             if y > 0:
                 ax.scatter(x, y, s=100, c=colors[i % len(colors)], alpha=0.9, 
-                          edgecolors=WHITE, linewidth=3, zorder=5)
+                          edgecolors=BG_CARD, linewidth=3, zorder=5)
                 # Ajouter les valeurs avec style amélioré
                 ax.annotate(str(y), (x, y), textcoords="offset points", xytext=(0,12), 
                            ha='center', va='bottom', color=TEXT_PRIMARY, 
-                           fontweight='bold', fontsize=9, 
+                           fontweight='bold', fontsize=11, 
                            bbox=dict(boxstyle="round,pad=0.2", facecolor=BG_CARD, edgecolor=BORDER_COLOR, alpha=0.8))
         
         # Configuration des axes avec noms abrégés
@@ -975,12 +1449,12 @@ class DashboardEleves(ctk.CTkFrame):
             else:
                 abbreviated_names.append(name)
         
-        ax.set_xticklabels(abbreviated_names, rotation=45, ha='right', color=TEXT_PRIMARY, fontsize=9)
-        ax.set_ylabel("Nombre d'élèves", color=TEXT_PRIMARY, fontsize=11, fontweight='bold')
-        ax.set_title("Répartition des Élèves par Classe", color=TEXT_PRIMARY, fontsize=13, fontweight='bold', pad=15)
+        ax.set_xticklabels(abbreviated_names, rotation=45, ha='right', color=TEXT_PRIMARY, fontsize=11)
+        ax.set_ylabel("Nombre d'élèves", color=TEXT_PRIMARY, fontsize=13, fontweight='bold')
+        ax.set_title("Répartition des Élèves par Classe", color=TEXT_PRIMARY, fontsize=15, fontweight='bold', pad=50)
         
         # Style des axes amélioré
-        ax.tick_params(axis='y', colors=TEXT_PRIMARY, labelsize=10)
+        ax.tick_params(axis='y', colors=TEXT_PRIMARY, labelsize=12)
         ax.spines['bottom'].set_color(BORDER_COLOR)
         ax.spines['left'].set_color(BORDER_COLOR)
         ax.spines['right'].set_color(BG_CARD)
@@ -996,10 +1470,10 @@ class DashboardEleves(ctk.CTkFrame):
         # Ajuster les marges pour éviter la coupure des labels
         fig.tight_layout()
         
-        # Intégration dans CustomTkinter avec mise à jour instantanée
+        # Intégration dans CustomTkinter avec mise à jour instantanée et meilleur espacement
         canvas = FigureCanvasTkAgg(fig, self.chart_container)
         canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True, padx=PADDING_SMALL, pady=PADDING_SMALL)
+        canvas.get_tk_widget().pack(fill="both", expand=True, padx=PADDING_SMALL, pady=(0, PADDING_SMALL))
 
         # Stocker la référence du canvas pour mise à jour future
         self.chart_canvas = canvas
@@ -1077,6 +1551,8 @@ class DashboardEleves(ctk.CTkFrame):
 
     def create_themed_interface(self, eleves_classe):
         """Crée l'interface avec le thème personnalisé"""
+        print(f"🔧 Création de l'interface pour {len(eleves_classe)} élèves")
+        
         # Barre de menu moderne
         menubar = tk.Menu(self.show_all_window)
         self.show_all_window.config(menu=menubar)
@@ -1104,8 +1580,8 @@ class DashboardEleves(ctk.CTkFrame):
         help_menu.add_command(label="À propos", command=lambda: messagebox.showinfo("À propos", "Gestion des élèves - EduManager+"))
         help_menu.add_command(label="Guide d'utilisation", command=lambda: messagebox.showinfo("Guide", "Guide d'utilisation à venir"))
         
-        # En-tête moderne avec le thème neon
-        header_frame = ctk.CTkFrame(self.show_all_window, fg_color=CARD_BG, corner_radius=0, border_width=2, border_color=ACCENT)
+        # En-tête moderne avec le thème depuis la racine
+        header_frame = ctk.CTkFrame(self.show_all_window, fg_color=BG_CARD, corner_radius=0, border_width=2, border_color=TEXT_ACCENT)
         header_frame.pack(fill="x", padx=0, pady=0)
         
         # Titre principal avec icône
@@ -1126,15 +1602,15 @@ class DashboardEleves(ctk.CTkFrame):
             icon_label = ctk.CTkLabel(title_inner, text="👨‍🎓", font=("Segoe UI", 24), text_color=ACCENT)
             icon_label.pack(side="left", padx=(0, 10))
         
-        title_label = ctk.CTkLabel(title_inner, text="Gestion des élèves",font=("Segoe UI", 32, "bold"), text_color=ACCENT)
+        title_label = ctk.CTkLabel(title_inner, text="Gestion des élèves",font=("Segoe UI", 32, "bold"), text_color=TEXT_ACCENT)
         title_label.pack(side="left")
         
         # Informations sur la classes
-        info_frame = ctk.CTkFrame(header_frame, fg_color=BG_SIDEBAR, corner_radius=8, border_width=2, border_color=ACCENT)
+        info_frame = ctk.CTkFrame(header_frame, fg_color=BG_SIDEBAR, corner_radius=8, border_width=2, border_color=TEXT_ACCENT)
         info_frame.pack(fill="x", padx=20, pady=(0, 15))
         
         info_text = f"Classe {self.selected_classe} - {len(eleves_classe)} élève(s)"
-        info_label = ctk.CTkLabel(info_frame, text=info_text,font=("Segoe UI", 16, "bold"), text_color=ACCENT)
+        info_label = ctk.CTkLabel(info_frame, text=info_text,font=("Segoe UI", 16, "bold"), text_color=TEXT_ACCENT)
         info_label.pack(pady=10)
         
         # Zone principale avec recherche et boutons
@@ -1145,499 +1621,92 @@ class DashboardEleves(ctk.CTkFrame):
         actions_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         actions_frame.pack(fill="x", pady=(0, 20))
         
-        # Zone de recherche (à gauche) avec style neon
-        search_frame = ctk.CTkFrame(actions_frame, fg_color=BG_SIDEBAR, corner_radius=12, border_width=3, border_color=ACCENT)
+        # Zone de recherche (à gauche) avec le thème cohérent
+        search_frame = ctk.CTkFrame(actions_frame, fg_color=BG_CARD, corner_radius=12, border_width=1, border_color=BORDER_COLOR)
         search_frame.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
         search_inner = ctk.CTkFrame(search_frame, fg_color="transparent")
         search_inner.pack(fill="x", padx=15, pady=10)
-        
-        # Icône de recherche
-        try:
-            search_icon = ctk.CTkImage(light_image=Image.open("resources/icons/search.png"), size=(16, 16))
-            search_icon_label = ctk.CTkLabel(search_inner, image=search_icon, text="")
-            search_icon_label.pack(side="left", padx=(0, 8))
-        except:
-            search_icon_label = ctk.CTkLabel(search_inner, text="🔍", font=("Segoe UI", 14, "bold"), text_color=ACCENT)
-            search_icon_label.pack(side="left", padx=(0, 8))
-        
-        # Champ de recherche avec style neon
-        self.search_entry = ctk.CTkEntry(search_inner, placeholder_text="Rechercher un élève par nom, prénom ou statut...", fg_color=BG_SIDEBAR, text_color=ACCENT, border_color=ACCENT, width=300)
-        self.search_entry.pack(side="left", fill="x", expand=True)
-        self.search_entry.bind("<KeyRelease>", self.filter_eleves)
-        
-        # Boutons d'action (à droite)
-        buttons_frame = ctk.CTkFrame(actions_frame, fg_color="transparent")
-        buttons_frame.pack(side="right")
-        
-        # Bouton Ajouter avec style neon
-        try:
-            add_icon = ctk.CTkImage(light_image=Image.open("resources/icons/add.png"), size=(20, 20))
-            btn_add = ctk.CTkButton(buttons_frame, text="Ajouter", image=add_icon, command=self.ajouter_eleve, fg_color="transparent", hover_color=ACCENT, text_color=ACCENT,
-                                  corner_radius=12, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=3, border_color=ACCENT)
-        except:
-            btn_add = ctk.CTkButton(buttons_frame, text="Ajouter", command=self.ajouter_eleve, fg_color="transparent", hover_color=ACCENT, text_color=ACCENT,
-                                  corner_radius=12, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=3, border_color=ACCENT)
-        btn_add.pack(side="left", padx=(0, 8))
-        
-        # Bouton Actualiser avec style neon
-        try:
-            refresh_icon = ctk.CTkImage(light_image=Image.open("resources/icons/refresh.png"), size=(20, 20))
-            btn_refresh = ctk.CTkButton(buttons_frame, text="Actualiser", image=refresh_icon, command=lambda: self.refresh_dashboard(), fg_color="transparent", hover_color=ACCENT, text_color=ACCENT,
-                                      corner_radius=12, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=3, border_color=ACCENT)
-        except:
-            btn_refresh = ctk.CTkButton(buttons_frame, text="Actualiser", command=lambda: self.refresh_dashboard(), fg_color="transparent", hover_color=ACCENT, text_color=ACCENT,
-                                      corner_radius=12, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=3, border_color=ACCENT)
-        btn_refresh.pack(side="left", padx=(0, 8))
-        
-        # Bouton Modifier avec style neon
-        try:
-            edit_icon = ctk.CTkImage(light_image=Image.open("resources/icons/edit.png"), size=(20, 20))
-            btn_edit = ctk.CTkButton(buttons_frame, text="Modifier", image=edit_icon, command=self.modifier_eleve, fg_color="transparent", hover_color=ACCENT, text_color=ACCENT,
-                                   corner_radius=12, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=3, border_color=ACCENT)
-        except:
-            btn_edit = ctk.CTkButton(buttons_frame, text="Modifier", command=self.modifier_eleve, fg_color="transparent", hover_color=ACCENT, text_color=ACCENT,
-                                   corner_radius=12, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=3, border_color=ACCENT)
-        btn_edit.pack(side="left", padx=(0, 8))
-        
-        # Bouton Supprimer avec style neon
-        try:
-            delete_icon = ctk.CTkImage(light_image=Image.open("resources/icons/delete.png"), size=(20, 20))
-            btn_delete = ctk.CTkButton(buttons_frame, text="Supprimer", image=delete_icon, command=self.supprimer_eleve, fg_color="transparent", hover_color=ACCENT, text_color=ACCENT,
-                                     corner_radius=12, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=3, border_color=ACCENT)
-        except:
-            btn_delete = ctk.CTkButton(buttons_frame, text="Supprimer", command=self.supprimer_eleve, fg_color="transparent", hover_color=ACCENT, text_color=ACCENT,
-                                     corner_radius=12, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=3, border_color=ACCENT)
-        btn_delete.pack(side="left")
-        
-        # Message contextuel
-        self.context_message = ctk.CTkLabel(main_frame, text="Sélectionnez un élève pour modifier ou supprimer",font=("Segoe UI", 12, "bold"), text_color=ACCENT)
-        self.context_message.pack(pady=(0, 10))
-        
-        # Conteneur du tableau avec le thème
-        table_container = ctk.CTkFrame(main_frame, fg_color=CARD_BG, corner_radius=12, border_width=3, border_color=ACCENT)
-        table_container.pack(fill="both", expand=True)
-        
-        # Configuration du style Treeview avec le thème
-        style = ttk.Style()
-        style.theme_use('clam')
-        
-        # Style des en-têtes avec bordures uniquement (pas de fond coloré)
-        style.configure("Treeview.Heading", 
-                       background="transparent", 
-                       foreground=ACCENT, 
-                       padding=(20, 15),
-                       borderwidth=2,
-                       relief="solid")
-        
-        # Style des lignes avec le thème
-        style.configure("Treeview", 
-                       background=CARD_BG, 
-                       foreground=ACCENT, 
-                       rowheight=50,
-                       borderwidth=0,
-                       fieldbackground=CARD_BG)
-        
-        # Créer le tableau avec le thème
-        columns = ("Nom", "Prénom", "Genre", "Naissance", "Âge", "Statut")
-        self.table = ttk.Treeview(table_container, columns=columns, show="headings", style="Treeview")
-        
-        # Configuration des colonnes
-        column_widths = {"Nom": 150, "Prénom": 150, "Genre": 80, "Naissance": 120, "Âge": 60, "Statut": 100}
-        for col in columns:
-            self.table.heading(col, text=col)
-            self.table.column(col, width=column_widths[col], anchor="center")
-        
-        # Barre de défilement avec le thème
-        scrollbar = ctk.CTkScrollbar(table_container, orientation="vertical", command=self.table.yview,fg_color=ACCENT, button_color=CARD_BG, button_hover_color=ACCENT)
-        self.table.configure(yscrollcommand=scrollbar.set)
-        
-        # Pack du tableau et de la barre de défilement
-        self.table.pack(side="left", fill="both", expand=True, padx=10, pady=10)
-        scrollbar.pack(side="right", fill="y", padx=(0, 10), pady=10)
-        
-        # Stocker les données des élèves
-        self.eleves_data = eleves_classe
-        
-        # Remplir le tableau avec les données
-        self.populate_table_with_theme()
-        
-        # Bind des événements
-        self.table.bind("<<TreeviewSelect>>", self.on_table_select)
-        
-        # Focus sur le tableau
-        self.table.focus_set()
-        
-        # Message de fermeture
-        self.show_all_window.protocol("WM_DELETE_WINDOW", self.on_close_show_all)
-
-    def populate_table_with_theme(self):
-        """Remplit le tableau avec les données en utilisant le thème"""
-        # Ajouter les données avec lignes alternées et indicateurs de statut
-        
-        # Informations de la classes avec style moderne
-        info_frame = ctk.CTkFrame(title_frame, fg_color="#34495E", corner_radius=8)  # pyright: ignore[reportUndefinedVariable]
-        info_frame.pack(fill="x", pady=(0, 15))
-        
-        info_label = ctk.CTkLabel(
-            info_frame,
-            text=f"Classe {self.selected_classe} - {len(eleves_classe)} élève(s)", text_color="white"
-        )
-        info_label.pack(padx=20, pady=15)
-        
-        # Barre d'actions et recherche moderne
-        actions_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
-        actions_frame.pack(fill="x", padx=30, pady=(0, 25))
-        
-        # Barre de recherche moderne (à gauche)
-        search_frame = ctk.CTkFrame(actions_frame, fg_color="white", corner_radius=10, border_width=1, border_color="#BDC3C7")
-        search_frame.pack(side="left", fill="x", expand=True, padx=(0, 20))
-        
-        # Conteneur interne pour l'icône et le champ
-        search_inner = ctk.CTkFrame(search_frame, fg_color="transparent")
-        search_inner.pack(fill="x", padx=15, pady=12)
         
         # Icône de recherche
         search_icon = get_icon("search", (18, 18))
         if search_icon:
-            icon_label = ctk.CTkLabel(search_inner, text="", image=search_icon, text_color="#7F8C8D")
-            icon_label.pack(side="left", padx=(0, 10))
-            icon_label._imgref = search_icon
-        
-        # Champ de recherche moderne
-        self.search_modal_var = ctk.StringVar()
-        search_entry = ctk.CTkEntry(
-            search_inner,
-            placeholder_text="Rechercher un élève par nom, prénom ou statut...",
-            textvariable=self.search_modal_var, fg_color="white", text_color="#2C3E50", border_color="#BDC3C7",
-            corner_radius=0,
-            height=28,
-            placeholder_text_color="#95A5A6"
-        )
-        search_entry.pack(side="left", fill="x", expand=True)
-        
-        # Boutons d'action modernes (à droite)
-        buttons_frame = ctk.CTkFrame(actions_frame, fg_color="transparent")
-        buttons_frame.pack(side="right")
-        
-        # Bouton Ajouter élève avec style moderne
-        add_icon = get_icon("add", (18, 18))
-        btn_add = ctk.CTkButton(
-            buttons_frame,
-            text="Ajouter",
-            image=add_icon, fg_color="#27AE60", text_color="white", hover_color="#229954",
-            command=self.ajouter_eleve,
-            corner_radius=8,
-            height=45,
-            width=120, border_width=0
-        )
-        if add_icon:
-            btn_add._imgref = add_icon
-        btn_add.pack(side="left", padx=(0, 10))
-        
-        # Bouton Modifier avec style moderne
-        edit_icon = get_icon("edit", (18, 18))
-        btn_modifier = ctk.CTkButton(
-            buttons_frame,
-            text="Modifier",
-            image=edit_icon, fg_color="#3498DB", text_color="white", hover_color="#2980B9",
-            command=self.modifier_eleve,
-            corner_radius=8,
-            height=45,
-            width=120, border_width=0
-        )
-        if edit_icon:
-            btn_modifier._imgref = edit_icon
-        btn_modifier.pack(side="left", padx=(0, 10))
-        
-        # Bouton Supprimer avec style moderne
-        delete_icon = get_icon("delete", (18, 18))
-        btn_supprimer = ctk.CTkButton(
-            buttons_frame,
-            text="Supprimer",
-            image=delete_icon, fg_color="#E74C3C", text_color="white", hover_color="#C0392B",
-            command=self.supprimer_eleve,
-            corner_radius=8,
-            height=45,
-            width=120, border_width=0
-        )
-        if delete_icon:
-            btn_supprimer._imgref = delete_icon
-        btn_supprimer.pack(side="left", padx=(0, 10))
-        
-        # Bouton Actualiser avec style moderne
-        refresh_icon = get_icon("refresh", (18, 18))
-        btn_refresh = ctk.CTkButton(
-            buttons_frame,
-            text="Actualiser",
-            image=refresh_icon, fg_color="#95A5A6", text_color="white", hover_color="#7F8C8D",
-            command=self.refresh_dashboard,
-            corner_radius=8,
-            height=45,
-            width=120, border_width=0
-        )
-        if refresh_icon:
-            btn_refresh._imgref = refresh_icon
-        btn_refresh.pack(side="left")
-        
-        # Conteneur principal pour le tableau moderne
-        main_container = ctk.CTkFrame(self.show_all_window, fg_color="#ECF0F1", corner_radius=0)
-        main_container.pack(fill="both", expand=True, padx=0, pady=0)
-        
-        # Tableau moderne avec design professionnel
-        table_container = ctk.CTkFrame(
-            main_container, fg_color="white",
-            corner_radius=0, border_width=0
-        )
-        table_container.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        # Configuration du tableau moderne
-        columns = ("Nom", "Prénom", "Genre", "Naissance", "Âge", "Statut")
-        table = ttk.Treeview(table_container, columns=columns, show="headings", height=15)
-        
-        # Style moderne et professionnel pour le tableau
-        style = ttk.Style()
-        style.configure("Treeview", 
-                        background="white",
-                        foreground="#2C3E50",
-                        fieldbackground="white",
-                       borderwidth=0,
-                        rowheight=50)
-        style.configure("Treeview.Heading",
-                        background="#34495E",  # Fond sombre pour les en-têtes
-                        foreground="white",     # Texte blanc pour le contraste
-                       borderwidth=0,
-                        padding=(25, 20))
-        
-        # Effet de survol pour les en-têtes
-        style.map("Treeview.Heading", background=[('active', "#2C3E50")])  # Fond plus sombre au survol
-        
-        # Configuration des colonnes optimisées
-        column_widths = {
-            "Nom": 200, "Prénom": 200, "Genre": 120, 
-            "Naissance": 150, "Âge": 100, "Statut": 150
-        }
-        
-        column_anchors = {
-            "Nom": "w", "Prénom": "w", "Genre": "center",
-            "Naissance": "center", "Âge": "center", "Statut": "center"
-        }
-        
-        for col in columns:
-            table.heading(col, text=col)
-            table.column(col, width=column_widths[col], anchor=column_anchors[col])
-        
-        # Scrollbar moderne
-        scrollbar = ctk.CTkScrollbar(
-            table_container,
-            orientation="vertical",
-            command=table.yview, fg_color="#BDC3C7",
-            button_color="#34495E",
-            button_hover_color="#2C3E50",
-            corner_radius=8
-        )
-        table.configure(yscrollcommand=scrollbar.set)
-        
-        # Pack du tableau et scrollbar
-        table.pack(side="left", fill="both", expand=True, padx=20, pady=20)
-        scrollbar.pack(side="right", fill="y", padx=(0, 20), pady=20)
-        
-        # Stocker les données des élèves pour les boutons
-        self.eleves_data = eleves_classe
-        
-        # Ajouter les données avec lignes alternées et indicateurs de statut
-        for i, eleves in enumerate(eleves_classe):
-            _id, nom, prenom, genre, naissance, statut, cid = eleves
-            age = compute_age(naissance)
-            
-            # Insérer la ligne avec les données
-            values = (nom, prenom, genre or "—", naissance or "—", age, statut or "—")
-            item = table.insert("", "end", values=values)
-            
-            # Lignes alternées avec couleurs distinctes
-            if i % 2 == 0:
-                table.tag_configure("even", background="#F8F9FA")  # Blanc cassé
-                table.item(item, tags=("even",))
-            else:
-                table.tag_configure("odd", background="#E9ECEF")   # Gris très clair
-                table.item(item, tags=("odd",))
-            
-            # Indicateurs visuels pour le statut
-            if statut == "Actif":
-                table.tag_configure("actif", foreground="#27AE60")  # Vert pour actif
-                table.item(item, tags=(table.item(item, "tags")[0], "actif"))
-            elif statut == "Inactif":
-                table.tag_configure("inactif", foreground="#E74C3C")  # Rouge pour inactif
-                table.item(item, tags=(table.item(item, "tags")[0], "inactif"))
-        
-        # Sélectionner la première ligne par défaut
-        if eleves_classe:
-            first_item = table.get_children()[0]
-            table.selection_set(first_item)
-            table.focus(first_item)
-
-    def create_themed_interface(self, eleves_classe):
-        """Crée l'interface avec le thème personnalisé"""
-        # Barre de menu moderne
-        menubar = tk.Menu(self.show_all_window)
-        self.show_all_window.config(menu=menubar)
-        
-        # Menu Fichier
-        file_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Fichier", menu=file_menu)
-        file_menu.add_command(label="Nouvel élève", command=self.ajouter_eleve)
-        file_menu.add_command(label="Importer", command=lambda: messagebox.showinfo("Info", "Fonctionnalité d'importation à venir"))
-        file_menu.add_command(label="Exporter", command=lambda: messagebox.showinfo("Info", "Fonctionnalité d'exportation à venir"))
-        file_menu.add_separator()
-        file_menu.add_command(label="Fermer", command=self.show_all_window.destroy)
-        
-        # Menu Édition
-        edit_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Édition", menu=edit_menu)
-        edit_menu.add_command(label="Modifier élève", command=self.modifier_eleve)
-        edit_menu.add_command(label="Supprimer élève", command=self.supprimer_eleve)
-        edit_menu.add_separator()
-        edit_menu.add_command(label="Actualiser", command=lambda: self.refresh_dashboard())
-        
-        # Menu Aide
-        help_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Aide", menu=help_menu)
-        help_menu.add_command(label="À propos", command=lambda: messagebox.showinfo("À propos", "Gestion des élèves - EduManager+"))
-        help_menu.add_command(label="Guide d'utilisation", command=lambda: messagebox.showinfo("Guide", "Guide d'utilisation à venir"))
-        
-        # En-tête moderne avec le thème
-        header_frame = ctk.CTkFrame(self.show_all_window, fg_color="#2C3E50", corner_radius=0)
-        header_frame.pack(fill="x", padx=0, pady=0)
-        
-        # Titre principal avec icône
-        title_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
-        title_frame.pack(fill="x", padx=20, pady=15)
-        
-        # Icône et titre
-        title_inner = ctk.CTkFrame(title_frame, fg_color="transparent")
-        title_inner.pack(side="left")
-        
-        # Charger l'icône élève depuis les ressources
-        try:
-            eleve_icon = ctk.CTkImage(light_image=Image.open("resources/icons/person.png"), size=(32, 32))
-            icon_label = ctk.CTkLabel(title_inner, image=eleve_icon, text="")
-            icon_label.pack(side="left", padx=(0, 10))
-        except:
-            # Fallback si l'icône n'est pas trouvée
-            icon_label = ctk.CTkLabel(title_inner, text="👨‍🎓", font=("Segoe UI", 24))
-            icon_label.pack(side="left", padx=(0, 10))
-        
-        title_label = ctk.CTkLabel(title_inner, text="Gestion des élèves",font=("Segoe UI", 32, "bold"), text_color="white")
-        title_label.pack(side="left")
-        
-        # Informations sur la classes
-        info_frame = ctk.CTkFrame(header_frame, fg_color="#34495E", corner_radius=8)
-        info_frame.pack(fill="x", padx=20, pady=(0, 15))
-        
-        info_text = f"Classe {self.selected_classe} - {len(eleves_classe)} élève(s)"
-        info_label = ctk.CTkLabel(info_frame, text=info_text,font=("Segoe UI", 16), text_color="white")
-        info_label.pack(pady=10)
-        
-        # Zone principale avec recherche et boutons
-        main_frame = ctk.CTkFrame(self.show_all_window, fg_color=BG_MAIN)
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        # Barre d'actions (recherche + boutons)
-        actions_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        actions_frame.pack(fill="x", pady=(0, 20))
-        
-        # Zone de recherche (à gauche)
-        search_frame = ctk.CTkFrame(actions_frame, fg_color="white", corner_radius=8, border_width=1, border_color="#BDC3C7")
-        search_frame.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        
-        search_inner = ctk.CTkFrame(search_frame, fg_color="transparent")
-        search_inner.pack(fill="x", padx=15, pady=10)
-        
-        # Icône de recherche
-        try:
-            search_icon = ctk.CTkImage(light_image=Image.open("resources/icons/search.png"), size=(16, 16))
             search_icon_label = ctk.CTkLabel(search_inner, image=search_icon, text="")
             search_icon_label.pack(side="left", padx=(0, 8))
-        except:
-            search_icon_label = ctk.CTkLabel(search_inner, text="🔍", font=("Segoe UI", 14))
+            search_icon_label._imgref = search_icon
+        else:
+            search_icon_label = ctk.CTkLabel(search_inner, text="🔍", font=("Segoe UI", 14, "bold"), text_color=TEXT_ACCENT)
             search_icon_label.pack(side="left", padx=(0, 8))
         
-        # Champ de recherche
-        self.search_entry = ctk.CTkEntry(search_inner, placeholder_text="Rechercher un élève par nom, prénom ou statut...", fg_color="white", text_color="#2C3E50", border_color="#BDC3C7", width=300)
+        # Champ de recherche avec le thème cohérent
+        self.search_entry = ctk.CTkEntry(search_inner, placeholder_text="Rechercher un élève par nom, prénom ou statut...", 
+                                        fg_color=BG_CARD, text_color=TEXT_PRIMARY, border_color=BORDER_COLOR, 
+                                        width=300, placeholder_text_color=TEXT_MUTED)
         self.search_entry.pack(side="left", fill="x", expand=True)
         self.search_entry.bind("<KeyRelease>", self.filter_eleves)
         
-        # Boutons d'action (à droite)
+        # Boutons d'action (à droite) - seulement modifier, supprimer et exporter
         buttons_frame = ctk.CTkFrame(actions_frame, fg_color="transparent")
         buttons_frame.pack(side="right")
+        print("🔧 Création des boutons CRUD...")
         
-        # Bouton Ajouter
-        try:
-            add_icon = ctk.CTkImage(light_image=Image.open("resources/icons/add.png"), size=(20, 20))
-            btn_add = ctk.CTkButton(buttons_frame, text="Ajouter", image=add_icon, command=self.ajouter_eleve, fg_color="#27AE60", hover_color="#229954", text_color="white",
-                                  corner_radius=8, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=0)
-        except:
-            btn_add = ctk.CTkButton(buttons_frame, text="Ajouter", command=self.ajouter_eleve, fg_color="#27AE60", hover_color="#229954", text_color="white",
-                                  corner_radius=8, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=0)
-        btn_add.pack(side="left", padx=(0, 8))
-        
-        # Bouton Actualiser
-        try:
-            refresh_icon = ctk.CTkImage(light_image=Image.open("resources/icons/refresh.png"), size=(20, 20))
-            btn_refresh = ctk.CTkButton(buttons_frame, text="Actualiser", image=refresh_icon, command=lambda: self.refresh_dashboard(), fg_color="#95A5A6", hover_color="#7F8C8D", text_color="white",
-                                      corner_radius=8, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=0)
-        except:
-            btn_refresh = ctk.CTkButton(buttons_frame, text="Actualiser", command=lambda: self.refresh_dashboard(), fg_color="#95A5A6", hover_color="#7F8C8D", text_color="white",
-                                      corner_radius=8, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=0)
-        btn_refresh.pack(side="left", padx=(0, 8))
-        
-        # Bouton Modifier
-        try:
-            edit_icon = ctk.CTkImage(light_image=Image.open("resources/icons/edit.png"), size=(20, 20))
-            btn_edit = ctk.CTkButton(buttons_frame, text="Modifier", image=edit_icon, command=self.modifier_eleve, fg_color="#3498DB", hover_color="#2980B9", text_color="white",
-                                   corner_radius=8, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=0)
-        except:
-            btn_edit = ctk.CTkButton(buttons_frame, text="Modifier", command=self.modifier_eleve, fg_color="#3498DB", hover_color="#2980B9", text_color="white",
-                                   corner_radius=8, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=0)
+        # Bouton Modifier sans fond
+        edit_icon = get_icon("edit", (20, 20))
+        btn_edit = ctk.CTkButton(buttons_frame, text="Modifier", image=edit_icon if edit_icon else None, command=self.modifier_eleve, 
+                                fg_color="transparent", hover_color=BG_CARD_HOVER, text_color=TEXT_ACCENT,
+                                corner_radius=8, height=45, width=120, font=("Segoe UI", 13, "bold"), 
+                                border_width=1, border_color=BORDER_COLOR)
+        if edit_icon:
+            btn_edit._imgref = edit_icon
         btn_edit.pack(side="left", padx=(0, 8))
         
-        # Bouton Supprimer
-        try:
-            delete_icon = ctk.CTkImage(light_image=Image.open("resources/icons/delete.png"), size=(20, 20))
-            btn_delete = ctk.CTkButton(buttons_frame, text="Supprimer", image=delete_icon, command=self.supprimer_eleve, fg_color="#E74C3C", hover_color="#C0392B", text_color="white",
-                                     corner_radius=8, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=0)
-        except:
-            btn_delete = ctk.CTkButton(buttons_frame, text="Supprimer", command=self.supprimer_eleve, fg_color="#E74C3C", hover_color="#C0392B", text_color="white",
-                                     corner_radius=8, height=45, width=120, font=("Segoe UI", 13, "bold"), border_width=0)
-        btn_delete.pack(side="left")
+        # Bouton Supprimer sans fond
+        delete_icon = get_icon("delete", (20, 20))
+        btn_delete = ctk.CTkButton(buttons_frame, text="Supprimer", image=delete_icon if delete_icon else None, command=self.supprimer_eleve, 
+                                 fg_color="transparent", hover_color=BG_CARD_HOVER, text_color=TEXT_ACCENT,
+                                 corner_radius=8, height=45, width=120, font=("Segoe UI", 13, "bold"), 
+                                 border_width=1, border_color=BORDER_COLOR)
+        if delete_icon:
+            btn_delete._imgref = delete_icon
+        btn_delete.pack(side="left", padx=(0, 8))
+        
+        # Bouton Exporter sans fond
+        export_icon = get_icon("csv", (20, 20))
+        btn_export = ctk.CTkButton(buttons_frame, text="Exporter", image=export_icon if export_icon else None, command=self.exporter_eleves, 
+                                 fg_color="transparent", hover_color=BG_CARD_HOVER, text_color=TEXT_ACCENT,
+                                 corner_radius=8, height=45, width=120, font=("Segoe UI", 13, "bold"), 
+                                 border_width=1, border_color=BORDER_COLOR)
+        if export_icon:
+            btn_export._imgref = export_icon
+        btn_export.pack(side="left")
         
         # Message contextuel
-        self.context_message = ctk.CTkLabel(main_frame, text="Sélectionnez un élève pour modifier ou supprimer",font=("Segoe UI", 12, "bold"), text_color=ACCENT)
+        self.context_message = ctk.CTkLabel(main_frame, text="Sélectionnez un élève pour modifier ou supprimer",font=("Segoe UI", 12, "bold"), text_color=TEXT_ACCENT)
         self.context_message.pack(pady=(0, 10))
         
-        # Conteneur du tableau avec le thème
-        table_container = ctk.CTkFrame(main_frame, fg_color=CARD_BG, corner_radius=12, border_width=3, border_color=ACCENT)
+        # Conteneur du tableau avec le thème cohérent
+        table_container = ctk.CTkFrame(main_frame, fg_color=BG_CARD, corner_radius=12, border_width=1, border_color=BORDER_COLOR)
         table_container.pack(fill="both", expand=True)
         
         # Configuration du style Treeview avec le thème
         style = ttk.Style()
         style.theme_use('clam')
         
-        # Style des en-têtes avec bordures uniquement (pas de fond coloré)
+        # Style des en-têtes avec le thème cohérent
         style.configure("Treeview.Heading", 
                        background="transparent", 
-                       foreground=ACCENT, 
+                       foreground=TEXT_ACCENT, 
                        padding=(20, 15),
-                       borderwidth=2,
+                       borderwidth=1,
                        relief="solid")
         
-        # Style des lignes avec le thème
+        # Style des lignes avec le thème cohérent
         style.configure("Treeview", 
-                       background=CARD_BG, 
-                       foreground=ACCENT, 
+                       background=BG_CARD, 
+                       foreground=TEXT_PRIMARY, 
                        rowheight=50,
                        borderwidth=0,
-                       fieldbackground=CARD_BG)
+                       fieldbackground=BG_CARD)
         
         # Créer le tableau avec le thème
         columns = ("Nom", "Prénom", "Genre", "Naissance", "Âge", "Statut")
@@ -1649,8 +1718,9 @@ class DashboardEleves(ctk.CTkFrame):
             self.table.heading(col, text=col)
             self.table.column(col, width=column_widths[col], anchor="center")
         
-        # Barre de défilement avec le thème
-        scrollbar = ctk.CTkScrollbar(table_container, orientation="vertical", command=self.table.yview,fg_color="#BDC3C7", button_color="#34495E", button_hover_color="#2C3E50")
+        # Barre de défilement avec le thème cohérent
+        scrollbar = ctk.CTkScrollbar(table_container, orientation="vertical", command=self.table.yview,
+                                    fg_color=BORDER_COLOR, button_color=BG_CARD, button_hover_color=TEXT_ACCENT)
         self.table.configure(yscrollcommand=scrollbar.set)
         
         # Pack du tableau et de la barre de défilement
@@ -1659,9 +1729,23 @@ class DashboardEleves(ctk.CTkFrame):
         
         # Stocker les données des élèves
         self.eleves_data = eleves_classe
+        print(f"🔧 Remplissage du tableau avec {len(eleves_classe)} élèves...")
         
         # Remplir le tableau avec les données
-        self.populate_table_with_theme()
+        for eleve in eleves_classe:
+            _id, nom, prenom, genre, naissance, statut, cid = eleve
+            age = calculate_age(naissance)
+            
+            # Insérer dans le tableau
+            item = self.table.insert("", "end", values=(nom, prenom, genre, naissance, age, statut))
+            
+            # Appliquer les couleurs selon le statut
+            if statut == "Actif":
+                self.table.tag_configure("actif", foreground="#27AE60")  # Vert pour actif
+                self.table.item(item, tags=(self.table.item(item, "tags")[0], "actif"))
+            elif statut == "Inactif":
+                self.table.tag_configure("inactif", foreground="#E74C3C")  # Rouge pour inactif
+                self.table.item(item, tags=(self.table.item(item, "tags")[0], "inactif"))
         
         # Bind des événements
         self.table.bind("<<TreeviewSelect>>", self.on_table_select)
@@ -1671,83 +1755,8 @@ class DashboardEleves(ctk.CTkFrame):
         
         # Message de fermeture
         self.show_all_window.protocol("WM_DELETE_WINDOW", self.on_close_show_all)
-
-    def populate_table_with_theme(self):
-        """Remplit le tableau avec les données en utilisant le thème neon"""
-        # Ajouter les données avec lignes alternées et indicateurs de statut
-        for i, eleves in enumerate(self.eleves_data):
-            _id, nom, prenom, genre, naissance, statut, cid = eleves
-            age = compute_age(naissance)
-            
-            # Insérer la ligne avec les données
-            values = (nom, prenom, genre or "—", naissance or "—", age, statut or "—")
-            item = self.table.insert("", "end", values=values)
-            
-            # Lignes alternées avec couleurs neon du thème
-            if i % 2 == 0:
-                self.table.tag_configure("even", background=CARD_BG, foreground=ACCENT)  # Fond sombre avec texte neon
-                self.table.item(item, tags=("even",))
-            else:
-                self.table.tag_configure("odd", background=BG_SIDEBAR, foreground=ACCENT)   # Fond plus sombre avec texte neon
-                self.table.item(item, tags=("odd",))
-            
-            # Indicateurs visuels pour le statut avec couleurs neon
-            if statut == "Actif":
-                self.table.tag_configure("actif", foreground=SUCCESS_GREEN)  # Vert neon pour actif
-                self.table.item(item, tags=(self.table.item(item, "tags")[0], "actif"))
-            elif statut == "Inactif":
-                self.table.tag_configure("inactif", foreground=ERROR_RED)  # Rouge neon pour inactif
-                self.table.item(item, tags=(self.table.item(item, "tags")[0], "inactif"))
         
-        # Sélectionner la première ligne par défaut
-        if self.eleves_data:
-            first_item = self.table.get_children()[0]
-            self.table.selection_set(first_item)
-            self.table.focus(first_item)
-
-    def on_table_select(self, event):
-        """Gère la sélection dans le tableau"""
-        selected_items = self.table.selection()
-        if selected_items:
-            self.context_message.configure(text="Élève sélectionné - Vous pouvez maintenant modifier ou supprimer")
-        else:
-            self.context_message.configure(text="Sélectionnez un élève pour modifier ou supprimer")
-
-    def filter_eleves(self, event):
-        """Filtre les élèves selon le texte de recherche avec couleurs neon"""
-        search_text = self.search_entry.get().lower()
-        
-        # Effacer le tableau
-        for item in self.table.get_children():
-            self.table.delete(item)
-        
-        # Réinsérer les éléments filtrés avec couleurs neon
-        for i, eleves in enumerate(self.eleves_data):
-            _id, nom, prenom, genre, naissance, statut, cid = eleves
-            
-            # Vérifier si l'élève correspond au critère de recherche
-            if (search_text in nom.lower() or 
-                search_text in prenom.lower() or 
-                search_text in (statut or "").lower()):
-                
-                age = compute_age(naissance)
-                values = (nom, prenom, genre or "—", naissance or "—", age, statut or "—")
-                item = self.table.insert("", "end", values=values)
-                
-                # Appliquer les tags de couleur neon
-                if i % 2 == 0:
-                    self.table.tag_configure("even", background=CARD_BG, foreground=ACCENT)
-                    self.table.item(item, tags=("even",))
-                else:
-                    self.table.tag_configure("odd", background=BG_SIDEBAR, foreground=ACCENT)
-                    self.table.item(item, tags=("odd",))
-                
-                if statut == "Actif":
-                    self.table.tag_configure("actif", foreground=SUCCESS_GREEN)
-                    self.table.item(item, tags=(self.table.item(item, "tags")[0], "actif"))
-                elif statut == "Inactif":
-                    self.table.tag_configure("inactif", foreground=ERROR_RED)
-                    self.table.item(item, tags=(self.table.item(item, "tags")[0], "inactif"))
+        print("✅ Interface créée avec succès !")
 
     def on_close_show_all(self):
         """Gère la fermeture de la fenêtre de liste des élèves"""
@@ -1907,6 +1916,51 @@ class DashboardEleves(ctk.CTkFrame):
                 
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur lors de la suppression : {str(e)}")
+
+    def exporter_eleves(self):
+        """Exporte la liste des élèves vers un fichier CSV"""
+        try:
+            from tkinter import filedialog
+            import csv
+            
+            # Demander où sauvegarder le fichier
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".csv",
+                filetypes=[("Fichiers CSV", "*.csv"), ("Tous les fichiers", "*.*")],
+                title="Exporter les élèves"
+            )
+            
+            if not filename:
+                return
+            
+            # Récupérer les données des élèves
+            eleves_data = get_eleves_list(self.selected_classe_id)
+            
+            if not eleves_data:
+                messagebox.showwarning("Attention", "Aucun élève à exporter.")
+                return
+            
+            # Écrire le fichier CSV
+            with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+                fieldnames = ['Nom', 'Prénom', 'Genre', 'Date de naissance', 'Âge', 'Statut', 'Classe']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                
+                writer.writeheader()
+                for eleve in eleves_data:
+                    writer.writerow({
+                        'Nom': eleve[1],  # nom
+                        'Prénom': eleve[2],  # prenom
+                        'Genre': eleve[3],  # genre
+                        'Date de naissance': eleve[4],  # date_naissance
+                        'Âge': eleve[5],  # age
+                        'Statut': eleve[6],  # statut
+                        'Classe': self.selected_classe
+                    })
+            
+            messagebox.showinfo("Succès", f"Les élèves ont été exportés vers {filename}")
+            
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de l'exportation : {e}")
 
     def transferer_eleve(self):
         """Transfert l'élève sélectionné vers une autre classes"""

@@ -614,16 +614,16 @@ def optimize_database():
     manager = get_sp_manager()
     
     with manager._connect() as conn:
-        # Créer des index pour les requêtes fréquentes
+        # Créer des index pour les requêtes fréquentes (syntaxe SQL Server)
         indexes = [
-            "CREATE INDEX IF NOT EXISTS idx_eleves_classe_statut ON eleves(id_classe, statut)",
-            "CREATE INDEX IF NOT EXISTS idx_eleves_nom_prenom ON eleves(nom, prenom)",
-            "CREATE INDEX IF NOT EXISTS idx_notes_eleve_date ON notes(id_eleve, date_evaluation)",
-            "CREATE INDEX IF NOT EXISTS idx_notes_matiere ON notes(id_matiere)",
-            "CREATE INDEX IF NOT EXISTS idx_cours_classe_date ON cours(classe_id, date)",
-            "CREATE INDEX IF NOT EXISTS idx_cours_professeur ON cours(professeur_id)",
-            "CREATE INDEX IF NOT EXISTS idx_matieres_classe ON matieres(classe_id)",
-            "CREATE INDEX IF NOT EXISTS idx_classes_niveau ON classes(niveau)"
+            "IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_eleves_classe_statut') CREATE INDEX idx_eleves_classe_statut ON eleves(id_classe, statut)",
+            "IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_eleves_nom_prenom') CREATE INDEX idx_eleves_nom_prenom ON eleves(nom, prenom)",
+            "IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_notes_eleve_date') CREATE INDEX idx_notes_eleve_date ON notes(id_eleve, date_evaluation)",
+            "IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_notes_matiere') CREATE INDEX idx_notes_matiere ON notes(id_matiere)",
+            "IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_cours_classe_date') CREATE INDEX idx_cours_classe_date ON cours(classe_id, date)",
+            "IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_cours_professeur') CREATE INDEX idx_cours_professeur ON cours(professeur_id)",
+            "IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_matieres_classe') CREATE INDEX idx_matieres_classe ON matieres(classe_id)",
+            "IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_classes_niveau') CREATE INDEX idx_classes_niveau ON classes(niveau)"
         ]
         
         for index_sql in indexes:

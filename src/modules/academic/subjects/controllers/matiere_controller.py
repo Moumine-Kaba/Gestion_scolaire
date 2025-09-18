@@ -166,3 +166,24 @@ def delete_matiere(matiere_id):
     except Exception as e:
         print(f"Erreur lors de la suppression de la matière : {e}")
     return False
+
+def preload_matieres_cache():
+    """Précharge le cache des matières pour optimiser les performances."""
+    try:
+        conn = _connect()
+        if not conn:
+            return {}
+        
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_matiere, nom_matiere FROM matieres WHERE statut = 'Active'")
+        matieres = cursor.fetchall()
+        
+        cache = {}
+        for matiere in matieres:
+            cache[matiere[0]] = matiere[1]
+        
+        conn.close()
+        return cache
+    except Exception as e:
+        print(f"⚠️ Erreur préchargement cache matières: {e}")
+        return {}
