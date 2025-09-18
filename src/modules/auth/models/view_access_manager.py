@@ -5,13 +5,16 @@ Gestionnaire d'Accès aux Vues basé sur les Rôles
 EduManager+ - Gestion Scolaire
 """
 
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import os
 from typing import Dict, List, Optional, Set
 from src.modules.view_permissions import ViewPermissions
 
 class ViewAccessManager:
-    """Gestionnaire d'accès aux vues basé sur les rôles utilisateur"""
+    """Gestionnaire d'accès aux vues basé sur les rôles utilisateurs"""
     
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -22,17 +25,17 @@ class ViewAccessManager:
     def _init_view_access_table(self):
         """Initialise la table de contrôle d'accès aux vues"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Table de contrôle d'accès aux vues par utilisateur
+            # Table de contrôle d'accès aux vues par utilisateurs
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS user_view_access (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                CREATE TABLE user_view_access (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
                     user_id INTEGER NOT NULL,
-                    view_name TEXT NOT NULL,
-                    access_level TEXT DEFAULT 'read',
-                    granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    view_name NVARCHAR(255) NOT NULL,
+                    access_level NVARCHAR(255) DEFAULT 'read',
+                    granted_at DATETIME DEFAULT GETDATE(),
                     granted_by INTEGER,
                     FOREIGN KEY (user_id) REFERENCES utilisateurs (id_utilisateur),
                     FOREIGN KEY (granted_by) REFERENCES utilisateurs (id_utilisateur),
@@ -42,14 +45,14 @@ class ViewAccessManager:
             
             # Table des vues disponibles
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS available_views (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    view_name TEXT UNIQUE NOT NULL,
-                    view_title TEXT NOT NULL,
-                    view_description TEXT,
-                    module TEXT NOT NULL,
+                CREATE TABLE available_views (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
+                    view_name NVARCHAR(255) UNIQUE NOT NULL,
+                    view_title NVARCHAR(255) NOT NULL,
+                    view_description NVARCHAR(255),
+                    module NVARCHAR(255) NOT NULL,
                     is_active BOOLEAN DEFAULT 1,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at DATETIME DEFAULT GETDATE()
                 )
             ''')
             
@@ -98,7 +101,7 @@ class ViewAccessManager:
                 ("settings", "Paramètres", "Paramètres du système", "OUTILS")
             ]
             
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             for view_name, view_title, view_description, module in default_views:
@@ -114,9 +117,9 @@ class ViewAccessManager:
             print(f"⚠️ Erreur insertion vues par défaut: {e}")
     
     def get_user_role(self, user_id: int) -> Optional[str]:
-        """Récupère le rôle principal d'un utilisateur"""
+        """Récupère le rôle principal d'un utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -133,13 +136,13 @@ class ViewAccessManager:
             return result[0] if result else None
             
         except Exception as e:
-            print(f"⚠️ Erreur récupération rôle utilisateur {user_id}: {e}")
+            print(f"⚠️ Erreur récupération rôle utilisateurs {user_id}: {e}")
             return None
     
     def get_user_roles(self, user_id: int) -> List[str]:
-        """Récupère tous les rôles d'un utilisateur"""
+        """Récupère tous les rôles d'un utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -154,13 +157,13 @@ class ViewAccessManager:
             return [row[0] for row in results]
             
         except Exception as e:
-            print(f"⚠️ Erreur récupération rôles utilisateur {user_id}: {e}")
+            print(f"⚠️ Erreur récupération rôles utilisateurs {user_id}: {e}")
             return []
     
     def can_access_view(self, user_id: int, view_name: str) -> bool:
-        """Vérifie si un utilisateur peut accéder à une vue spécifique"""
+        """Vérifie si un utilisateurs peut accéder à une vue spécifique"""
         try:
-            # Récupérer le rôle principal de l'utilisateur
+            # Récupérer le rôle principal de l'utilisateurs
             user_role = self.get_user_role(user_id)
             if not user_role:
                 return False
@@ -170,7 +173,7 @@ class ViewAccessManager:
                 return True
             
             # Vérifier les permissions personnalisées dans la base de données
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -181,18 +184,18 @@ class ViewAccessManager:
             result = cursor.fetchone()
             conn.close()
             
-            # Si l'utilisateur a des permissions personnalisées
+            # Si l'utilisateurs a des permissions personnalisées
             if result:
                 return result[0] in ['read', 'write', 'delete', 'admin']
             
             return False
             
         except Exception as e:
-            print(f"⚠️ Erreur vérification accès vue {view_name} pour utilisateur {user_id}: {e}")
+            print(f"⚠️ Erreur vérification accès vue {view_name} pour utilisateurs {user_id}: {e}")
             return False
     
     def get_accessible_views(self, user_id: int) -> List[str]:
-        """Récupère la liste des vues accessibles pour un utilisateur"""
+        """Récupère la liste des vues accessibles pour un utilisateurs"""
         try:
             user_role = self.get_user_role(user_id)
             if not user_role:
@@ -202,7 +205,7 @@ class ViewAccessManager:
             role_views = ViewPermissions.get_views_for_role(user_role)
             
             # Récupérer les vues personnalisées
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -223,11 +226,11 @@ class ViewAccessManager:
             return all_views
             
         except Exception as e:
-            print(f"⚠️ Erreur récupération vues accessibles pour utilisateur {user_id}: {e}")
+            print(f"⚠️ Erreur récupération vues accessibles pour utilisateurs {user_id}: {e}")
             return ["dashboard"]
     
     def get_navigation_sections(self, user_id: int) -> Dict[str, List[str]]:
-        """Récupère les sections de navigation pour un utilisateur"""
+        """Récupère les sections de navigation pour un utilisateurs"""
         try:
             user_role = self.get_user_role(user_id)
             if not user_role:
@@ -248,13 +251,13 @@ class ViewAccessManager:
             return filtered_sections
             
         except Exception as e:
-            print(f"⚠️ Erreur récupération sections navigation pour utilisateur {user_id}: {e}")
+            print(f"⚠️ Erreur récupération sections navigation pour utilisateurs {user_id}: {e}")
             return {"SCOLARITÉ": ["dashboard"]}
     
     def grant_view_access(self, user_id: int, view_name: str, access_level: str = "read", granted_by: int = None) -> bool:
-        """Accorde l'accès à une vue pour un utilisateur"""
+        """Accorde l'accès à une vue pour un utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -265,17 +268,17 @@ class ViewAccessManager:
             conn.commit()
             conn.close()
             
-            print(f"✅ Accès à la vue '{view_name}' accordé à l'utilisateur {user_id}")
+            print(f"✅ Accès à la vue '{view_name}' accordé à l'utilisateurs {user_id}")
             return True
             
         except Exception as e:
-            print(f"❌ Erreur attribution accès vue {view_name} à utilisateur {user_id}: {e}")
+            print(f"❌ Erreur attribution accès vue {view_name} à utilisateurs {user_id}: {e}")
             return False
     
     def revoke_view_access(self, user_id: int, view_name: str) -> bool:
-        """Révoque l'accès à une vue pour un utilisateur"""
+        """Révoque l'accès à une vue pour un utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -286,17 +289,17 @@ class ViewAccessManager:
             conn.commit()
             conn.close()
             
-            print(f"✅ Accès à la vue '{view_name}' révoqué pour l'utilisateur {user_id}")
+            print(f"✅ Accès à la vue '{view_name}' révoqué pour l'utilisateurs {user_id}")
             return True
             
         except Exception as e:
-            print(f"❌ Erreur révocation accès vue {view_name} pour utilisateur {user_id}: {e}")
+            print(f"❌ Erreur révocation accès vue {view_name} pour utilisateurs {user_id}: {e}")
             return False
     
     def get_user_view_permissions(self, user_id: int) -> Dict[str, str]:
-        """Récupère toutes les permissions de vues d'un utilisateur"""
+        """Récupère toutes les permissions de vues d'un utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -310,6 +313,6 @@ class ViewAccessManager:
             return {row[0]: row[1] for row in results}
             
         except Exception as e:
-            print(f"⚠️ Erreur récupération permissions vues utilisateur {user_id}: {e}")
+            print(f"⚠️ Erreur récupération permissions vues utilisateurs {user_id}: {e}")
             return {}
 

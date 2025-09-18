@@ -1,4 +1,7 @@
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import hashlib
 import secrets
 import time
@@ -8,7 +11,7 @@ from datetime import datetime, timedelta
 
 # Import local du gestionnaire de rôles
 try:
-    from src.modules.role import RoleManager, Role
+    from src.modules.roles import RoleManager, Role
 except ImportError:
     # Fallback si l'import échoue
     RoleManager = None
@@ -35,51 +38,51 @@ class AuthManager:
     def _init_auth_tables(self):
         """Initialise les tables d'authentification"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Table des utilisateurs (si elle n'existe pas)
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS utilisateurs (
-                    id_utilisateur INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT UNIQUE NOT NULL,
-                    email TEXT UNIQUE,
-                    password_hash TEXT NOT NULL,
-                    salt TEXT NOT NULL,
-                    nom TEXT,
-                    prenom TEXT,
-                    telephone TEXT,
+                CREATE TABLE utilisateurs (
+                    id_utilisateur INT IDENTITY(1,1) PRIMARY KEY,
+                    username NVARCHAR(255) UNIQUE NOT NULL,
+                    email NVARCHAR(255) UNIQUE,
+                    password_hash NVARCHAR(255) NOT NULL,
+                    salt NVARCHAR(255) NOT NULL,
+                    nom NVARCHAR(255),
+                    prenom NVARCHAR(255),
+                    telephone NVARCHAR(255),
                     date_naissance DATE,
-                    adresse TEXT,
-                    statut TEXT DEFAULT 'actif',
+                    adresse NVARCHAR(255),
+                    statut NVARCHAR(255) DEFAULT 'actif',
                     derniere_connexion TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at DATETIME DEFAULT GETDATE(),
+                    updated_at DATETIME DEFAULT GETDATE()
                 )
             ''')
             
             # Table des sessions
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS sessions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                CREATE TABLE sessions (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
                     user_id INTEGER NOT NULL,
-                    session_token TEXT UNIQUE NOT NULL,
+                    session_token NVARCHAR(255) UNIQUE NOT NULL,
                     expires_at TIMESTAMP NOT NULL,
-                    ip_address TEXT,
-                    user_agent TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ip_address NVARCHAR(255),
+                    user_agent NVARCHAR(255),
+                    created_at DATETIME DEFAULT GETDATE(),
                     FOREIGN KEY (user_id) REFERENCES utilisateurs (id_utilisateur)
                 )
             ''')
             
             # Table des tentatives de connexion
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS login_attempts (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT NOT NULL,
-                    ip_address TEXT,
+                CREATE TABLE login_attempts (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
+                    username NVARCHAR(255) NOT NULL,
+                    ip_address NVARCHAR(255),
                     success BOOLEAN NOT NULL,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    timestamp DATETIME DEFAULT GETDATE()
                 )
             ''')
             
@@ -91,7 +94,7 @@ class AuthManager:
             print(f"❌ Erreur initialisation tables: {e}")
     
     def _create_default_admin(self):
-        """Crée l'utilisateur administrateur par défaut"""
+        """Crée l'utilisateurs administrateur par défaut"""
         try:
             if not self.user_exists("admin"):
                 # Créer l'admin sans rôle si le gestionnaire de rôles n'est pas disponible
@@ -118,21 +121,21 @@ class AuthManager:
                     print("   Username: admin")
                     print("   Password: admin123")
                 else:
-                    print("❌ Échec création utilisateur admin")
+                    print("❌ Échec création utilisateurs admin")
         except Exception as e:
             print(f"❌ Erreur création admin: {e}")
     
     def create_user_simple(self, username: str, password: str, email: str = None, 
                           nom: str = None, prenom: str = None) -> bool:
-        """Crée un utilisateur simple sans gestion des rôles"""
+        """Crée un utilisateurs simple sans gestion des rôles"""
         try:
             if self.user_exists(username):
-                print(f"❌ L'utilisateur {username} existe déjà")
+                print(f"❌ L'utilisateurs {username} existe déjà")
                 return False
             
             password_hash, salt = self._hash_password(password)
             
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -148,7 +151,7 @@ class AuthManager:
             return True
             
         except Exception as e:
-            print(f"❌ Erreur création utilisateur: {e}")
+            print(f"❌ Erreur création utilisateurs: {e}")
             return False
     
     def _hash_password(self, password: str, salt: str = None) -> Tuple[str, str]:
@@ -174,20 +177,20 @@ class AuthManager:
                    nom: str = None, prenom: str = None, telephone: str = None,
                    date_naissance: str = None, adresse: str = None, 
                    role_name: str = "Élève") -> bool:
-        """Crée un nouvel utilisateur avec gestion des rôles"""
+        """Crée un nouvel utilisateurs avec gestion des rôles"""
         try:
-            # Vérifier si l'utilisateur existe déjà
+            # Vérifier si l'utilisateurs existe déjà
             if self.user_exists(username):
-                print(f"❌ L'utilisateur {username} existe déjà")
+                print(f"❌ L'utilisateurs {username} existe déjà")
                 return False
             
             # Hacher le mot de passe
             password_hash, salt = self._hash_password(password)
             
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Insérer l'utilisateur
+            # Insérer l'utilisateurs
             cursor.execute('''
                 INSERT INTO utilisateurs (
                     username, email, password_hash, salt, nom, prenom,
@@ -200,9 +203,9 @@ class AuthManager:
             
             # Assigner le rôle si le gestionnaire est disponible
             if self.role_manager:
-                role = self.role_manager.get_role_by_name(role_name)
-                if role:
-                    self.role_manager.assign_role_to_user(user_id, role.id_role)
+                roles = self.role_manager.get_role_by_name(role_name)
+                if roles:
+                    self.role_manager.assign_role_to_user(user_id, roles.id_role)
                     print(f"✅ Rôle '{role_name}' assigné à {username}")
                 else:
                     print(f"⚠️ Rôle '{role_name}' non trouvé pour {username}")
@@ -214,29 +217,29 @@ class AuthManager:
             return True
             
         except Exception as e:
-            print(f"❌ Erreur création utilisateur: {e}")
+            print(f"❌ Erreur création utilisateurs: {e}")
             return False
     
     def user_exists(self, username: str) -> bool:
-        """Vérifie si un utilisateur existe"""
+        """Vérifie si un utilisateurs existe"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute('SELECT id_utilisateur FROM utilisateurs WHERE username = ?', (username,))
             exists = cursor.fetchone() is not None
             conn.close()
             return exists
         except Exception as e:
-            print(f"❌ Erreur vérification utilisateur: {e}")
+            print(f"❌ Erreur vérification utilisateurs: {e}")
             return False
     
     def authenticate_user(self, username: str, password: str, ip_address: str = None) -> Optional[Dict]:
-        """Authentifie un utilisateur"""
+        """Authentifie un utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Récupérer l'utilisateur
+            # Récupérer l'utilisateurs
             cursor.execute('''
                 SELECT id_utilisateur, username, email, password_hash, salt, 
                        nom, prenom, statut, derniere_connexion
@@ -268,7 +271,7 @@ class AuthManager:
                 WHERE id_utilisateur = ?
             ''', (user_id,))
             
-            # Récupérer les rôles de l'utilisateur
+            # Récupérer les rôles de l'utilisateurs
             roles = []
             permissions = []
             if self.role_manager:
@@ -284,7 +287,7 @@ class AuthManager:
             # Logger la tentative réussie
             self._log_login_attempt(username, ip_address, True)
             
-            # Retourner les informations de l'utilisateur
+            # Retourner les informations de l'utilisateurs
             user_info = {
                 'id_utilisateur': user_id,
                 'username': username,
@@ -292,7 +295,7 @@ class AuthManager:
                 'nom': nom,
                 'prenom': prenom,
                 'statut': statut,
-                'roles': [role.nom for role in roles] if roles else ["Utilisateur"],
+                'roles': [roles.nom for roles in roles] if roles else ["Utilisateur"],
                 'permissions': permissions,
                 'session_token': session_token,
                 'derniere_connexion': derniere_connexion
@@ -306,15 +309,15 @@ class AuthManager:
             return None
     
     def _create_session(self, user_id: int, ip_address: str = None) -> str:
-        """Crée une nouvelle session pour l'utilisateur"""
+        """Crée une nouvelle session pour l'utilisateurs"""
         try:
             session_token = secrets.token_urlsafe(32)
             expires_at = datetime.now() + timedelta(hours=24)  # Session de 24h
             
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Supprimer les anciennes sessions de l'utilisateur
+            # Supprimer les anciennes sessions de l'utilisateurs
             cursor.execute('DELETE FROM sessions WHERE user_id = ?', (user_id,))
             
             # Créer la nouvelle session
@@ -333,12 +336,12 @@ class AuthManager:
             return secrets.token_urlsafe(32)  # Fallback
     
     def _get_user_permissions(self, roles: list) -> list:
-        """Récupère toutes les permissions d'un utilisateur"""
+        """Récupère toutes les permissions d'un utilisateurs"""
         try:
             permissions = set()
-            for role in roles:
-                if hasattr(role, 'permissions'):
-                    permissions.update(role.permissions)
+            for roles in roles:
+                if hasattr(roles, 'permissions'):
+                    permissions.update(roles.permissions)
             return list(permissions)
         except Exception as e:
             print(f"❌ Erreur récupération permissions: {e}")
@@ -347,7 +350,7 @@ class AuthManager:
     def _log_login_attempt(self, username: str, ip_address: str, success: bool):
         """Enregistre une tentative de connexion"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -362,9 +365,9 @@ class AuthManager:
             print(f"❌ Erreur log tentative connexion: {e}")
     
     def validate_session(self, session_token: str) -> Optional[Dict]:
-        """Valide une session et retourne les informations de l'utilisateur"""
+        """Valide une session et retourne les informations de l'utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Vérifier la session
@@ -405,7 +408,7 @@ class AuthManager:
                 'nom': nom,
                 'prenom': prenom,
                 'statut': statut,
-                'roles': [role.nom for role in roles] if roles else ["Utilisateur"],
+                'roles': [roles.nom for roles in roles] if roles else ["Utilisateur"],
                 'permissions': permissions
             }
             
@@ -414,9 +417,9 @@ class AuthManager:
             return None
     
     def logout_user(self, session_token: str) -> bool:
-        """Déconnecte un utilisateur en supprimant sa session"""
+        """Déconnecte un utilisateurs en supprimant sa session"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('DELETE FROM sessions WHERE session_token = ?', (session_token,))
@@ -431,9 +434,9 @@ class AuthManager:
             return False
     
     def get_user_by_id(self, user_id: int) -> Optional[Dict]:
-        """Récupère un utilisateur par son ID"""
+        """Récupère un utilisateurs par son ID"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -465,17 +468,17 @@ class AuthManager:
                 'statut': user_data[8],
                 'derniere_connexion': user_data[9],
                 'created_at': user_data[10],
-                'roles': [role.nom for role in roles] if roles else ["Utilisateur"]
+                'roles': [roles.nom for roles in roles] if roles else ["Utilisateur"]
             }
             
         except Exception as e:
-            print(f"❌ Erreur récupération utilisateur: {e}")
+            print(f"❌ Erreur récupération utilisateurs: {e}")
             return None
     
     def get_all_users(self) -> list:
         """Récupère tous les utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -498,7 +501,7 @@ class AuthManager:
                     'prenom': row[4],
                     'statut': row[5],
                     'derniere_connexion': row[6],
-                    'roles': [role.nom for role in roles] if roles else ["Utilisateur"]
+                    'roles': [roles.nom for roles in roles] if roles else ["Utilisateur"]
                 })
             
             conn.close()
@@ -509,9 +512,9 @@ class AuthManager:
             return []
     
     def update_user_status(self, user_id: int, statut: str) -> bool:
-        """Met à jour le statut d'un utilisateur"""
+        """Met à jour le statut d'un utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''

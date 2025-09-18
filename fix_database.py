@@ -41,7 +41,7 @@ def fix_database():
         ]
         
         for username, password, email, nom, prenom in users_data:
-            # Vérifier si l'utilisateur existe
+            # Vérifier si l'utilisateurs existe
             cursor.execute("SELECT id_utilisateur FROM utilisateurs WHERE nom_utilisateur = ?", (username,))
             if not cursor.fetchone():
                 cursor.execute('''

@@ -69,7 +69,7 @@ def reset_users_and_roles():
                 "email": "directeur@ecole.com",
                 "nom": "Dupont",
                 "prenom": "Jean",
-                "role": "Directeur"
+                "roles": "Directeur"
             },
             {
                 "username": "comptable",
@@ -77,7 +77,7 @@ def reset_users_and_roles():
                 "email": "comptable@ecole.com",
                 "nom": "Martin",
                 "prenom": "Marie",
-                "role": "Comptable"
+                "roles": "Comptable"
             },
             {
                 "username": "secretaire",
@@ -85,7 +85,7 @@ def reset_users_and_roles():
                 "email": "secretaire@ecole.com",
                 "nom": "Bernard",
                 "prenom": "Sophie",
-                "role": "Secrétaire"
+                "roles": "Secrétaire"
             },
             {
                 "username": "surveillant",
@@ -93,7 +93,7 @@ def reset_users_and_roles():
                 "email": "surveillant@ecole.com",
                 "nom": "Petit",
                 "prenom": "Pierre",
-                "role": "Surveillant"
+                "roles": "Surveillant"
             },
             {
                 "username": "admin",
@@ -101,13 +101,13 @@ def reset_users_and_roles():
                 "email": "admin@ecole.com",
                 "nom": "Administrateur",
                 "prenom": "Système",
-                "role": "Directeur"
+                "roles": "Directeur"
             }
         ]
         
         created_count = 0
         for user_data in users_data:
-            # Créer l'utilisateur
+            # Créer l'utilisateurs
             cursor.execute('''
                 INSERT INTO utilisateurs (nom_utilisateur, mot_de_passe, email, nom, prenom)
                 VALUES (?, ?, ?, ?, ?)
@@ -122,8 +122,8 @@ def reset_users_and_roles():
             user_id = cursor.lastrowid
             
             # Attribuer le rôle
-            if rbac.assign_role_to_user(user_id, user_data["role"]):
-                print(f"✅ {user_data['username']} ({user_data['nom']} {user_data['prenom']}) → {user_data['role']}")
+            if rbac.assign_role_to_user(user_id, user_data["roles"]):
+                print(f"✅ {user_data['username']} ({user_data['nom']} {user_data['prenom']}) → {user_data['roles']}")
                 created_count += 1
             else:
                 print(f"❌ Échec attribution rôle pour {user_data['username']}")
@@ -141,7 +141,7 @@ def reset_users_and_roles():
             print(f"👤 {user_data['username']}")
             print(f"   Nom: {user_data['nom']} {user_data['prenom']}")
             print(f"   Email: {user_data['email']}")
-            print(f"   Rôle: {user_data['role']}")
+            print(f"   Rôle: {user_data['roles']}")
             print(f"   Mot de passe: {user_data['password']}")
             print()
         
@@ -195,8 +195,8 @@ def verify_setup(rbac):
         ''')
         
         users_with_roles = cursor.fetchall()
-        for username, nom, prenom, role in users_with_roles:
-            role_display = role if role else "Aucun rôle"
+        for username, nom, prenom, roles in users_with_roles:
+            role_display = roles if roles else "Aucun rôle"
             print(f"  • {username} ({nom} {prenom}): {role_display}")
         
         conn.close()

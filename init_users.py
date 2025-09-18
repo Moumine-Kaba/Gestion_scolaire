@@ -78,7 +78,7 @@ def create_test_users():
         }
     ]
     
-    # Créer chaque utilisateur
+    # Créer chaque utilisateurs
     for user_data in test_users:
         print(f"\n👤 Création de {user_data['username']}...")
         

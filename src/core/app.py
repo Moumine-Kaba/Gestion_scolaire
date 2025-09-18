@@ -7,6 +7,9 @@ Application Principale EduManager+
 Point d'entrée principal de l'application avec gestion des erreurs et logging.
 """
 
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import os
 import sys
 import logging
@@ -24,8 +27,8 @@ if str(project_root) not in sys.path:
 
 from src.core.config import get_config, Config
 from src.core.exceptions import EduManagerException, ConfigurationError, DatabaseError
-from src.core.database.connection import DatabaseManager
-
+from src.core.database.connection 
+from database.connection import get_db_connection
 
 class EduManagerApp:
     """Application principale EduManager+"""
@@ -71,7 +74,7 @@ class EduManagerApp:
         return logger
     
     def _setup_ui(self):
-        """Configure l'interface utilisateur"""
+        """Configure l'interface utilisateurs"""
         try:
             # Configuration de CustomTkinter
             ctk.set_appearance_mode(self.config.ui.theme)
@@ -81,11 +84,11 @@ class EduManagerApp:
             ctk.set_window_scaling(1.0)
             ctk.set_widget_scaling(1.0)
             
-            self.logger.info("Interface utilisateur configurée")
+            self.logger.info("Interface utilisateurs configurée")
             
         except Exception as e:
             self.logger.error(f"Erreur lors de la configuration de l'UI: {e}")
-            raise ConfigurationError("Configuration de l'interface utilisateur", details={"error": str(e)})
+            raise ConfigurationError("Configuration de l'interface utilisateurs", details={"error": str(e)})
     
     def _check_dependencies(self) -> bool:
         """Vérifie que toutes les dépendances sont installées"""
@@ -103,7 +106,7 @@ class EduManagerApp:
                 if package == 'PIL':
                     import PIL
                 elif package == 'sqlite3':
-                    import sqlite3
+                    # Remplacé par SQL Server  # Remplacé par SQL Server
                 else:
                     __import__(package)
             except ImportError:
@@ -131,14 +134,14 @@ class EduManagerApp:
                 db_path.parent.mkdir(exist_ok=True)
                 
                 # Créer un fichier de base de données vide
-                import sqlite3
-                conn = sqlite3.connect(db_path)
+                # Remplacé par SQL Server  # Remplacé par SQL Server
+                conn = get_db_connection()
                 conn.close()
                 
                 self.logger.info("Base de données créée")
             
             # Tester la connexion
-            self.database_manager = DatabaseManager(str(db_path))
+            self.database_manager = get_db_connection())
             self.database_manager.test_connection()
             
             self.logger.info("Base de données accessible")
@@ -245,7 +248,6 @@ class EduManagerApp:
             self.logger.error(f"❌ Erreur lors du redémarrage: {e}")
             self._show_error_dialog("Erreur de Redémarrage", "Impossible de redémarrer l'application", e)
 
-
 def main():
     """Point d'entrée principal de l'application"""
     app = None
@@ -259,7 +261,7 @@ def main():
             sys.exit(1)
             
     except KeyboardInterrupt:
-        print("\n🛑 Arrêt demandé par l'utilisateur")
+        print("\n🛑 Arrêt demandé par l'utilisateurs")
         if app:
             app.stop()
         sys.exit(0)
@@ -274,7 +276,6 @@ def main():
         # Nettoyage final
         if app:
             app.stop()
-
 
 if __name__ == "__main__":
     main()

@@ -55,7 +55,7 @@ class BulletinsView(tk.Frame):
     def modifier_bulletin(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("Modification", "Veuillez sélectionner un bulletin.")
+            messagebox.showwarning("Modification", "Veuillez sélectionner un bulletins.")
             return
         data = self.tree.item(selected[0])["values"]
         self._ouvrir_formulaire("Modifier", data)
@@ -63,11 +63,11 @@ class BulletinsView(tk.Frame):
     def supprimer_bulletin(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("Suppression", "Veuillez sélectionner un bulletin.")
+            messagebox.showwarning("Suppression", "Veuillez sélectionner un bulletins.")
             return
-        bulletin_id = self.tree.item(selected[0])["values"][0]
-        if messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer ce bulletin ?"):
-            delete_bulletin(bulletin_id)
+        bulletin_id_bulletin = self.tree.item(selected[0])["values"][0]
+        if messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer ce bulletins ?"):
+            delete_bulletin(bulletin_id_bulletin)
             self.charger_bulletins()
 
     def _ouvrir_formulaire(self, mode, data=None):
@@ -126,21 +126,21 @@ class BulletinsView(tk.Frame):
             rem = rem_entry.get().strip()
             date = date_entry.get().strip()
             try:
-                eleve_id = int(eleve_str.split(" - ")[0]) if eleve_str else None
+                id_eleve_bulletin = int(eleve_str.split(" - ")[0]) if eleve_str else None
             except:
                 messagebox.showerror("Erreur", "Élève invalide.", parent=form)
                 return
-            if not all([eleve_id, annee, trim, moy, date]):
+            if not all([id_eleve_bulletin, annee, trim, moy, date]):
                 messagebox.showerror("Erreur", "Champs obligatoires manquants.", parent=form)
                 return
             if not moy.replace('.', '', 1).isdigit():
                 messagebox.showerror("Erreur", "Moyenne invalide.", parent=form)
                 return
             if mode == "Ajouter":
-                add_bulletin(eleve_id, annee, trim, float(moy), rem, date)
+                add_bulletin(id_eleve_bulletin, annee, trim, float(moy), rem, date)
                 messagebox.showinfo("Succès", "Bulletin ajouté avec succès.", parent=form)
             else:
-                update_bulletin(data[0], eleve_id, annee, trim, float(moy), rem, date)
+                update_bulletin(data[0], id_eleve_bulletin, annee, trim, float(moy), rem, date)
                 messagebox.showinfo("Succès", "Bulletin modifié.", parent=form)
             self.charger_bulletins()
             form.destroy()

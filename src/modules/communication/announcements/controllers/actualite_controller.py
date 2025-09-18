@@ -1,6 +1,41 @@
 from src.utils.db_utils import get_connection
 
+def _init_actualites_table():
+    """Initialise la table actualites si elle n'existe pas."""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Vérifier si la table existe
+        cursor.execute("""
+            SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_NAME = 'actualites'
+        """)
+        
+        if cursor.fetchone()[0] == 0:
+            # Créer la table actualites
+            cursor.execute("""
+                CREATE TABLE actualites (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
+                    titre NVARCHAR(200) NOT NULL,
+                    contenu NVARCHAR(MAX),
+                    date DATETIME DEFAULT GETDATE()
+                )
+            """)
+            conn.commit()
+            print("✅ Table actualites créée")
+        
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erreur création table actualites: {e}")
+        return False
+
 def get_all_actualites():
+    # Initialiser la table si nécessaire
+    _init_actualites_table()
+    
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""

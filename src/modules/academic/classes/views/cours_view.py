@@ -4,7 +4,7 @@ from PIL import Image
 import os
 import sys
 from datetime import datetime, timedelta
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
 import time
 
 # -*- coding: utf-8 -*-
@@ -183,7 +183,7 @@ class CoursManagerView(ctk.CTkFrame):
                 print(f"✅ Icône '{key}' ajoutée au dictionnaire: {path}")
     
     def setup_ui(self):
-        """Configure l'interface utilisateur"""
+        """Configure l'interface utilisateurs"""
         # Container principal
         main_container = ctk.CTkFrame(self, fg_color=BG_CARD, corner_radius=20, border_width=2, border_color=BORDER_COLOR)
         main_container.pack(fill="both", expand=True, padx=3, pady=3)
@@ -924,16 +924,16 @@ class CoursForm(ctk.CTkToplevel):
 
         # Validation des champs obligatoires
         if not prof_name:
-            messagebox.showerror("Erreur", "Veuillez sélectionner un professeur")
+            messagebox.showerror("Erreur", "Veuillez sélectionner un professeurs")
             return
         if not classe_name:
-            messagebox.showerror("Erreur", "Veuillez sélectionner une classe")
+            messagebox.showerror("Erreur", "Veuillez sélectionner une classes")
             return
         if not matiere_name:
             messagebox.showerror("Erreur", "Veuillez sélectionner une matière")
             return
         if not salle_name:
-            messagebox.showerror("Erreur", "Veuillez sélectionner une salle")
+            messagebox.showerror("Erreur", "Veuillez sélectionner une salles")
             return
         if not jour:
             messagebox.showerror("Erreur", "Veuillez sélectionner un jour")
@@ -950,21 +950,21 @@ class CoursForm(ctk.CTkToplevel):
                 break
         
         classe_id = None
-        for classe in getattr(self, 'classes_data', []):
-            if classe.get('nom_classe', '') == classe_name:
-                classe_id = classe.get('id_classe')
+        for classes in getattr(self, 'classes_data', []):
+            if classes.get('nom_classe', '') == classe_name:
+                classe_id = classes.get('id_classe')
                 break
         
         matiere_id = None
-        for matiere in getattr(self, 'matieres_data', []):
-            if matiere.get('nom_matiere', '') == matiere_name:
-                matiere_id = matiere.get('id_matiere')
+        for matieres in getattr(self, 'matieres_data', []):
+            if matieres.get('nom_matiere', '') == matiere_name:
+                matiere_id = matieres.get('id_matiere')
                 break
         
         salle_id = None
-        for salle in getattr(self, 'salles_data', []):
-            if salle.get('nom_salle', '') == salle_name:
-                salle_id = salle.get('id_salle')
+        for salles in getattr(self, 'salles_data', []):
+            if salles.get('nom_salle', '') == salle_name:
+                salle_id = salles.get('id_salle')
                 break
         
         # Utiliser des IDs par défaut si pas trouvés

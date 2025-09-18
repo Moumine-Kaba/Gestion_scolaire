@@ -7,14 +7,16 @@ Gestionnaire de Connexion à la Base de Données
 Gère les connexions à la base de données avec pool de connexions et gestion d'erreurs.
 """
 
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Tuple
 from contextlib import contextmanager
 
 from src.core.exceptions import DatabaseError, ConfigurationError
-
 
 class DatabaseManager:
     """Gestionnaire de connexion à la base de données"""
@@ -38,25 +40,16 @@ class DatabaseManager:
                 return True
             
             # Créer la connexion
-            self._connection = sqlite3.connect(
-                str(self.db_path),
-                check_same_thread=False,
-                timeout=30.0
-            )
+            self._connection = get_db_connection()
             
             # Configurer la connexion
-            self._connection.row_factory = sqlite3.Row
-            self._connection.execute("PRAGMA foreign_keys = ON")
-            self._connection.execute("PRAGMA journal_mode = WAL")
-            self._connection.execute("PRAGMA synchronous = NORMAL")
-            self._connection.execute("PRAGMA cache_size = 10000")
-            self._connection.execute("PRAGMA temp_store = memory")
+            # self._connection.row_factory = sqlite3.Row  # Remplacé par SQL Server
             
             self._is_connected = True
             self.logger.info(f"Connexion à la base de données établie: {self.db_path}")
             return True
             
-        except sqlite3.Error as e:
+        except Exception as e:
             self.logger.error(f"Erreur de connexion à la base de données: {e}")
             raise DatabaseError("Impossible de se connecter à la base de données", operation="connect", details={"error": str(e)})
         
@@ -192,7 +185,7 @@ class DatabaseManager:
         """Vérifie si une table existe"""
         try:
             query = """
-                SELECT name FROM sqlite_master 
+                SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
                 WHERE type='table' AND name=?
             """
             result = self.fetch_one(query, (table_name,))
@@ -216,7 +209,7 @@ class DatabaseManager:
         """Récupère la liste de toutes les tables"""
         try:
             query = """
-                SELECT name FROM sqlite_master 
+                SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
                 WHERE type='table' 
                 ORDER BY name
             """
@@ -237,7 +230,7 @@ class DatabaseManager:
             backup_path.parent.mkdir(parents=True, exist_ok=True)
             
             # Créer la sauvegarde
-            backup_conn = sqlite3.connect(str(backup_path))
+            backup_conn = get_db_connection()
             self._connection.backup(backup_conn)
             backup_conn.close()
             

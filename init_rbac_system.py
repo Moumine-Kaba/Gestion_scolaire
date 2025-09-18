@@ -35,8 +35,8 @@ def setup_rbac_system():
         # Lister les rôles créés
         roles = rbac.get_all_roles()
         print(f"\n📋 Rôles disponibles ({len(roles)}):")
-        for role in roles:
-            print(f"  • {role.name}: {role.description}")
+        for roles in roles:
+            print(f"  • {roles.name}: {roles.description}")
         
         return rbac
         
@@ -58,7 +58,7 @@ def assign_roles_to_users(rbac: RBACSystem):
         users = cursor.fetchall()
         
         if not users:
-            print("⚠️ Aucun utilisateur trouvé dans la base de données")
+            print("⚠️ Aucun utilisateurs trouvé dans la base de données")
             return
         
         print(f"📊 {len(users)} utilisateurs trouvés")
@@ -74,7 +74,7 @@ def assign_roles_to_users(rbac: RBACSystem):
         
         assigned_count = 0
         for user_id, username, email in users:
-            # Déterminer le rôle basé sur le nom d'utilisateur ou l'email
+            # Déterminer le rôle basé sur le nom d'utilisateurs ou l'email
             role_to_assign = None
             
             username_lower = username.lower()
@@ -123,7 +123,7 @@ def create_test_users(rbac: RBACSystem):
             "email": "directeur@ecole.com",
             "nom": "Directeur",
             "prenom": "Test",
-            "role": "Directeur"
+            "roles": "Directeur"
         },
         {
             "username": "comptable",
@@ -131,7 +131,7 @@ def create_test_users(rbac: RBACSystem):
             "email": "comptable@ecole.com",
             "nom": "Comptable",
             "prenom": "Test",
-            "role": "Comptable"
+            "roles": "Comptable"
         },
         {
             "username": "secretaire",
@@ -139,7 +139,7 @@ def create_test_users(rbac: RBACSystem):
             "email": "secretaire@ecole.com", 
             "nom": "Secrétaire",
             "prenom": "Test",
-            "role": "Secrétaire"
+            "roles": "Secrétaire"
         },
         {
             "username": "surveillant",
@@ -147,7 +147,7 @@ def create_test_users(rbac: RBACSystem):
             "email": "surveillant@ecole.com",
             "nom": "Surveillant", 
             "prenom": "Test",
-            "role": "Surveillant"
+            "roles": "Surveillant"
         }
     ]
     
@@ -157,7 +157,7 @@ def create_test_users(rbac: RBACSystem):
         
         created_count = 0
         for user_data in test_users:
-            # Vérifier si l'utilisateur existe déjà
+            # Vérifier si l'utilisateurs existe déjà
             cursor.execute('SELECT id_utilisateur FROM utilisateurs WHERE nom_utilisateur = ?', 
                           (user_data["username"],))
             
@@ -165,7 +165,7 @@ def create_test_users(rbac: RBACSystem):
                 print(f"⚠️ Utilisateur {user_data['username']} existe déjà")
                 continue
             
-            # Créer l'utilisateur
+            # Créer l'utilisateurs
             cursor.execute('''
                 INSERT INTO utilisateurs (nom_utilisateur, mot_de_passe, email, nom, prenom)
                 VALUES (?, ?, ?, ?, ?)
@@ -180,8 +180,8 @@ def create_test_users(rbac: RBACSystem):
             user_id = cursor.lastrowid
             
             # Attribuer le rôle
-            if rbac.assign_role_to_user(user_id, user_data["role"]):
-                print(f"✅ Utilisateur {user_data['username']} créé avec rôle {user_data['role']}")
+            if rbac.assign_role_to_user(user_id, user_data["roles"]):
+                print(f"✅ Utilisateur {user_data['username']} créé avec rôle {user_data['roles']}")
                 created_count += 1
             else:
                 print(f"❌ Échec attribution rôle pour {user_data['username']}")
@@ -226,13 +226,13 @@ def show_rbac_status(rbac: RBACSystem):
     
     # Permissions par rôle
     print("\n🔐 Permissions par rôle:")
-    for role in roles:
-        print(f"\n  {role.name}:")
-        print(f"    Description: {role.description}")
+    for roles in roles:
+        print(f"\n  {roles.name}:")
+        print(f"    Description: {roles.description}")
         
         # Compter les permissions par niveau
         permission_counts = {}
-        for view, level in role.permissions.items():
+        for view, level in roles.permissions.items():
             level_name = level.name
             permission_counts[level_name] = permission_counts.get(level_name, 0) + 1
         
@@ -265,7 +265,7 @@ def main():
     print("\n✅ Configuration RBAC terminée!")
     print("\n📝 Prochaines étapes:")
     print("  1. Redémarrer l'application EduManager+")
-    print("  2. Se connecter avec un utilisateur pour tester les permissions")
+    print("  2. Se connecter avec un utilisateurs pour tester les permissions")
     print("  3. Vérifier que seules les vues autorisées apparaissent dans la sidebar")
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ Utilitaires de base de données centralisés pour EduManager+
 - Gestion des erreurs
 """
 
-import sqlite3
+from database.connection import get_db_connection
 import os
 import sys
 from typing import Optional, List, Dict, Any
@@ -18,29 +18,60 @@ if root_path not in sys.path:
 
 from src.core.paths import DATABASE_PATH
 
-def get_db_connection() -> Optional[sqlite3.Connection]:
+def get_db_connection_wrapper():
     """
     Retourne une connexion à la base de données centralisée
     
     Returns:
-        sqlite3.Connection: Connexion à la base de données ou None en cas d'erreur
+        Connection: Connexion à la base de données ou None en cas d'erreur
     """
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
+        conn = get_db_connection()
         return conn
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"⚠️ Erreur connexion DB: {e}")
         return None
 
-def get_connection() -> Optional[sqlite3.Connection]:
+def get_connection():
     """
-    Alias pour get_db_connection (compatibilité)
+    Alias pour get_db_connection_wrapper (compatibilité)
     
     Returns:
-        sqlite3.Connection: Connexion à la base de données ou None en cas d'erreur
+        Connection: Connexion à la base de données ou None en cas d'erreur
     """
-    return get_db_connection()
+    return get_db_connection_wrapper()
+
+def fetch_one(query: str, params: tuple = ()) -> Optional[Dict[str, Any]]:
+    """
+    Exécute une requête SELECT et retourne un seul résultat
+    
+    Args:
+        query (str): Requête SQL
+        params (tuple): Paramètres de la requête
+        
+    Returns:
+        Optional[Dict[str, Any]]: Résultat unique ou None
+    """
+    conn = get_db_connection_wrapper()
+    if not conn:
+        return None
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        result = cursor.fetchone()
+        
+        if result:
+            # Convertir le résultat en dictionnaire pour SQL Server
+            columns = [desc[0] for desc in cursor.description] if cursor.description else []
+            return dict(zip(columns, result))
+        return None
+    except Exception as e:
+        print(f"⚠️ Erreur fetch_one: {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
 
 def execute_query(query: str, params: tuple = ()) -> List[Dict[str, Any]]:
     """
@@ -53,7 +84,7 @@ def execute_query(query: str, params: tuple = ()) -> List[Dict[str, Any]]:
     Returns:
         List[Dict[str, Any]]: Liste des résultats
     """
-    conn = get_db_connection()
+    conn = get_db_connection_wrapper()
     if not conn:
         return []
     
@@ -62,9 +93,10 @@ def execute_query(query: str, params: tuple = ()) -> List[Dict[str, Any]]:
         cursor.execute(query, params)
         results = cursor.fetchall()
         
-        # Convertir les Row en dictionnaires
-        return [dict(row) for row in results]
-    except sqlite3.Error as e:
+        # Convertir les résultats en dictionnaires pour SQL Server
+        columns = [desc[0] for desc in cursor.description] if cursor.description else []
+        return [dict(zip(columns, row)) for row in results]
+    except Exception as e:
         print(f"⚠️ Erreur requête: {e}")
         return []
     finally:
@@ -82,7 +114,7 @@ def execute_update(query: str, params: tuple = ()) -> bool:
     Returns:
         bool: True si succès, False sinon
     """
-    conn = get_db_connection()
+    conn = get_db_connection_wrapper()
     if not conn:
         return False
     
@@ -91,7 +123,7 @@ def execute_update(query: str, params: tuple = ()) -> bool:
         cursor.execute(query, params)
         conn.commit()
         return True
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"⚠️ Erreur mise à jour: {e}")
         conn.rollback()
         return False
@@ -109,18 +141,18 @@ def table_exists(table_name: str) -> bool:
     Returns:
         bool: True si la table existe
     """
-    conn = get_db_connection()
+    conn = get_db_connection_wrapper()
     if not conn:
         return False
     
     try:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT name FROM sqlite_master 
-            WHERE type='table' AND name=?
+            SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_TYPE='BASE TABLE' AND TABLE_NAME=?
         """, (table_name,))
         return cursor.fetchone() is not None
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"⚠️ Erreur vérification table: {e}")
         return False
     finally:
@@ -146,7 +178,7 @@ def get_table_columns(table_name: str) -> List[str]:
         cursor.execute(f"PRAGMA table_info({table_name})")
         columns = [row[1] for row in cursor.fetchall()]
         return columns
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"⚠️ Erreur récupération colonnes: {e}")
         return []
     finally:
@@ -167,11 +199,11 @@ def get_all_tables() -> List[str]:
     try:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT name FROM sqlite_master 
-            WHERE type='table' AND name NOT LIKE 'sqlite_%'
+            SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_NAME NOT LIKE 'sys_%'
         """)
         return [row[0] for row in cursor.fetchall()]
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"⚠️ Erreur récupération tables: {e}")
         return []
     finally:
@@ -227,7 +259,7 @@ def get_all_professeurs() -> List[Dict[str, Any]]:
 
 def get_all_classes() -> List[Dict[str, Any]]:
     """Retourne toutes les classes"""
-    return execute_query("SELECT * FROM classe ORDER BY nom")
+    return execute_query("SELECT * FROM classes ORDER BY nom")
 
 def get_all_matieres() -> List[Dict[str, Any]]:
     """Retourne toutes les matières"""
@@ -281,7 +313,7 @@ def search_professeurs(search_term: str) -> List[Dict[str, Any]]:
 def search_classes(search_term: str) -> List[Dict[str, Any]]:
     """Recherche des classes par nom ou niveau"""
     query = """
-        SELECT * FROM classe 
+        SELECT * FROM classes 
         WHERE nom LIKE ? OR niveau LIKE ?
         ORDER BY nom
     """
@@ -293,8 +325,8 @@ def get_stats_eleves() -> Dict[str, Any]:
     """Retourne les statistiques des élèves"""
     total = execute_query("SELECT COUNT(*) as count FROM eleves")[0]['count']
     par_classe = execute_query("""
-        SELECT c.nom as classe, COUNT(e.id) as count 
-        FROM classe c 
+        SELECT c.nom as classes, COUNT(e.id) as count 
+        FROM classes c 
         LEFT JOIN eleves e ON c.id = e.classe_id 
         GROUP BY c.id, c.nom 
         ORDER BY c.nom
@@ -320,10 +352,10 @@ def get_stats_professeurs() -> Dict[str, Any]:
 
 def get_stats_classes() -> Dict[str, Any]:
     """Retourne les statistiques des classes"""
-    total = execute_query("SELECT COUNT(*) as count FROM classe")[0]['count']
+    total = execute_query("SELECT COUNT(*) as count FROM classes")[0]['count']
     par_niveau = execute_query("""
         SELECT niveau, COUNT(*) as count 
-        FROM classe 
+        FROM classes 
         GROUP BY niveau 
         ORDER BY niveau
     """)

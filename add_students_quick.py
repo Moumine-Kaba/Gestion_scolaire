@@ -30,7 +30,7 @@ def add_students_quick():
         
         print(f"📚 {len(classes)} classes trouvées")
         
-        # Répartition: ~26 élèves par classe (500/19 ≈ 26)
+        # Répartition: ~26 élèves par classes (500/19 ≈ 26)
         eleves_par_classe = 26
         eleve_count = 0
         

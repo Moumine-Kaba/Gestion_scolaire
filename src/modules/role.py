@@ -7,14 +7,17 @@ Module de gestion des rôles pour EduManager+
 Gère les rôles et leurs permissions dans le système RBAC.
 """
 
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import os
 from typing import Dict, List, Optional, Set
 from enum import Enum
 from datetime import datetime
 
 class PermissionLevel(Enum):
-    """Niveaux de permission"""
+    """Niveaux de permissions"""
     READ = "read"
     WRITE = "write"
     DELETE = "delete"
@@ -30,17 +33,17 @@ class Role:
         self.niveau_acces = niveau_acces
         self.permissions = set()
     
-    def add_permission(self, permission: str):
-        """Ajoute une permission au rôle"""
-        self.permissions.add(permission)
+    def add_permission(self, permissions: str):
+        """Ajoute une permissions au rôle"""
+        self.permissions.add(permissions)
     
-    def remove_permission(self, permission: str):
-        """Retire une permission du rôle"""
-        self.permissions.discard(permission)
+    def remove_permission(self, permissions: str):
+        """Retire une permissions du rôle"""
+        self.permissions.discard(permissions)
     
-    def has_permission(self, permission: str) -> bool:
-        """Vérifie si le rôle a une permission"""
-        return permission in self.permissions
+    def has_permission(self, permissions: str) -> bool:
+        """Vérifie si le rôle a une permissions"""
+        return permissions in self.permissions
     
     def is_admin(self) -> bool:
         """Vérifie si le rôle est administrateur"""
@@ -62,7 +65,7 @@ class RoleManager:
     def _init_role_tables(self):
         """Initialise les tables des rôles"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Table des rôles
@@ -111,7 +114,7 @@ class RoleManager:
     def _create_default_roles(self):
         """Crée les rôles par défaut"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Rôles par défaut
@@ -119,8 +122,8 @@ class RoleManager:
                 ("administrateur", "Administrateur système", 10),
                 ("directeur", "Directeur d'établissement", 8),
                 ("secretaire", "Secrétaire", 6),
-                ("professeur", "Professeur", 4),
-                ("eleve", "Élève", 2),
+                ("professeurs", "Professeur", 4),
+                ("eleves", "Élève", 2),
                 ("parent", "Parent d'élève", 1)
             ]
             
@@ -140,7 +143,7 @@ class RoleManager:
     def get_role_by_name(self, nom_role: str) -> Optional[Role]:
         """Récupère un rôle par son nom"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -153,10 +156,10 @@ class RoleManager:
             conn.close()
             
             if result:
-                role = Role(result[0], result[1], result[2], result[3])
+                roles = Role(result[0], result[1], result[2], result[3])
                 # Charger les permissions du rôle
-                role.permissions = self.get_role_permissions(result[0])
-                return role
+                roles.permissions = self.get_role_permissions(result[0])
+                return roles
             
             return None
             
@@ -167,7 +170,7 @@ class RoleManager:
     def get_role_permissions(self, role_id: int) -> Set[str]:
         """Récupère les permissions d'un rôle"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -189,7 +192,7 @@ class RoleManager:
     def get_all_roles(self) -> List[Role]:
         """Récupère tous les rôles"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -203,9 +206,9 @@ class RoleManager:
             
             roles = []
             for row in results:
-                role = Role(row[0], row[1], row[2], row[3])
-                role.permissions = self.get_role_permissions(row[0])
-                roles.append(role)
+                roles = Role(row[0], row[1], row[2], row[3])
+                roles.permissions = self.get_role_permissions(row[0])
+                roles.append(roles)
             
             return roles
             
@@ -216,7 +219,7 @@ class RoleManager:
     def create_role(self, nom_role: str, description: str = "", niveau_acces: int = 1) -> bool:
         """Crée un nouveau rôle"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -236,7 +239,7 @@ class RoleManager:
     def delete_role(self, nom_role: str) -> bool:
         """Supprime un rôle"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Vérifier si le rôle est utilisé
@@ -244,7 +247,7 @@ class RoleManager:
             count = cursor.fetchone()[0]
             
             if count > 0:
-                print(f"❌ Impossible de supprimer le rôle '{nom_role}' car il est utilisé par {count} utilisateur(s)")
+                print(f"❌ Impossible de supprimer le rôle '{nom_role}' car il est utilisé par {count} utilisateurs(s)")
                 conn.close()
                 return False
             
@@ -259,9 +262,9 @@ class RoleManager:
             return False
     
     def assign_permission_to_role(self, nom_role: str, nom_permission: str) -> bool:
-        """Assigne une permission à un rôle"""
+        """Assigne une permissions à un rôle"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Récupérer les IDs
@@ -272,13 +275,13 @@ class RoleManager:
             perm_result = cursor.fetchone()
             
             if not role_result or not perm_result:
-                print(f"❌ Rôle ou permission non trouvé")
+                print(f"❌ Rôle ou permissions non trouvé")
                 conn.close()
                 return False
             
             role_id, perm_id = role_result[0], perm_result[0]
             
-            # Assigner la permission
+            # Assigner la permissions
             cursor.execute('''
                 INSERT OR REPLACE INTO role_permissions (role_id, permission_id, granted)
                 VALUES (?, ?, 1)
@@ -290,13 +293,13 @@ class RoleManager:
             return True
             
         except Exception as e:
-            print(f"❌ Erreur assignation permission: {e}")
+            print(f"❌ Erreur assignation permissions: {e}")
             return False
     
     def revoke_permission_from_role(self, nom_role: str, nom_permission: str) -> bool:
-        """Retire une permission d'un rôle"""
+        """Retire une permissions d'un rôle"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Récupérer les IDs
@@ -307,13 +310,13 @@ class RoleManager:
             perm_result = cursor.fetchone()
             
             if not role_result or not perm_result:
-                print(f"❌ Rôle ou permission non trouvé")
+                print(f"❌ Rôle ou permissions non trouvé")
                 conn.close()
                 return False
             
             role_id, perm_id = role_result[0], perm_result[0]
             
-            # Retirer la permission
+            # Retirer la permissions
             cursor.execute('''
                 UPDATE role_permissions 
                 SET granted = 0
@@ -326,6 +329,6 @@ class RoleManager:
             return True
             
         except Exception as e:
-            print(f"❌ Erreur retrait permission: {e}")
+            print(f"❌ Erreur retrait permissions: {e}")
             return False
 

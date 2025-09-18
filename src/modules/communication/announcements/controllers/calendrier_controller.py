@@ -1,8 +1,11 @@
-import sqlite3
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+# Remplacé par SQL Server  # Remplacé par SQL Server
 DB_PATH = "database/edumanager.db"
 
 def get_all_calendriers():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT id, titre, date_debut, date_fin, description FROM calendriers")
     data = cur.fetchall()
@@ -10,7 +13,7 @@ def get_all_calendriers():
     return data
 
 def add_calendrier(titre, date_debut, date_fin, description):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("INSERT INTO calendriers (titre, date_debut, date_fin, description) VALUES (?, ?, ?, ?)",
                 (titre, date_debut, date_fin, description))
@@ -18,7 +21,7 @@ def add_calendrier(titre, date_debut, date_fin, description):
     conn.close()
 
 def update_calendrier(id, titre, date_debut, date_fin, description):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("UPDATE calendriers SET titre=?, date_debut=?, date_fin=?, description=? WHERE id=?",
                 (titre, date_debut, date_fin, description, id))
@@ -26,7 +29,7 @@ def update_calendrier(id, titre, date_debut, date_fin, description):
     conn.close()
 
 def delete_calendrier(id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM calendriers WHERE id=?", (id,))
     conn.commit()

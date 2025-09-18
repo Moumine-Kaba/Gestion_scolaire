@@ -30,7 +30,7 @@ def main():
         app.mainloop()
 
     except KeyboardInterrupt:
-        print("🧹 Interruption utilisateur (Ctrl+C) — fermeture...")
+        print("🧹 Interruption utilisateurs (Ctrl+C) — fermeture...")
 
     except Exception as e:
         # Plan B : si Splash indisponible, on lance directement le Login.

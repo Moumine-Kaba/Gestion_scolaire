@@ -1,16 +1,20 @@
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import customtkinter as ctk
 from tkinter import messagebox
 from PIL import Image
 import os
 import sys
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
 
 # -*- coding: utf-8 -*-
 """
 Gestion des Classes - Utilise le thème global EduManager+
 - Thème sombre parfait avec couleurs harmonieuses
 - Design moderne et professionnel
-- Interface utilisateur optimisée
+- Interface utilisateurs optimisée
 """
 
 # Import du thème global depuis resources/themes/theme.py
@@ -119,18 +123,18 @@ ICONS_PATH = {
 def get_icon_path(icon_name):
     return ICONS_PATH.get(icon_name, "")
 
-def get_db_connection():
+def get_db_connection_direct():
     try:
-        conn = sqlite3.connect("database/edumanager.db")
-        conn.row_factory = sqlite3.Row
+        conn = get_db_connection_direct()
+        # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
         return conn
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"⚠️ Erreur connexion DB: {e}")
         return None
 
 def get_all_classes():
     """Récupère toutes les classes depuis la base de données centralisée"""
-    conn = get_db_connection()
+    conn = get_db_connection_direct()
     if conn is None: 
         return []
     try:
@@ -144,7 +148,7 @@ def get_all_classes():
         """)
         classes = cursor.fetchall()
         return [dict(row) for row in classes]
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"Erreur lors de la récupération des classes : {e}")
         return []
     finally:
@@ -152,8 +156,8 @@ def get_all_classes():
             conn.close()
 
 def add_class(nom, prof_id, salle_id, niveau, annee):
-    """Ajoute une nouvelle classe dans la base de données centralisée"""
-    conn = get_db_connection()
+    """Ajoute une nouvelle classes dans la base de données centralisée"""
+    conn = get_db_connection_direct()
     if conn is None: 
         return False
     try:
@@ -164,16 +168,16 @@ def add_class(nom, prof_id, salle_id, niveau, annee):
         """, (nom, niveau, annee, prof_id, salle_id))
         conn.commit()
         return True
-    except sqlite3.Error as e:
-        print(f"Erreur lors de l'ajout de la classe : {e}")
+    except Exception as e:
+        print(f"Erreur lors de l'ajout de la classes : {e}")
         return False
     finally:
         if conn: 
             conn.close()
 
 def update_class_data(classe_id, nom, prof_id, salle_id, niveau, annee):
-    """Met à jour une classe existante dans la base de données centralisée"""
-    conn = get_db_connection()
+    """Met à jour une classes existante dans la base de données centralisée"""
+    conn = get_db_connection_direct()
     if conn is None: 
         return False
     try:
@@ -186,28 +190,28 @@ def update_class_data(classe_id, nom, prof_id, salle_id, niveau, annee):
         """, (nom, niveau, annee, prof_id, salle_id, classe_id))
         conn.commit()
         return True
-    except sqlite3.Error as e:
-        print(f"Erreur lors de la mise à jour de la classe : {e}")
+    except Exception as e:
+        print(f"Erreur lors de la mise à jour de la classes : {e}")
         return False
     finally:
         if conn: 
             conn.close()
 
 def delete_class(classe_id):
-    """Supprime une classe et ses élèves associés"""
-    conn = get_db_connection()
+    """Supprime une classes et ses élèves associés"""
+    conn = get_db_connection_direct()
     if conn is None: 
         return False
     try:
         cursor = conn.cursor()
-        # Mettre à jour les élèves pour les désassocier de la classe
+        # Mettre à jour les élèves pour les désassocier de la classes
         cursor.execute("UPDATE eleves SET id_classe = NULL WHERE id_classe = ?", (classe_id,))
-        # Supprimer la classe
+        # Supprimer la classes
         cursor.execute("DELETE FROM classes WHERE id_classe = ?", (classe_id,))
         conn.commit()
         return True
-    except sqlite3.Error as e:
-        print(f"Erreur lors de la suppression de la classe : {e}")
+    except Exception as e:
+        print(f"Erreur lors de la suppression de la classes : {e}")
         if conn: 
             conn.rollback()
         return False
@@ -216,8 +220,8 @@ def delete_class(classe_id):
             conn.close()
 
 def get_classe_by_id(classe_id):
-    """Récupère une classe par son ID"""
-    conn = get_db_connection()
+    """Récupère une classes par son ID"""
+    conn = get_db_connection_direct()
     if conn is None: 
         return None
     try:
@@ -230,8 +234,8 @@ def get_classe_by_id(classe_id):
         """, (classe_id,))
         row = cursor.fetchone()
         return dict(row) if row else None
-    except sqlite3.Error as e:
-        print(f"Erreur lors de la récupération de la classe par ID : {e}")
+    except Exception as e:
+        print(f"Erreur lors de la récupération de la classes par ID : {e}")
         return None
     finally:
         if conn: 
@@ -239,7 +243,7 @@ def get_classe_by_id(classe_id):
 
 def get_all_professeurs():
     """Récupère tous les professeurs"""
-    conn = get_db_connection()
+    conn = get_db_connection_direct()
     if conn is None: 
         return []
     try:
@@ -247,7 +251,7 @@ def get_all_professeurs():
         cursor.execute("SELECT id_professeur as id, nom, prenom FROM professeurs ORDER BY nom, prenom")
         profs = cursor.fetchall()
         return [dict(p) for p in profs]
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"Erreur lors de la récupération des professeurs : {e}")
         return []
     finally:
@@ -256,7 +260,7 @@ def get_all_professeurs():
 
 def get_all_salles():
     """Récupère toutes les salles"""
-    conn = get_db_connection()
+    conn = get_db_connection_direct()
     if conn is None: 
         return []
     try:
@@ -264,7 +268,7 @@ def get_all_salles():
         cursor.execute("SELECT id_salle as id, nom_salle as nom FROM salles ORDER BY nom_salle")
         salles = cursor.fetchall()
         return [dict(s) for s in salles]
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"Erreur lors de la récupération des salles : {e}")
         return []
     finally:
@@ -272,7 +276,7 @@ def get_all_salles():
             conn.close()
         
 def setup_database():
-    conn = get_db_connection()
+    conn = get_db_connection_direct()
     if conn is None: return
     try:
         cursor = conn.cursor()
@@ -284,13 +288,13 @@ def setup_database():
             );
         """)
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS salle (
+            CREATE TABLE IF NOT EXISTS salles (
                 id INTEGER PRIMARY KEY,
                 nom TEXT NOT NULL UNIQUE
             );
         """)
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS classe (
+            CREATE TABLE IF NOT EXISTS classes (
                 id INTEGER PRIMARY KEY,
                 nom TEXT NOT NULL UNIQUE,
                 niveau TEXT,
@@ -298,7 +302,7 @@ def setup_database():
                 prof_id INTEGER,
                 salle_id INTEGER,
                 FOREIGN KEY (prof_id) REFERENCES professeurs (id),
-                FOREIGN KEY (salle_id) REFERENCES salle (id)
+                FOREIGN KEY (salle_id) REFERENCES salles (id)
             );
         """)
         cursor.execute("""
@@ -307,11 +311,11 @@ def setup_database():
                 nom TEXT NOT NULL,
                 prenom TEXT NOT NULL,
                 classe_id INTEGER,
-                FOREIGN KEY (classe_id) REFERENCES classe (id) ON DELETE CASCADE
+                FOREIGN KEY (classe_id) REFERENCES classes (id) ON DELETE CASCADE
             );
         """)
         conn.commit()
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"Erreur de configuration de la base de données : {e}")
     finally:
         if conn: conn.close()
@@ -382,7 +386,7 @@ ICONS_PATH = {
     "pdf": get_icon_path("file"),
     "reload": get_icon_path("refresh"),
     "class": get_icon_path("classroom"),
-    "student": get_icon_path("eleve"),
+    "student": get_icon_path("eleves"),
     "teacher": get_icon_path("person"),
     "settings": get_icon_path("settings"),
     "home": get_icon_path("home"),
@@ -486,8 +490,6 @@ class GlassCard(ctk.CTkFrame):
                 fg_color=THEME["glass_bg"],
                 border_color=THEME["neon_blue"]
             )
-
-
 
 class ModernClassesView(ctk.CTkFrame):
     """Vue moderne des cartes de classes avec vos icônes personnalisées"""
@@ -593,7 +595,7 @@ class ModernClassesView(ctk.CTkFrame):
             textvariable=self.search_var,
             width=250,
             height=45,
-            placeholder_text="Rechercher une classe...",
+            placeholder_text="Rechercher une classes...",
             fg_color=BG_CARD,
             border_width=2,
             border_color=WARNING_YELLOW,
@@ -685,7 +687,7 @@ class ModernClassesView(ctk.CTkFrame):
         
         # Tri optimisé
         order_map = {"1ère": 1, "TSM": 2, "Terminale": 3, "2nde": 4, "6ème": 5, "5ème": 6, "4ème": 7, "3ème": 8}
-        filtered_classes.sort(key=lambda classe: order_map.get(classe['nom'], float('inf')))
+        filtered_classes.sort(key=lambda classes: order_map.get(classes['nom'], float('inf')))
         
         # Récupérer les données associées avec cache
         if not hasattr(self, '_cached_profs') or not hasattr(self, '_cached_salles'):
@@ -735,7 +737,7 @@ class ModernClassesView(ctk.CTkFrame):
             delattr(self, '_cached_salles')
 
 class ModernClassCard(ctk.CTkFrame):
-    """Carte de classe moderne avec design premium et effets visuels"""
+    """Carte de classes moderne avec design premium et effets visuels"""
     def __init__(self, parent, classe_data, prof_name, salle_name, on_edit, on_delete, icons):
         super().__init__(parent, fg_color=BG_CARD, corner_radius=25, 
                          border_width=2, border_color=BORDER_COLOR)
@@ -782,13 +784,13 @@ class ModernClassCard(ctk.CTkFrame):
         title_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
         title_frame.pack(side="left", fill="x", expand=True)
         
-        # Icône de classe sans fond circulaire
+        # Icône de classes sans fond circulaire
         classroom_icon = load_icon(self.icons.get("classroom"), 20)
         if classroom_icon:
             icon_label = ctk.CTkLabel(title_frame, image=classroom_icon, text="", fg_color="transparent")
             icon_label.pack(side="left", padx=(0, 12))
         
-        # Titre de la classe avec style moderne
+        # Titre de la classes avec style moderne
         title_label = ctk.CTkLabel(
             title_frame, 
             text=classe_data['nom'], 
@@ -838,15 +840,15 @@ class ModernClassCard(ctk.CTkFrame):
         details_container = ctk.CTkFrame(info_container, fg_color="transparent")
         details_container.pack(fill="x", padx=12, pady=(0, 10))
         
-        # Container horizontal pour prof et salle
+        # Container horizontal pour prof et salles
         info_row = ctk.CTkFrame(details_container, fg_color="transparent")
         info_row.pack(fill="x")
         
-        # Information professeur à gauche
+        # Information professeurs à gauche
         prof_frame = ctk.CTkFrame(info_row, fg_color="transparent")
         prof_frame.pack(side="left", fill="x", expand=True, padx=(0, 8))
         
-        # Icône professeur
+        # Icône professeurs
         person_icon = load_icon(self.icons.get("person"), 12)
         if person_icon:
             prof_icon_label = ctk.CTkLabel(prof_frame, image=person_icon, text="", fg_color="transparent")
@@ -861,11 +863,11 @@ class ModernClassCard(ctk.CTkFrame):
         )
         prof_text.pack(side="left")
         
-        # Information salle à droite
+        # Information salles à droite
         room_frame = ctk.CTkFrame(info_row, fg_color="transparent")
         room_frame.pack(side="right", fill="x", expand=True)
         
-        # Icône salle
+        # Icône salles
         door_icon = load_icon(self.icons.get("door"), 12)
         if door_icon:
             room_icon_label = ctk.CTkLabel(room_frame, image=door_icon, text="", fg_color="transparent")
@@ -979,8 +981,7 @@ class ModernClassCard(ctk.CTkFrame):
                 border_color=BORDER_COLOR,
                 border_width=2
             )
-    
-    
+
     def create_card_content(self, classe_data, prof_name, salle_name):
         """Crée le contenu principal de la carte inspiré du dashboard"""
         # Valeur principale (nombre d'élèves simulé)
@@ -1029,8 +1030,8 @@ class ModernClassCard(ctk.CTkFrame):
         room_text.pack(side="left")
     
     def get_classe_effectif(self):
-        """Récupère l'effectif de la classe"""
-        conn = get_db_connection()
+        """Récupère l'effectif de la classes"""
+        conn = get_db_connection_direct()
         if not conn:
             return 0
         try:
@@ -1038,7 +1039,7 @@ class ModernClassCard(ctk.CTkFrame):
             cursor.execute("SELECT COUNT(*) FROM eleves WHERE id_classe = ?", (self.classe_id,))
             result = cursor.fetchone()
             return result[0] if result else 0
-        except sqlite3.Error:
+        except Exception:
             return 0
         finally:
             if conn:
@@ -1076,7 +1077,6 @@ class ModernClassCard(ctk.CTkFrame):
         # Barre de progression colorée
         pb_fg = ctk.CTkFrame(pb_bg, fg_color=selected_color, corner_radius=8, height=6)
         pb_fg.place(relx=0, rely=0.5, anchor="w", relwidth=ratio, relheight=0.7)
-    
 
 class PremiumClassesCardView(ctk.CTkFrame):
     """Vue premium des cartes de classes avec effets visuels avancés"""
@@ -1160,7 +1160,7 @@ class PremiumClassesCardView(ctk.CTkFrame):
             textvariable=self.search_var, 
             width=250, 
             height=45, 
-            placeholder_text="Rechercher une classe...", 
+            placeholder_text="Rechercher une classes...", 
             fg_color=THEME["glass_bg"], 
             border_width=2, 
             border_color=WARNING_YELLOW,
@@ -1258,7 +1258,7 @@ class PremiumClassesCardView(ctk.CTkFrame):
         
         # Tri optimisé
         order_map = {"1ère": 1, "TSM": 2, "Terminale": 3, "2nde": 4, "6ème": 5, "5ème": 6, "4ème": 7, "3ème": 8}
-        filtered_classes.sort(key=lambda classe: order_map.get(classe['nom'], float('inf')))
+        filtered_classes.sort(key=lambda classes: order_map.get(classes['nom'], float('inf')))
         
         # Récupérer les données associées avec cache
         if not hasattr(self, '_cached_profs') or not hasattr(self, '_cached_salles'):
@@ -1339,9 +1339,8 @@ class ClassesManagerView(ctk.CTkFrame):
         
         print("✅ ClassesManagerView initialisée")
 
-
     def open_edit_modal(self, classe_id=None):
-        """Modal moderne pour ajouter/modifier une classe - Design professionnel amélioré"""
+        """Modal moderne pour ajouter/modifier une classes - Design professionnel amélioré"""
         popup = ctk.CTkToplevel(self)
         popup.title("Ajouter une Classe" if classe_id is None else "Modifier la Classe")
         popup.geometry("900x700")
@@ -1380,13 +1379,13 @@ class ClassesManagerView(ctk.CTkFrame):
         title_frame = ctk.CTkFrame(header_content, fg_color="transparent")
         title_frame.pack(side="left", fill="y", expand=True)
         
-        title_text = "Ajouter une nouvelle classe" if classe_id is None else "Modifier la classe"
+        title_text = "Ajouter une nouvelle classes" if classe_id is None else "Modifier la classes"
         title_label = ctk.CTkLabel(title_frame, text=title_text, 
                                   font=(FONT_PRIMARY[0], 22, "bold"), text_color=WHITE, 
                                   fg_color="transparent", anchor="w")
         title_label.pack(anchor="w")
         
-        subtitle_text = "Remplissez les informations de la classe" if classe_id is None else "Modifiez les informations de la classe"
+        subtitle_text = "Remplissez les informations de la classes" if classe_id is None else "Modifiez les informations de la classes"
         subtitle_label = ctk.CTkLabel(title_frame, text=subtitle_text, 
                                     font=(FONT_PRIMARY[0], 13), text_color=TEXT_SECONDARY, 
                                     fg_color="transparent", anchor="w")
@@ -1471,24 +1470,24 @@ class ClassesManagerView(ctk.CTkFrame):
         # Configuration des champs par section avec icônes personnalisées et design moderne
         self.fields_config = {
             "infos": [
-                ("Nom de la classe", "nom", "entry", True, "classroom"),
+                ("Nom de la classes", "nom", "entry", True, "classroom"),
                 ("Niveau scolaire", "niveau", "entry", True, "book"),
                 ("Année scolaire", "annee", "entry", True, "calendar"),
             ],
             "details": [
                 ("Professeur principal", "prof_id", "combo", True, "person"),
-                ("Salle de classe", "salle_id", "combo", True, "door"),
+                ("Salle de classes", "salle_id", "combo", True, "door"),
             ],
         }
         
         # Récupération des données
         profs_list = get_all_professeurs()
         profs_map = {p['id']: f"{p['nom']} {p['prenom']}" for p in profs_list}
-        profs_values = ["Choisir un professeur..."] + list(profs_map.values())
+        profs_values = ["Choisir un professeurs..."] + list(profs_map.values())
 
         salles_list = get_all_salles()
         salles_map = {s['id']: f"{s['nom']}" for s in salles_list}
-        salles_values = ["Choisir une salle..."] + list(salles_map.values())
+        salles_values = ["Choisir une salles..."] + list(salles_map.values())
 
         self.values_dict = {
             "prof_id": profs_values,
@@ -1538,7 +1537,7 @@ class ClassesManagerView(ctk.CTkFrame):
         # Titre de section élégant avec icône
         section_titles = {
             "infos": "📋 Informations de base",
-            "details": "👥 Détails de la classe"
+            "details": "👥 Détails de la classes"
         }
         
         # Container du titre avec design moderne
@@ -1618,12 +1617,12 @@ class ClassesManagerView(ctk.CTkFrame):
                 if key == "prof_id":
                     prof_id = value
                     profs_map = {p['id']: f"{p['nom']} {p['prenom']}" for p in get_all_professeurs()}
-                    selected_value = next((v for k, v in profs_map.items() if k == prof_id), "Choisir un professeur...")
+                    selected_value = next((v for k, v in profs_map.items() if k == prof_id), "Choisir un professeurs...")
                     w.set(selected_value)
                 elif key == "salle_id":
                     salle_id = value
                     salles_map = {s['id']: s['nom'] for s in get_all_salles()}
-                    selected_value = next((v for k, v in salles_map.items() if k == salle_id), "Choisir une salle...")
+                    selected_value = next((v for k, v in salles_map.items() if k == salle_id), "Choisir une salles...")
                     w.set(selected_value)
             else:
                 w.set(self.values_dict[key][0])
@@ -1646,7 +1645,7 @@ class ClassesManagerView(ctk.CTkFrame):
         return field_container
 
     def save_class(self, classe_id, popup):
-        """Sauvegarde la classe avec validation élégante."""
+        """Sauvegarde la classes avec validation élégante."""
         # Validation des champs requis
         errors = {}
         for section in self.fields_config.values():
@@ -1657,7 +1656,7 @@ class ClassesManagerView(ctk.CTkFrame):
                 
                 if required and not value:
                     errors[key] = "Champ obligatoire."
-                elif key in ["prof_id", "salle_id"] and value in ["Choisir un professeur...", "Choisir une salle..."]:
+                elif key in ["prof_id", "salle_id"] and value in ["Choisir un professeurs...", "Choisir une salles..."]:
                     errors[key] = "Veuillez faire un choix."
         
         # Affichage des erreurs avec style élégant
@@ -1696,13 +1695,13 @@ class ClassesManagerView(ctk.CTkFrame):
         if classe_id:
             success = update_class_data(classe_id, nom, prof_id, salle_id, niveau, annee)
             if success:
-                messagebox.showinfo("Succès", f"La classe '{nom}' a été modifiée avec succès !", parent=popup)
+                messagebox.showinfo("Succès", f"La classes '{nom}' a été modifiée avec succès !", parent=popup)
             else:
                 messagebox.showerror("Erreur", "Une erreur est survenue lors de la modification.", parent=popup)
         else:
             success = add_class(nom, prof_id, salle_id, niveau, annee)
             if success:
-                messagebox.showinfo("Succès", f"La classe '{nom}' a été ajoutée avec succès !", parent=popup)
+                messagebox.showinfo("Succès", f"La classes '{nom}' a été ajoutée avec succès !", parent=popup)
             else:
                 messagebox.showerror("Erreur", "Une erreur est survenue lors de l'ajout.", parent=popup)
                 
@@ -1714,11 +1713,11 @@ class ClassesManagerView(ctk.CTkFrame):
 
     def delete_classe(self, classe_id):
         classe_data = get_classe_by_id(classe_id)
-        classe_name = classe_data['nom'] if classe_data else "cette classe"
+        classe_name = classe_data['nom'] if classe_data else "cette classes"
 
         confirmation = messagebox.askyesno(
             "Confirmation de suppression",
-            f"Voulez-vous vraiment supprimer la classe '{classe_name}' et TOUS les élèves qui en font partie ?\n"
+            f"Voulez-vous vraiment supprimer la classes '{classe_name}' et TOUS les élèves qui en font partie ?\n"
             "Cette action est irréversible."
         )
 

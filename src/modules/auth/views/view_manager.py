@@ -156,7 +156,7 @@ class ViewManager:
         }
     
     def set_current_user(self, user_info: Dict):
-        """Définit l'utilisateur actuel et ses permissions"""
+        """Définit l'utilisateurs actuel et ses permissions"""
         self.current_user = user_info
         print(f"👤 Utilisateur connecté: {user_info.get('username', 'Inconnu')}")
         if self.permission_manager:
@@ -164,21 +164,21 @@ class ViewManager:
             print(f"🔐 Vues accessibles: {len(accessible_views)} vues")
     
     def can_access_view(self, view_name: str) -> bool:
-        """Vérifie si l'utilisateur actuel peut accéder à une vue"""
+        """Vérifie si l'utilisateurs actuel peut accéder à une vue"""
         if not self.current_user or not self.permission_manager:
             return False
         
         return self.permission_manager.can_access_view(self.current_user['id_utilisateur'], view_name)
     
     def get_view_permission_level(self, view_name: str) -> str:
-        """Récupère le niveau de permission de l'utilisateur pour une vue"""
+        """Récupère le niveau de permissions de l'utilisateurs pour une vue"""
         if not self.current_user or not self.permission_manager:
             return PermissionLevel.NONE.value
         
         return self.permission_manager.get_view_permission_level(self.current_user['id_utilisateur'], view_name)
     
     def get_accessible_views(self) -> Dict[str, Dict]:
-        """Récupère les vues accessibles pour l'utilisateur actuel"""
+        """Récupère les vues accessibles pour l'utilisateurs actuel"""
         if not self.current_user or not self.permission_manager:
             return {}
         
@@ -310,7 +310,7 @@ class ViewManager:
         ctk.CTkButton(actions_frame, text="📊 Statistiques").pack(side="left", padx=5)
     
     def _create_notes_teacher_interface(self, parent):
-        """Interface professeur pour les notes"""
+        """Interface professeurs pour les notes"""
         content_frame = ctk.CTkFrame(parent)
         content_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
@@ -321,7 +321,7 @@ class ViewManager:
         )
         teacher_label.pack(pady=10)
         
-        # Boutons d'action professeur
+        # Boutons d'action professeurs
         actions_frame = ctk.CTkFrame(content_frame)
         actions_frame.pack(fill="x", pady=10)
         

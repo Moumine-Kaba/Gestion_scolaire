@@ -5,7 +5,10 @@ Gestionnaire d'Authentification Amélioré avec Rôles et Permissions
 EduManager+ - Gestion Scolaire
 """
 
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import hashlib
 import secrets
 import time
@@ -29,7 +32,7 @@ class EnhancedAuthManager:
     def _init_managers(self):
         """Initialise les gestionnaires de rôles et permissions"""
         try:
-            from src.modules.role import RoleManager
+            from src.modules.roles import RoleManager
             from src.modules.permissions import PermissionManager
             
             self.role_manager = RoleManager(self.db_path)
@@ -44,34 +47,34 @@ class EnhancedAuthManager:
     def _init_auth_tables(self):
         """Initialise les tables d'authentification avancées"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Vérifier si la table utilisateurs existe déjà
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='utilisateurs'")
+            cursor.execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE' AND TABLE_NAME='utilisateurs'")
             table_exists = cursor.fetchone() is not None
             
             if not table_exists:
                 # Table des utilisateurs améliorée
                 cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS utilisateurs (
-                        id_utilisateur INTEGER PRIMARY KEY AUTOINCREMENT,
-                        username TEXT UNIQUE NOT NULL,
-                        email TEXT UNIQUE,
-                        password_hash TEXT NOT NULL,
-                        salt TEXT NOT NULL,
-                        nom TEXT NOT NULL,
-                        prenom TEXT NOT NULL,
-                        telephone TEXT,
+                    CREATE TABLE utilisateurs (
+                        id_utilisateur INT IDENTITY(1,1) PRIMARY KEY,
+                        username NVARCHAR(255) UNIQUE NOT NULL,
+                        email NVARCHAR(255) UNIQUE,
+                        password_hash NVARCHAR(255) NOT NULL,
+                        salt NVARCHAR(255) NOT NULL,
+                        nom NVARCHAR(255) NOT NULL,
+                        prenom NVARCHAR(255) NOT NULL,
+                        telephone NVARCHAR(255),
                         date_naissance DATE,
-                        adresse TEXT,
-                        statut TEXT DEFAULT 'actif',
+                        adresse NVARCHAR(255),
+                        statut NVARCHAR(255) DEFAULT 'actif',
                         derniere_connexion TIMESTAMP,
                         nombre_tentatives INTEGER DEFAULT 0,
                         compte_bloque BOOLEAN DEFAULT FALSE,
                         date_blocage TIMESTAMP,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        created_at DATETIME DEFAULT GETDATE(),
+                        updated_at DATETIME DEFAULT GETDATE()
                     )
                 ''')
             else:
@@ -92,52 +95,52 @@ class EnhancedAuthManager:
                     pass  # La colonne existe déjà
                 
                 try:
-                    cursor.execute('ALTER TABLE utilisateurs ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+                    cursor.execute('ALTER TABLE utilisateurs ADD COLUMN created_at DATETIME DEFAULT GETDATE()')
                 except sqlite3.OperationalError:
                     pass  # La colonne existe déjà
                 
                 try:
-                    cursor.execute('ALTER TABLE utilisateurs ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+                    cursor.execute('ALTER TABLE utilisateurs ADD COLUMN updated_at DATETIME DEFAULT GETDATE()')
                 except sqlite3.OperationalError:
                     pass  # La colonne existe déjà
             
             # Table des sessions sécurisées
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS sessions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                CREATE TABLE sessions (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
                     user_id INTEGER NOT NULL,
-                    session_token TEXT UNIQUE NOT NULL,
+                    session_token NVARCHAR(255) UNIQUE NOT NULL,
                     expires_at TIMESTAMP NOT NULL,
-                    ip_address TEXT,
-                    user_agent TEXT,
+                    ip_address NVARCHAR(255),
+                    user_agent NVARCHAR(255),
                     is_active BOOLEAN DEFAULT TRUE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_at DATETIME DEFAULT GETDATE(),
                     FOREIGN KEY (user_id) REFERENCES utilisateurs (id_utilisateur)
                 )
             ''')
             
             # Table des tentatives de connexion avec sécurité
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS login_attempts (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT NOT NULL,
-                    ip_address TEXT,
+                CREATE TABLE login_attempts (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
+                    username NVARCHAR(255) NOT NULL,
+                    ip_address NVARCHAR(255),
                     success BOOLEAN NOT NULL,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    user_agent TEXT,
-                    failure_reason TEXT
+                    timestamp DATETIME DEFAULT GETDATE(),
+                    user_agent NVARCHAR(255),
+                    failure_reason NVARCHAR(255)
                 )
             ''')
             
             # Table des logs de sécurité
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS security_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                CREATE TABLE security_logs (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
                     user_id INTEGER,
-                    action TEXT NOT NULL,
-                    details TEXT,
-                    ip_address TEXT,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    action NVARCHAR(255) NOT NULL,
+                    details NVARCHAR(255),
+                    ip_address NVARCHAR(255),
+                    timestamp DATETIME DEFAULT GETDATE(),
                     FOREIGN KEY (user_id) REFERENCES utilisateurs (id_utilisateur)
                 )
             ''')
@@ -175,9 +178,9 @@ class EnhancedAuthManager:
                     "role_name": "Directeur"
                 },
                 {
-                    "username": "professeur",
+                    "username": "professeurs",
                     "password": "prof123",
-                    "email": "professeur@edumanager.com",
+                    "email": "professeurs@edumanager.com",
                     "nom": "Dubois",
                     "prenom": "Marie",
                     "role_name": "Professeur"
@@ -191,9 +194,9 @@ class EnhancedAuthManager:
                     "role_name": "Secrétaire"
                 },
                 {
-                    "username": "eleve",
+                    "username": "eleves",
                     "password": "eleve123",
-                    "email": "eleve@edumanager.com",
+                    "email": "eleves@edumanager.com",
                     "nom": "Petit",
                     "prenom": "Lucas",
                     "role_name": "Élève"
@@ -212,19 +215,19 @@ class EnhancedAuthManager:
                              nom: str = None, prenom: str = None, telephone: str = None,
                              date_naissance: str = None, adresse: str = None,
                              role_name: str = "Élève") -> bool:
-        """Crée un utilisateur avec attribution automatique de rôle"""
+        """Crée un utilisateurs avec attribution automatique de rôle"""
         try:
             if self.user_exists(username):
-                print(f"❌ L'utilisateur {username} existe déjà")
+                print(f"❌ L'utilisateurs {username} existe déjà")
                 return False
             
             # Hacher le mot de passe
             password_hash, salt = self._hash_password(password)
             
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Insérer l'utilisateur
+            # Insérer l'utilisateurs
             cursor.execute('''
                 INSERT INTO utilisateurs (
                     username, email, password_hash, salt, nom, prenom,
@@ -237,9 +240,9 @@ class EnhancedAuthManager:
             
             # Assigner le rôle
             if self.role_manager:
-                role = self.role_manager.get_role_by_name(role_name)
-                if role:
-                    self.role_manager.assign_role_to_user(user_id, role.id_role)
+                roles = self.role_manager.get_role_by_name(role_name)
+                if roles:
+                    self.role_manager.assign_role_to_user(user_id, roles.id_role)
                     print(f"✅ Rôle '{role_name}' assigné à {username}")
                 else:
                     print(f"⚠️ Rôle '{role_name}' non trouvé, attribution du rôle par défaut")
@@ -258,7 +261,7 @@ class EnhancedAuthManager:
             return True
             
         except Exception as e:
-            print(f"❌ Erreur création utilisateur: {e}")
+            print(f"❌ Erreur création utilisateurs: {e}")
             return False
     
     def _hash_password(self, password: str, salt: str = None) -> Tuple[str, str]:
@@ -280,7 +283,7 @@ class EnhancedAuthManager:
     
     def authenticate_user(self, username: str, password: str, ip_address: str = None, 
                          user_agent: str = None) -> Optional[Dict]:
-        """Authentifie un utilisateur avec vérifications de sécurité"""
+        """Authentifie un utilisateurs avec vérifications de sécurité"""
         try:
             # Vérifier si le compte est bloqué
             if self._is_account_locked(username):
@@ -292,10 +295,10 @@ class EnhancedAuthManager:
                 self._log_login_attempt(username, ip_address, False, user_agent, "Trop de tentatives")
                 return None
             
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Récupérer l'utilisateur
+            # Récupérer l'utilisateurs
             cursor.execute('''
                 SELECT id_utilisateur, username, email, password_hash, salt, 
                        nom, prenom, statut, derniere_connexion
@@ -337,7 +340,7 @@ class EnhancedAuthManager:
                 WHERE username = ?
             ''', (username,))
             
-            # Récupérer les informations complètes de l'utilisateur
+            # Récupérer les informations complètes de l'utilisateurs
             user_info = self._get_complete_user_info(user_id, username, email, nom, prenom, statut, derniere_connexion)
             
             # Créer la session
@@ -360,7 +363,7 @@ class EnhancedAuthManager:
     
     def _get_complete_user_info(self, user_id: int, username: str, email: str, nom: str, 
                                 prenom: str, statut: str, derniere_connexion: str) -> Dict:
-        """Récupère les informations complètes de l'utilisateur avec rôles et permissions"""
+        """Récupère les informations complètes de l'utilisateurs avec rôles et permissions"""
         try:
             # Informations de base
             user_info = {
@@ -379,7 +382,7 @@ class EnhancedAuthManager:
             if self.role_manager and self.permission_manager:
                 # Rôles
                 roles = self.role_manager.get_user_roles(user_id)
-                user_info['roles'] = [role.nom for role in roles] if roles else ["Utilisateur"]
+                user_info['roles'] = [roles.nom for roles in roles] if roles else ["Utilisateur"]
                 user_info['primary_role'] = roles[0].nom if roles else "Utilisateur"
                 
                 # Permissions détaillées
@@ -407,11 +410,11 @@ class EnhancedAuthManager:
             return user_info
             
         except Exception as e:
-            print(f"❌ Erreur récupération infos utilisateur: {e}")
+            print(f"❌ Erreur récupération infos utilisateurs: {e}")
             return user_info
     
     def _determine_access_level(self, permissions: Dict[str, str]) -> str:
-        """Détermine le niveau d'accès global de l'utilisateur"""
+        """Détermine le niveau d'accès global de l'utilisateurs"""
         try:
             if not permissions:
                 return "basic"
@@ -438,11 +441,10 @@ class EnhancedAuthManager:
     def _get_failed_attempts(self, username: str) -> int:
         """Récupère le nombre de tentatives échouées"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Vérifier si la colonne existe
-            cursor.execute("PRAGMA table_info(utilisateurs)")
             columns = [col[1] for col in cursor.fetchall()]
             
             if 'nombre_tentatives' in columns:
@@ -461,11 +463,10 @@ class EnhancedAuthManager:
     def _is_account_locked(self, username: str) -> bool:
         """Vérifie si un compte est bloqué"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Vérifier si les colonnes existent
-            cursor.execute("PRAGMA table_info(utilisateurs)")
             columns = [col[1] for col in cursor.fetchall()]
             
             if 'compte_bloque' in columns and 'date_blocage' in columns:
@@ -501,7 +502,7 @@ class EnhancedAuthManager:
     def _too_many_attempts(self, username: str, ip_address: str) -> bool:
         """Vérifie s'il y a trop de tentatives de connexion"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Vérifier les tentatives par IP (dernières 15 minutes)
@@ -513,7 +514,7 @@ class EnhancedAuthManager:
             
             ip_attempts = cursor.fetchone()[0]
             
-            # Vérifier les tentatives par utilisateur (dernières 15 minutes)
+            # Vérifier les tentatives par utilisateurs (dernières 15 minutes)
             cursor.execute('''
                 SELECT COUNT(*) FROM login_attempts 
                 WHERE username = ? AND success = FALSE 
@@ -524,7 +525,7 @@ class EnhancedAuthManager:
             
             conn.close()
             
-            # Limite: 10 tentatives par IP ou 5 par utilisateur
+            # Limite: 10 tentatives par IP ou 5 par utilisateurs
             return ip_attempts >= 10 or user_attempts >= 5
             
         except Exception as e:
@@ -534,11 +535,10 @@ class EnhancedAuthManager:
     def _increment_failed_attempts(self, username: str):
         """Incrémente le nombre de tentatives échouées"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Vérifier si la colonne existe
-            cursor.execute("PRAGMA table_info(utilisateurs)")
             columns = [col[1] for col in cursor.fetchall()]
             
             if 'nombre_tentatives' in columns:
@@ -556,11 +556,10 @@ class EnhancedAuthManager:
     def _reset_failed_attempts(self, username: str):
         """Réinitialise le nombre de tentatives échouées"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Vérifier si les colonnes existent
-            cursor.execute("PRAGMA table_info(utilisateurs)")
             columns = [col[1] for col in cursor.fetchall()]
             
             if 'nombre_tentatives' in columns and 'compte_bloque' in columns and 'date_blocage' in columns:
@@ -578,11 +577,10 @@ class EnhancedAuthManager:
     def _lock_account(self, username: str):
         """Bloque un compte"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Vérifier si les colonnes existent
-            cursor.execute("PRAGMA table_info(utilisateurs)")
             columns = [col[1] for col in cursor.fetchall()]
             
             if 'compte_bloque' in columns and 'date_blocage' in columns:
@@ -601,11 +599,10 @@ class EnhancedAuthManager:
     def _unlock_account(self, username: str):
         """Débloque un compte"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Vérifier si les colonnes existent
-            cursor.execute("PRAGMA table_info(utilisateurs)")
             columns = [col[1] for col in cursor.fetchall()]
             
             if 'nombre_tentatives' in columns and 'compte_bloque' in columns and 'date_blocage' in columns:
@@ -627,7 +624,7 @@ class EnhancedAuthManager:
             session_token = secrets.token_urlsafe(64)  # Token très long
             expires_at = datetime.now() + timedelta(hours=8)  # Session de 8h
             
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Désactiver les anciennes sessions
@@ -656,7 +653,7 @@ class EnhancedAuthManager:
                           user_agent: str = None, reason: str = None):
         """Enregistre une tentative de connexion"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -673,7 +670,7 @@ class EnhancedAuthManager:
     def _log_security_action(self, user_id: int, action: str, details: str, ip_address: str = None):
         """Enregistre une action de sécurité"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -688,22 +685,22 @@ class EnhancedAuthManager:
             print(f"⚠️ Erreur log sécurité: {e}")
     
     def user_exists(self, username: str) -> bool:
-        """Vérifie si un utilisateur existe"""
+        """Vérifie si un utilisateurs existe"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute('SELECT id_utilisateur FROM utilisateurs WHERE username = ?', (username,))
             exists = cursor.fetchone() is not None
             conn.close()
             return exists
         except Exception as e:
-            print(f"❌ Erreur vérification utilisateur: {e}")
+            print(f"❌ Erreur vérification utilisateurs: {e}")
             return False
     
     def validate_session(self, session_token: str) -> Optional[Dict]:
-        """Valide une session et retourne les informations de l'utilisateur"""
+        """Valide une session et retourne les informations de l'utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -741,19 +738,19 @@ class EnhancedAuthManager:
             return None
     
     def logout_user(self, session_token: str) -> bool:
-        """Déconnecte un utilisateur"""
+        """Déconnecte un utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Récupérer l'ID utilisateur avant de supprimer
+            # Récupérer l'ID utilisateurs avant de supprimer
             cursor.execute('SELECT user_id FROM sessions WHERE session_token = ?', (session_token,))
             result = cursor.fetchone()
             
             if result:
                 user_id = result[0]
                 # Logger la déconnexion
-                self._log_security_action(user_id, "logout", "Déconnexion utilisateur")
+                self._log_security_action(user_id, "logout", "Déconnexion utilisateurs")
             
             # Désactiver la session
             cursor.execute('UPDATE sessions SET is_active = FALSE WHERE session_token = ?', (session_token,))
@@ -768,13 +765,12 @@ class EnhancedAuthManager:
             return False
     
     def get_user_security_status(self, username: str) -> Dict:
-        """Récupère le statut de sécurité d'un utilisateur"""
+        """Récupère le statut de sécurité d'un utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Vérifier si les colonnes existent
-            cursor.execute("PRAGMA table_info(utilisateurs)")
             columns = [col[1] for col in cursor.fetchall()]
             
             if all(col in columns for col in ['nombre_tentatives', 'compte_bloque', 'date_blocage', 'derniere_connexion']):
@@ -806,7 +802,7 @@ class EnhancedAuthManager:
     def get_security_logs(self, user_id: int = None, limit: int = 100) -> List[Dict]:
         """Récupère les logs de sécurité"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             if user_id:

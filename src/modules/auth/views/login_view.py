@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 from pathlib import Path
 from tkinter import messagebox
 import tkinter as tk
@@ -10,7 +13,7 @@ import itertools
 import re
 import os
 import sys
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
 
 __all__ = ["LoginViewModern", "LoginView"]
 
@@ -89,46 +92,25 @@ except Exception as e:
 
 # ================== Mini-migration auth (colonne fautive) ==================
 def _ensure_login_attempts_schema():
-    """Corrige `failure_reasson` -> `failure_reason` et active WAL/timeout."""
+    """Fonction adaptée pour SQL Server - les tables sont déjà créées."""
     try:
-        conn = sqlite3.connect(str(DB_PATH), timeout=10, check_same_thread=False)
-        conn.execute("PRAGMA journal_mode=WAL;")
-        cur = conn.cursor()
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='login_attempts'")
-        if cur.fetchone():
-            cur.execute("PRAGMA table_info(login_attempts)")
-            cols = [r[1] for r in cur.fetchall()]
-            if "failure_reasson" in cols and "failure_reason" not in cols:
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS login_attempts_new AS
-                    SELECT *, failure_reasson AS failure_reason
-                    FROM login_attempts
-                """)
-                cur.execute("DROP TABLE login_attempts")
-                cur.execute("""
-                    CREATE TABLE login_attempts (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER,
-                        username TEXT,
-                        success INTEGER,
-                        ip_address TEXT,
-                        user_agent TEXT,
-                        created_at TEXT,
-                        failure_reason TEXT
-                    )
-                """)
-                cur.execute("""
-                    INSERT INTO login_attempts (id, user_id, username, success, ip_address, user_agent, created_at, failure_reason)
-                    SELECT id, user_id, username, success, ip_address, user_agent, created_at, failure_reason
-                    FROM login_attempts_new
-                """)
-                cur.execute("DROP TABLE login_attempts_new")
-            elif "failure_reason" not in cols:
-                cur.execute("ALTER TABLE login_attempts ADD COLUMN failure_reason TEXT")
-        conn.commit()
-        conn.close()
+        # Pour SQL Server, on vérifie juste que la table existe
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES 
+                WHERE TABLE_NAME = 'login_attempts'
+            """)
+            if cursor.fetchone()[0] > 0:
+                print("✅ Table login_attempts existe dans SQL Server")
+            else:
+                print("⚠️ Table login_attempts non trouvée dans SQL Server")
+            conn.close()
+        else:
+            print("⚠️ Impossible de se connecter à la base de données")
     except Exception as e:
-        print(f"ℹ️ Migration login_attempts ignorée: {e}")
+        print(f"⚠️ Erreur vérification login_attempts: {e}")
 
 _ensure_login_attempts_schema()
 
@@ -425,7 +407,7 @@ class LoginForm(NeonPulseBorderMixin, ctk.CTkFrame):
 
         user_ic = get_icon("person", (20, 20))
         if user_ic: self._img_refs.append(user_ic)
-        self.user_in = LineInput(wrap, user_ic, "Nom d'utilisateur", self.username)
+        self.user_in = LineInput(wrap, user_ic, "Nom d'utilisateurs", self.username)
         self.user_in.pack(fill="x", pady=(0, 10))
         self.user_in.entry.bind("<KeyRelease>", lambda e: self.user_in.clear_error())
 
@@ -491,7 +473,7 @@ class LoginForm(NeonPulseBorderMixin, ctk.CTkFrame):
         u = (self.username.get() or "").strip()
         p = (self.password.get() or "").strip()
         if len(u) < 3:
-            self.user_in.show_error("Nom d'utilisateur trop court (min. 3)."); ok = False
+            self.user_in.show_error("Nom d'utilisateurs trop court (min. 3)."); ok = False
         if len(p) < 6:
             self.pass_in.show_error("Mot de passe trop court (min. 6)."); ok = False
         self._on_password_input(None)
@@ -504,14 +486,14 @@ class LoginForm(NeonPulseBorderMixin, ctk.CTkFrame):
             
         try:
             # Connexion à la base de données
-            conn = sqlite3.connect(str(DB_PATH), timeout=10)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Vérifier les identifiants
             cursor.execute('''
                 SELECT id_utilisateur, username, nom, prenom, email
                 FROM utilisateurs 
-                WHERE username = ? AND mot_de_passe = ?
+                WHERE username = ? AND password = ?
             ''', (u, p))
             
             user_row = cursor.fetchone()
@@ -522,7 +504,7 @@ class LoginForm(NeonPulseBorderMixin, ctk.CTkFrame):
             user_id, username, nom, prenom, email = user_row
             
             # Récupérer le rôle RBAC
-            rbac = RBACSystem(str(DB_PATH), dev_mode=False)
+            rbac = RBACSystem(None, dev_mode=False)  # Pas de chemin DB pour SQL Server
             user_role = rbac.get_user_role(user_id)
             
             conn.close()
@@ -538,7 +520,7 @@ class LoginForm(NeonPulseBorderMixin, ctk.CTkFrame):
                     "id": user_id,
                     "username": username,
                     "full_name": f"{nom} {prenom}" if nom and prenom else username,
-                    "role": role_obj.name,
+                    "roles": role_obj.name,
                     "rbac_role": role_obj,
                     "rbac_system": rbac,
                     "email": email
@@ -549,7 +531,7 @@ class LoginForm(NeonPulseBorderMixin, ctk.CTkFrame):
                     "id": user_id,
                     "username": username,
                     "full_name": f"{nom} {prenom}" if nom and prenom else username,
-                    "role": "Utilisateur",
+                    "roles": "Utilisateur",
                     "rbac_role": None,
                     "rbac_system": rbac,
                     "email": email
@@ -564,12 +546,12 @@ class LoginForm(NeonPulseBorderMixin, ctk.CTkFrame):
         demo = {
             "admin": ("admin123", "Administrateur"),
             "directeur": ("directeur123", "Directeur"),
-            "professeur": ("prof123", "Professeur"),
+            "professeurs": ("prof123", "Professeur"),
             "secretaire": ("sec123", "Secrétaire"),
-            "eleve": ("eleve123", "Élève"),
+            "eleves": ("eleve123", "Élève"),
         }
         if u in demo and p == demo[u][0]:
-            return {"id": 1, "username": u, "full_name": u.title(), "role": demo[u][1]}
+            return {"id": 1, "username": u, "full_name": u.title(), "roles": demo[u][1]}
         return None
 
     def _do_login(self, _evt=None):
@@ -585,15 +567,15 @@ class LoginForm(NeonPulseBorderMixin, ctk.CTkFrame):
         if RBACSystem:
             user_info = self._auth_with_rbac(u, p)
             if user_info:
-                print(f"✅ Authentification RBAC réussie: {user_info['username']} ({user_info['role']})")
+                print(f"✅ Authentification RBAC réussie: {user_info['username']} ({user_info['roles']})")
 
         # Fallback vers EnhancedAuthManager
         if not user_info and EnhancedAuthManager:
             try:
                 auth = EnhancedAuthManager(str(DB_PATH))
                 user_info = auth.authenticate_user(u, p, "127.0.0.1", "CTk/Win")
-                if user_info and "role" not in user_info:
-                    user_info["role"] = user_info.get("primary_role", "Utilisateur")
+                if user_info and "roles" not in user_info:
+                    user_info["roles"] = user_info.get("primary_role", "Utilisateur")
             except Exception as e:
                 print(f"⚠️ Auth manager erreur: {e}")
 
@@ -720,7 +702,7 @@ class LoginViewModern(ctk.CTk):
 
     # ===== Transition (destruction AVANT dashboard) =====
     def _success(self, user_info: dict):
-        role_name = user_info.get('role', 'Utilisateur')
+        role_name = user_info.get('roles', 'Utilisateur')
         full_name = user_info.get('full_name', user_info.get('username', ''))
         
         # Message de bienvenue avec le rôle RBAC

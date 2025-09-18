@@ -3,9 +3,12 @@ Vue de la Bibliothèque Numérique
 Gestion des documents, supports de cours et partage de fichiers
 """
 
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import customtkinter as ctk
 import os
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
 from pathlib import Path
 from tkinter import filedialog, messagebox
 import shutil
@@ -15,9 +18,9 @@ from datetime import datetime
 from resources.themes.theme import *
 
 class BibliothequeView(ctk.CTkFrame):
-    def __init__(self, parent, utilisateur):
+    def __init__(self, parent, utilisateurs):
         super().__init__(parent, fg_color="transparent")
-        self.utilisateur = utilisateur
+        self.utilisateurs = utilisateurs
         self.documents_dir = Path("resources/documents")
         self.documents_dir.mkdir(exist_ok=True)
         
@@ -30,7 +33,7 @@ class BibliothequeView(ctk.CTkFrame):
     def _init_database(self):
         """Initialise la base de données pour les documents"""
         try:
-            conn = sqlite3.connect("database/edumanager.db")
+            conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS documents (
@@ -378,7 +381,7 @@ class BibliothequeView(ctk.CTkFrame):
             file_size = os.path.getsize(dest_path)
             
             # Sauvegarder dans la base de données
-            conn = sqlite3.connect("database/edumanager.db")
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute("""
@@ -391,7 +394,7 @@ class BibliothequeView(ctk.CTkFrame):
                 str(dest_path),
                 file_extension,
                 file_size,
-                self.utilisateur.get('id', 1),
+                self.utilisateurs.get('id', 1),
                 category,
                 tags,
                 1
@@ -430,7 +433,7 @@ class BibliothequeView(ctk.CTkFrame):
             widget.destroy()
         
         try:
-            conn = sqlite3.connect("database/edumanager.db")
+            conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT id, nom, description, type_document, taille, date_upload, 
@@ -612,15 +615,15 @@ class BibliothequeView(ctk.CTkFrame):
             return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"
     
     def _can_delete_document(self, uploader_id):
-        """Vérifie si l'utilisateur peut supprimer le document"""
-        user_role = self.utilisateur.get('role', '').lower()
-        user_id = self.utilisateur.get('id', 0)
+        """Vérifie si l'utilisateurs peut supprimer le document"""
+        user_role = self.utilisateurs.get('roles', '').lower()
+        user_id = self.utilisateurs.get('id', 0)
         return user_role == 'administrateur' or user_id == uploader_id
     
     def download_document(self, doc_id):
         """Télécharge un document"""
         try:
-            conn = sqlite3.connect("database/edumanager.db")
+            conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT nom, chemin FROM documents WHERE id = ?", (doc_id,))
             result = cursor.fetchone()
@@ -640,7 +643,7 @@ class BibliothequeView(ctk.CTkFrame):
         """Supprime un document"""
         if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir supprimer ce document ?"):
             try:
-                conn = sqlite3.connect("database/edumanager.db")
+                conn = get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute("SELECT chemin FROM documents WHERE id = ?", (doc_id,))
                 result = cursor.fetchone()
@@ -666,7 +669,7 @@ class BibliothequeView(ctk.CTkFrame):
     def show_document_details(self, doc_id):
         """Affiche les détails d'un document"""
         try:
-            conn = sqlite3.connect("database/edumanager.db")
+            conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT nom, description, type_document, taille, date_upload, 

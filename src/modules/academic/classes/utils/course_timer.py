@@ -121,21 +121,21 @@ class NotificationManager:
         return icons
     
     def add_notification(self, course_data, notification_type="course_end"):
-        """Ajoute une nouvelle notification"""
+        """Ajoute une nouvelle notifications"""
         notification_id = len(self.notifications)
         
-        # Créer la notification
-        notification = self.create_notification_widget(course_data, notification_type, notification_id)
-        self.notifications.append(notification)
+        # Créer la notifications
+        notifications = self.create_notification_widget(course_data, notification_type, notification_id)
+        self.notifications.append(notifications)
         
         # Animer l'apparition
-        self.animate_notification_in(notification)
+        self.animate_notification_in(notifications)
         
         # Auto-suppression après 10 secondes
         self.parent.after(10000, lambda: self.remove_notification(notification_id))
     
     def create_notification_widget(self, course_data, notification_type, notification_id):
-        """Crée le widget de notification avec thème EduManager+"""
+        """Crée le widget de notifications avec thème EduManager+"""
         # Couleurs selon le type (thème EduManager+)
         if notification_type == "course_end":
             bg_color = ERROR_RED  # Rouge pour fin de cours
@@ -150,7 +150,7 @@ class NotificationManager:
             icon = self.icons.get('bell')
             title_text = "NOTIFICATION"
         
-        # Frame principal de la notification (thème EduManager+)
+        # Frame principal de la notifications (thème EduManager+)
         notification_widget = ctk.CTkFrame(
             self.notification_frame,
             fg_color=CARD_BG,
@@ -219,7 +219,7 @@ class NotificationManager:
             )
         close_btn.pack(side="right")
         
-        # Contenu de la notification
+        # Contenu de la notifications
         content_frame = ctk.CTkFrame(notification_widget, fg_color="transparent")
         content_frame.pack(fill="x", padx=10, pady=(0, 8))
         
@@ -297,9 +297,9 @@ class NotificationManager:
             'type': notification_type
         }
     
-    def animate_notification_in(self, notification):
-        """Anime l'apparition de la notification"""
-        widget = notification['widget']
+    def animate_notification_in(self, notifications):
+        """Anime l'apparition de la notifications"""
+        widget = notifications['widget']
         
         # Position initiale (hors écran)
         widget.pack(fill="x", padx=5, pady=2)
@@ -312,11 +312,11 @@ class NotificationManager:
         self.parent.after(100, slide_in)
     
     def remove_notification(self, notification_id):
-        """Supprime une notification"""
-        for i, notification in enumerate(self.notifications):
-            if notification['id'] == notification_id:
+        """Supprime une notifications"""
+        for i, notifications in enumerate(self.notifications):
+            if notifications['id'] == notification_id:
                 # Animation de sortie
-                widget = notification['widget']
+                widget = notifications['widget']
                 widget.pack_forget()
                 widget.destroy()
                 self.notifications.pop(i)
@@ -381,8 +381,8 @@ class NotificationManager:
     
     def clear_all_notifications(self):
         """Supprime toutes les notifications"""
-        for notification in self.notifications:
-            notification['widget'].destroy()
+        for notifications in self.notifications:
+            notifications['widget'].destroy()
         self.notifications.clear()
 
 class CourseHistoryWindow:
@@ -738,7 +738,7 @@ class CourseTimer:
             print(f"Erreur mise à jour widgets: {e}")
     
     def _trigger_course_end_alert(self):
-        """Déclenche l'alerte de fin de cours via notification"""
+        """Déclenche l'alerte de fin de cours via notifications"""
         try:
             # Ajouter à l'historique des cours terminés
             if self.history_manager:
@@ -757,7 +757,7 @@ class CourseTimer:
                     "course_end"
                 ))
             else:
-                # Fallback vers messagebox si pas de notification manager
+                # Fallback vers messagebox si pas de notifications manager
                 alert_message = f"""🎓 COURS TERMINÉ ! 🎓
 
 📚 Matière: {self.matiere_nom}
@@ -781,10 +781,10 @@ Le cours est maintenant terminé."""
     def get_timer_info(self):
         """Retourne les informations du minuteur"""
         return {
-            "professeur": self.professeur_nom,
-            "classe": self.classe_nom,
-            "matiere": self.matiere_nom,
-            "salle": self.salle_nom,
+            "professeurs": self.professeur_nom,
+            "classes": self.classe_nom,
+            "matieres": self.matiere_nom,
+            "salles": self.salle_nom,
             "heure_debut": self.heure_debut,
             "duree": self.duree,
             "heure_fin": self.end_time.strftime('%H:%M'),
@@ -869,7 +869,7 @@ class CourseTimerManager:
                 except Exception as e:
                     print(f"Erreur listener fin de cours: {e}")
         except Exception as e:
-            print(f"Erreur notification des listeners: {e}")
+            print(f"Erreur notifications des listeners: {e}")
 
     def add_listener(self, callback):
         """Ajoute un callback appelé quand un cours se termine."""

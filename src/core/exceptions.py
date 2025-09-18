@@ -9,7 +9,6 @@ Définition des exceptions spécifiques à l'application.
 
 from typing import Optional, Any, Dict
 
-
 class EduManagerException(Exception):
     """Exception de base pour toutes les exceptions de l'application"""
     
@@ -24,20 +23,17 @@ class EduManagerException(Exception):
             return f"[{self.error_code}] {self.message}"
         return self.message
 
-
 class AuthenticationError(EduManagerException):
     """Erreur d'authentification"""
     
     def __init__(self, message: str = "Erreur d'authentification", details: Optional[Dict[str, Any]] = None):
         super().__init__(message, "AUTH_ERROR", details)
 
-
 class AuthorizationError(EduManagerException):
     """Erreur d'autorisation (permissions insuffisantes)"""
     
     def __init__(self, message: str = "Permissions insuffisantes", details: Optional[Dict[str, Any]] = None):
         super().__init__(message, "AUTHZ_ERROR", details)
-
 
 class ValidationError(EduManagerException):
     """Erreur de validation des données"""
@@ -48,7 +44,6 @@ class ValidationError(EduManagerException):
         super().__init__(message, "VALIDATION_ERROR", details)
         self.field = field
 
-
 class DatabaseError(EduManagerException):
     """Erreur de base de données"""
     
@@ -57,7 +52,6 @@ class DatabaseError(EduManagerException):
             message = f"Opération '{operation}': {message}"
         super().__init__(message, "DB_ERROR", details)
         self.operation = operation
-
 
 class NotFoundError(EduManagerException):
     """Ressource non trouvée"""
@@ -70,7 +64,6 @@ class NotFoundError(EduManagerException):
         self.resource_type = resource_type
         self.resource_id = resource_id
 
-
 class DuplicateError(EduManagerException):
     """Ressource en double"""
     
@@ -81,7 +74,6 @@ class DuplicateError(EduManagerException):
         self.field = field
         self.value = value
 
-
 class ConfigurationError(EduManagerException):
     """Erreur de configuration"""
     
@@ -91,7 +83,6 @@ class ConfigurationError(EduManagerException):
         super().__init__(message, "CONFIG_ERROR", details)
         self.config_key = config_key
 
-
 class ServiceError(EduManagerException):
     """Erreur de service"""
     
@@ -100,15 +91,13 @@ class ServiceError(EduManagerException):
         super().__init__(message, "SERVICE_ERROR", details)
         self.service_name = service_name
 
-
 class UIError(EduManagerException):
-    """Erreur d'interface utilisateur"""
+    """Erreur d'interface utilisateurs"""
     
     def __init__(self, component: str, message: str = "Erreur d'interface", details: Optional[Dict[str, Any]] = None):
         message = f"Interface '{component}': {message}"
         super().__init__(message, "UI_ERROR", details)
         self.component = component
-
 
 class NetworkError(EduManagerException):
     """Erreur réseau"""
@@ -122,7 +111,6 @@ class NetworkError(EduManagerException):
         self.url = url
         self.status_code = status_code
 
-
 class TimeoutError(EduManagerException):
     """Erreur de timeout"""
     
@@ -132,7 +120,6 @@ class TimeoutError(EduManagerException):
         self.operation = operation
         self.timeout_seconds = timeout_seconds
 
-
 class ResourceError(EduManagerException):
     """Erreur de ressource (fichier, image, etc.)"""
     
@@ -141,12 +128,10 @@ class ResourceError(EduManagerException):
         super().__init__(message, "RESOURCE_ERROR", details)
         self.resource_path = resource_path
 
-
 # Fonction utilitaire pour créer des exceptions avec contexte
 def create_exception(exception_class: type, message: str, **kwargs) -> EduManagerException:
     """Crée une exception avec un message formaté et des détails"""
     return exception_class(message, **kwargs)
-
 
 # Fonction pour logger les exceptions
 def log_exception(exception: EduManagerException, logger=None):

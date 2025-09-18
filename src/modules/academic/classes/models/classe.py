@@ -5,7 +5,7 @@ def get_all_classes():
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, nom, annee_scolaire, professeur_principal_id, salle_id, capacite
-        FROM classe
+        FROM classes
         ORDER BY nom
     """)
     result = cursor.fetchall()
@@ -17,7 +17,7 @@ def add_class(nom, annee_scolaire, professeur_principal_id=None, salle_id=None, 
     cursor = conn.cursor()
     try:
         cursor.execute("""
-            INSERT INTO classe (nom, annee_scolaire, professeur_principal_id, salle_id, capacite)
+            INSERT INTO classes (nom, annee_scolaire, professeur_principal_id, salle_id, capacite)
             VALUES (?, ?, ?, ?, ?)
         """, (nom, annee_scolaire, professeur_principal_id, salle_id, capacite))
         conn.commit()
@@ -33,7 +33,7 @@ def update_class(id, nom, annee_scolaire, professeur_principal_id, salle_id, cap
     cursor = conn.cursor()
     try:
         cursor.execute("""
-            UPDATE classe
+            UPDATE classes
             SET nom=?, annee_scolaire=?, professeur_principal_id=?, salle_id=?, capacite=?
             WHERE id=?
         """, (nom, annee_scolaire, professeur_principal_id, salle_id, capacite, id))
@@ -49,7 +49,7 @@ def delete_class(id):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("DELETE FROM classe WHERE id=?", (id,))
+        cursor.execute("DELETE FROM classes WHERE id=?", (id,))
         conn.commit()
         return True
     except Exception as e:

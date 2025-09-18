@@ -8,6 +8,7 @@ Configuration centralisée des chemins pour EduManager+
 
 import os
 import sys
+from database.connection import get_db_connection
 
 def get_project_root():
     """Retourne le chemin racine du projet"""
@@ -63,16 +64,7 @@ def icon_exists(icon_name):
     return os.path.exists(get_icon_path(icon_name))
 
 # Configuration pour la base de données
-def get_db_connection():
-    """Retourne une connexion à la base de données centralisée"""
-    import sqlite3
-    try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
-        return conn
-    except sqlite3.Error as e:
-        print(f"⚠️ Erreur connexion DB: {e}")
-        return None
+# La fonction get_db_connection est maintenant importée directement depuis database.connection
 
 # Affichage des chemins pour debug
 def print_paths():

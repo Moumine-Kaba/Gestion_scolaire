@@ -19,14 +19,14 @@ class AuthManager:
     def login(self, username, password):
         """Authentification temporaire"""
         # Pour l'instant, accepter n'importe quelle connexion
-        self.current_user = {"username": username, "id": 1, "role": "admin"}
+        self.current_user = {"username": username, "id": 1, "roles": "admin"}
         self.is_authenticated = True
         return True
     
     def authenticate_user(self, username, password):
-        """Authentification d'un utilisateur (compatible avec le LoginView)"""
+        """Authentification d'un utilisateurs (compatible avec le LoginView)"""
         # Pour l'instant, accepter n'importe quelle connexion
-        user_info = {"username": username, "id": 1, "role": "admin", "email": f"{username}@edumanager.com"}
+        user_info = {"username": username, "id": 1, "roles": "admin", "email": f"{username}@edumanager.com"}
         self.current_user = user_info
         self.is_authenticated = True
         return user_info
@@ -37,11 +37,11 @@ class AuthManager:
         self.is_authenticated = False
     
     def get_current_user(self):
-        """Retourne l'utilisateur connecté"""
+        """Retourne l'utilisateurs connecté"""
         return self.current_user
     
     def is_user_authenticated(self):
-        """Vérifie si un utilisateur est connecté"""
+        """Vérifie si un utilisateurs est connecté"""
         return self.is_authenticated
 
 # Instance globale

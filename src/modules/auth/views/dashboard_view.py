@@ -5,6 +5,9 @@ EduManager+ - Tableau de bord principal (CustomTkinter, thème sombre)
 """
 
 # Import du système centralisé
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import sys
 import os
 
@@ -24,8 +27,6 @@ from src.core.view_registry import get_view_registry, register_all_views
 # Import du système d'optimisation
 try:
     from src.core.database.optimized_queries import get_optimized_query_manager
-    from src.core.cache.global_cache import get_global_cache, preload_critical_data
-    from src.core.views.view_preloader import get_view_preloader, register_view_factory, preload_critical_views
     print("✅ Système d'optimisation importé")
 except ImportError as e:
     print(f"⚠️ Système d'optimisation non disponible: {e}")
@@ -39,10 +40,9 @@ def get_icons_dir():
     """Retourne le chemin vers le dossier des icônes (compatibilité)"""
     return ICONS_PATH
 
-
 import math
 import datetime
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
 import tkinter as tk
 from tkinter import messagebox
 import customtkinter as ctk
@@ -73,7 +73,7 @@ def table_exists(conn, name):
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND lower(name)=lower(?)",
+            "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = ?",
             (name,),
         )
         return cur.fetchone() is not None
@@ -96,7 +96,7 @@ def get_stats_count_any(*table_candidates) -> int:
             return 0
         cur.execute(f"SELECT COUNT(*) FROM {table_name}")
         r = cur.fetchone()
-        return int((r[0] if not isinstance(r, sqlite3.Row) else r[0]) or 0)
+        return int((r[0] if not isinstance(r, dict) else r[0]) or 0)
     except Exception as e:
         print(f"⚠️ get_stats_count_any: {e}")
         return 0
@@ -118,18 +118,18 @@ def fetch_effectifs_par_classe(limit: int = 10):
     try:
         cur = conn.cursor()
         cur.execute("""
-            SELECT c.nom_classe AS classe, COUNT(e.id_eleve) AS nb
+            SELECT c.nom_classe AS classes, COUNT(e.id_eleve) AS nb
             FROM classes c
             LEFT JOIN eleves e ON e.id_classe = c.id_classe
             GROUP BY c.id_classe, c.nom_classe
-            ORDER BY nb DESC, classe ASC
-            LIMIT ?
+            ORDER BY nb DESC, classes ASC
+            OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY
         """, (limit,))
         rows = cur.fetchall()
         out = []
         for r in rows:
-            if isinstance(r, sqlite3.Row):
-                out.append((r["classe"], int(r["nb"] or 0)))
+            if isinstance(r, dict):
+                out.append((r["classes"], int(r["nb"] or 0)))
             else:
                 out.append((r[0], int(r[1] or 0)))
         return out
@@ -175,8 +175,8 @@ FS_SUBHDR   = FONT_CARD_TITLE[1] # 16 - Taille sous-header
 FS_TEXT     = FONT_SECONDARY[1] # 13 - Taille texte
 FS_VALUE    = FONT_METRIC[1]    # 30 - Taille valeur
 
-# =================== ICONES : PIL cache local + pool CTkImage =====================
-_DASHBOARD_PIL_CACHE = {}   # name -> PIL.Image (lié au chemin)
+# =================== ICONES : PIL local + pool CTkImage =====================
+_DASHBOARD_PIL_CACHE = {}  # name -> PIL.Image (lié au chemin)
 _DASHBOARD_IMG_POOL = set() # références CTkImage à garder vivantes dans CE root
 
 def _load_dashboard_pil_icon(name: str):
@@ -201,7 +201,7 @@ def _load_dashboard_pil_icon(name: str):
 
 def get_icon(name: str, size=(24, 24)):
     """
-    Crée un CTkImage pour le root courant à partir du cache PIL local.
+    Crée un CTkImage pour le root courant à partir du PIL local.
     Conserve la référence dans _DASHBOARD_IMG_POOL pour éviter le GC.
     Utilise le système centralisé d'icônes.
     """
@@ -212,7 +212,7 @@ def get_icon(name: str, size=(24, 24)):
     _DASHBOARD_IMG_POOL.add(cimg)
     return cimg
 
-# Permet au Login de purger proprement ces caches avant instanciation
+# Permet au Login de purger proprement ces images avant instanciation
 # (utilisé par reset_ctk_image_caches_dashboard du login)
 # _DASHBOARD_PIL_CACHE.clear() et _DASHBOARD_IMG_POOL.clear() seront appelés côté login.
 
@@ -273,7 +273,7 @@ def draw_vertical_gradient_bar(cnv, x, y, w, h, base_color, steps=28, radius=6):
 
 # =================== MAPPING ICONES / ACTIONS =====================
 ICON_MAP = {
-    "dashboard": "home", "eleves": "eleve", "utilisateurs": "group",
+    "dashboard": "home", "eleves": "eleves", "utilisateurs": "group",
     "person": "person", "classes": "class", "profs": "person",
     "salles": "classroom", "logout": "logout", "presences": "check",
     "notes": "grade", "bulletins": "stats", "paiements": "transfer",
@@ -370,6 +370,7 @@ except ImportError as e:
     ClassesManagerView = None
 # Import de la nouvelle vue unifiée des cours
 from src.modules.academic.classes.views.cours_view import CoursManagerView
+from database.connection import get_db_connection
 EnseignementsView = CoursManagerView  # Alias pour compatibilité
 EmploisView = CoursManagerView  # Alias pour compatibilité
 
@@ -503,7 +504,7 @@ class UltraModernGraphFrame(ctk.CTkFrame):
         self.create_matplotlib_chart()
     
     def setup_ui(self):
-        """Configure l'interface utilisateur"""
+        """Configure l'interface utilisateurs"""
         # Titre du graphique avec icône analytics
         title_frame = ctk.CTkFrame(self, fg_color="transparent")
         title_frame.pack(fill="x", padx=20, pady=(15, 5))
@@ -529,7 +530,7 @@ class UltraModernGraphFrame(ctk.CTkFrame):
         # Sous-titre
         subtitle_label = ctk.CTkLabel(
             self, 
-            text="Performance académique par classe avec taux de réussite global", 
+            text="Performance académique par classes avec taux de réussite global", 
             font=FONT_SMALL, 
             text_color=MUTED
         )
@@ -598,7 +599,7 @@ class UltraModernGraphFrame(ctk.CTkFrame):
                                    edgecolor=row['Couleur'], alpha=0.9))
         
         # Afficher les détails des classes dans la console
-        print(f"\n📋 Détail des taux de réussite par classe:")
+        print(f"\n📋 Détail des taux de réussite par classes:")
         print("-" * 50)
         for _, row in df.iterrows():
             print(f"{row['Matiere']:>8}: {row['Moyenne']:>5.1f}% {row['Emoji']} ({row['Niveau']})")
@@ -678,7 +679,7 @@ class UltraModernGraphFrame(ctk.CTkFrame):
         return taux_reussite
     
     def calculate_real_averages(self):
-        """Calcule les taux de réussite par classe depuis la base de données avec toutes les classes"""
+        """Calcule les taux de réussite par classes depuis la base de données avec toutes les classes"""
         # Données par défaut pour toutes les classes avec abréviations (données réalistes)
         default_labels = ["6°", "5°", "4°", "3°", "2°", "1°", "7°", "8°", "9°", "10°", "11° SE", "11° SM", "11° SS", "12° SE", "12° SM", "12° SS", "TSE", "TSM", "TSS"]
         default_points = [78.5, 82.3, 75.8, 85.2, 79.1, 88.7, 76.4, 81.2, 77.9, 83.6, 79.8, 85.1, 72.3, 80.5, 84.7, 75.2, 87.3, 89.1, 76.8]
@@ -715,18 +716,18 @@ class UltraModernGraphFrame(ctk.CTkFrame):
                 print("⚠️ Tables classes/eleves/notes non trouvées, utilisation des données par défaut")
                 return default_labels, default_points
             
-            # Requête pour calculer le taux de réussite par classe (toutes les classes)
+            # Requête pour calculer le taux de réussite par classes (toutes les classes)
             # Un élève réussit s'il a une moyenne >= 70% sur toutes ses matières
             cur.execute("""
                 SELECT 
                     c.nom_classe,
                     COUNT(DISTINCT e.id_eleve) as total_eleves,
                     COUNT(DISTINCT CASE 
-                        WHEN eleve_moyenne.moyenne_generale >= 70 THEN e.id_eleve 
+                        WHEN eleve_moyenne.moyenne_generale >= 10 THEN e.id_eleve 
                     END) as eleves_reussis,
                     ROUND(
                         (COUNT(DISTINCT CASE 
-                            WHEN eleve_moyenne.moyenne_generale >= 70 THEN e.id_eleve 
+                            WHEN eleve_moyenne.moyenne_generale >= 10 THEN e.id_eleve 
                         END) * 100.0 / COUNT(DISTINCT e.id_eleve)), 1
                     ) as taux_reussite
                 FROM classes c
@@ -741,21 +742,21 @@ class UltraModernGraphFrame(ctk.CTkFrame):
                 ) eleve_moyenne ON e.id_eleve = eleve_moyenne.id_eleve
                 WHERE c.statut = 'Active' AND e.statut = 'Actif'
                 GROUP BY c.id_classe, c.nom_classe
-                HAVING total_eleves > 0
+                HAVING COUNT(DISTINCT e.id_eleve) > 0
                 ORDER BY taux_reussite DESC
             """)
             
             results = cur.fetchall()
             
             if not results:
-                print("⚠️ Aucune donnée de classe trouvée, utilisation des données par défaut")
+                print("⚠️ Aucune donnée de classes trouvée, utilisation des données par défaut")
                 return default_labels, default_points
             
             labels = []
             data_points = []
             
             for row in results:
-                if isinstance(row, sqlite3.Row):
+                if isinstance(row, dict):
                     # Appliquer les abréviations comme dans le dashboard des élèves
                     classe_name = row["nom_classe"]
                     classe_abbrev = self.get_classe_abbreviation(classe_name)
@@ -779,7 +780,7 @@ class UltraModernGraphFrame(ctk.CTkFrame):
             faible_classes = sum(1 for taux in data_points if taux < 60)
             taux_reussite_global = sum(1 for taux in data_points if taux >= 70) / len(data_points) * 100
             
-            print(f"✅ Taux de réussite par classe calculés: {len(labels)} classes")
+            print(f"✅ Taux de réussite par classes calculés: {len(labels)} classes")
             print(f"📊 Statistiques:")
             print(f"   • Excellent (≥80%): {excellent_classes} classes")
             print(f"   • Bon (70-79%): {bon_classes} classes")
@@ -790,7 +791,7 @@ class UltraModernGraphFrame(ctk.CTkFrame):
             return labels, data_points
             
         except Exception as e:
-            print(f"❌ Erreur lors du calcul des taux de réussite par classe: {e}")
+            print(f"❌ Erreur lors du calcul des taux de réussite par classes: {e}")
             return default_labels, default_points
         finally:
             try:
@@ -799,7 +800,7 @@ class UltraModernGraphFrame(ctk.CTkFrame):
                 pass
     
     def get_classe_abbreviation(self, classe_name):
-        """Convertit le nom complet de la classe en abréviation comme dans le dashboard des élèves"""
+        """Convertit le nom complet de la classes en abréviation comme dans le dashboard des élèves"""
         abbreviations = {
             # PRIMAIRE
             "1° Année": "1°",
@@ -1177,12 +1178,12 @@ class UltraModernGraphFrame(ctk.CTkFrame):
             self.tooltip.place_forget()
     
     def on_leave(self, _):
-        """Cache le tooltip quand la souris quitte le canvas"""
+        """Masque le tooltip quand la souris quitte le canvas"""
         self.tooltip.place_forget()
 
 # =================== APPLICATION =====================
 class MainApp(ctk.CTk):
-    def __init__(self, utilisateur):
+    def __init__(self, utilisateurs):
         super().__init__()
         self.title("EduManager+ | Application de gestion")
         self.minsize(1100, 720)
@@ -1196,7 +1197,7 @@ class MainApp(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-        self.utilisateur = utilisateur or {"username": "Invité", "role": "Utilisateur"}
+        self.utilisateurs = utilisateurs or {"username": "Invité", "roles": "Utilisateur"}
 
         print("🚀 Initialisation du système d'optimisation...")
         
@@ -1379,26 +1380,26 @@ class MainApp(ctk.CTk):
     # ----- Permissions / Rôle
     def _get_user_role(self):
         try:
-            return self.utilisateur.get("role", "Utilisateur")
+            return self.utilisateurs.get("roles", "Utilisateur")
         except Exception:
             return "Utilisateur"
 
-    def _default_view_for_role(self, role: str) -> str:
-        role = (role or "").lower()
-        if "prof" in role:
+    def _default_view_for_role(self, roles: str) -> str:
+        roles = (roles or "").lower()
+        if "prof" in roles:
             return "notes"
-        if "secr" in role:
+        if "secr" in roles:
             return "eleves"
-        if "élève" in role or "eleve" in role or "student" in role:
+        if "élève" in roles or "eleves" in roles or "student" in roles:
             return "notes"
-        if "parent" in role:
+        if "parent" in roles:
             return "notes"
         # admin / directeur / autres -> dashboard
         return "dashboard"
 
     def _can_access_view(self, view_key: str) -> bool:
-        """Vérifie si l'utilisateur peut accéder à une vue selon les contraintes RBAC"""
-        role = (self._get_user_role() or "").lower()
+        """Vérifie si l'utilisateurs peut accéder à une vue selon les contraintes RBAC"""
+        roles = (self._get_user_role() or "").lower()
         
         # Définir les permissions par rôle selon RBAC_SUMMARY.md
         role_permissions = {
@@ -1447,8 +1448,8 @@ class MainApp(ctk.CTk):
         }
         
         # Vérifier les permissions selon le rôle
-        if role in role_permissions:
-            return role_permissions[role].get(view_key, False)
+        if roles in role_permissions:
+            return role_permissions[roles].get(view_key, False)
         
         # Par défaut, refuser l'accès si le rôle n'est pas reconnu
         return False
@@ -1491,7 +1492,7 @@ class MainApp(ctk.CTk):
         self.key_to_index[key] = index
 
     def create_sidebar(self):
-        # Carte utilisateur ultra-élégante avec design premium
+        # Carte utilisateurs ultra-élégante avec design premium
         user_frame = ctk.CTkFrame(
             self.sidebar_frame, 
             fg_color=CARD_BG, 
@@ -1543,7 +1544,7 @@ class MainApp(ctk.CTk):
         inner_avatar.pack(expand=True, padx=2, pady=2)
         inner_avatar.pack_propagate(False)
         
-        # Icône utilisateur avec effet premium
+        # Icône utilisateurs avec effet premium
         user_icon = get_icon("person", (28, 28))
         if user_icon:
             avatar_label = ctk.CTkLabel(inner_avatar, text="", image=user_icon, text_color=ACCENT)
@@ -1558,12 +1559,12 @@ class MainApp(ctk.CTk):
             )
             avatar_label.pack(expand=True)
 
-        # Informations utilisateur avec layout horizontal moderne
+        # Informations utilisateurs avec layout horizontal moderne
         info_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
         info_frame.pack(side="left", fill="both", expand=True)
         
-        # Nom utilisateur avec typographie moderne
-        username_text = self.utilisateur.get("username", "User").upper()
+        # Nom utilisateurs avec typographie moderne
+        username_text = self.utilisateurs.get("username", "User").upper()
         username_label = ctk.CTkLabel(
             info_frame, 
             text=username_text, 
@@ -1580,7 +1581,7 @@ class MainApp(ctk.CTk):
             'secretaire': ('#45B7D1', '#2A9FD1'),
             'comptable': ('#96CEB4', '#7BC4A4'),
             'surveillant': ('#FFEAA7', '#FFD93D'),
-            'professeur': ('#DDA0DD', '#C77DFF')
+            'professeurs': ('#DDA0DD', '#C77DFF')
         }
         
         role_color, role_border = role_colors.get(user_role.lower(), (ACCENT, ACCENT))
@@ -1717,7 +1718,7 @@ class MainApp(ctk.CTk):
         # Confirmation de déconnexion
         if messagebox.askyesno("Déconnexion", "Êtes-vous sûr de vouloir vous déconnecter ?"):
             try:
-                # 1. Nettoyer les caches et la mémoire
+                # 1. Nettoyer la mémoire
                 self._cleanup_session()
                 
                 # 2. Fermer la fenêtre dashboard
@@ -1734,9 +1735,9 @@ class MainApp(ctk.CTk):
                 messagebox.showerror("Erreur", "Erreur lors de la déconnexion")
     
     def _cleanup_session(self):
-        """Nettoie la session et les caches"""
+        """Nettoie la session et la mémoire"""
         try:
-            # Nettoyer les caches d'images
+            # Nettoyer les images
             if hasattr(self, '_DASHBOARD_PIL_CACHE'):
                 self._DASHBOARD_PIL_CACHE.clear()
             if hasattr(self, '_DASHBOARD_IMG_POOL'):
@@ -1764,10 +1765,10 @@ class MainApp(ctk.CTk):
     def _return_to_login(self):
         """Retourne au LoginView avec le même design"""
         try:
-            from src.modules.auth.views.login_view import LoginViewModern
+            from src.modules.auth.views.login_view import LoginView
             
             # Créer une nouvelle instance du LoginView
-            login_app = LoginViewModern()
+            login_app = LoginView()
             login_app.mainloop()
             
         except Exception as e:
@@ -1778,10 +1779,10 @@ class MainApp(ctk.CTk):
     # Méthodes de recherche supprimées pour éviter les erreurs de base de données
     
     def _has_permission(self, resource, action):
-        """Vérifie si l'utilisateur a la permission pour une ressource et action selon RBAC"""
+        """Vérifie si l'utilisateurs a la permissions pour une ressource et action selon RBAC"""
         try:
             from src.core.permissions import check_permission
-            return check_permission(self.utilisateur.get('role', ''), resource, action)
+            return check_permission(self.utilisateurs.get('roles', ''), resource, action)
         except Exception:
             # Fallback: permissions détaillées selon RBAC_SUMMARY.md
             user_role = self._get_user_role().lower()
@@ -1854,7 +1855,7 @@ class MainApp(ctk.CTk):
 
     # ----- Helpers pour les vues
     def _create_notif_bar(self):
-        """Crée une barre de notification simple"""
+        """Crée une barre de notifications simple"""
         class SimpleNotifBar:
             def __init__(self, parent):
                 self.parent = parent
@@ -1935,7 +1936,7 @@ class MainApp(ctk.CTk):
                 cls = VIEW_MAP[key]
                 print(f"🚀 Chargement de la vue {key}...")
                 
-                # Vérifier si la classe existe
+                # Vérifier si la classes existe
                 if cls is None:
                     print(f"⚠️ Vue non trouvée: {key}")
                     # Créer une vue placeholder
@@ -2000,7 +2001,7 @@ class MainApp(ctk.CTk):
             glb._imgref = greeting_icon
             glb.pack(side="left", padx=(0, 8))
 
-        ctk.CTkLabel(greeting_content, text=f"Bonjour, {self.utilisateur.get('username','')}",
+        ctk.CTkLabel(greeting_content, text=f"Bonjour, {self.utilisateurs.get('username','')}",
                      font=(FONT, FS_TITLE, "bold"), text_color=ACCENT).pack(side="left")
 
         ctk.CTkLabel(greetings_frame, text="Aperçu temps réel de votre établissement.",
@@ -2046,9 +2047,9 @@ class MainApp(ctk.CTk):
 
     def refresh_stats(self):
         eleves   = get_stats_count_any("eleves")
-        classes  = get_stats_count_any("classes", "classe")
-        profs    = get_stats_count_any("professeurs", "professeur")
-        salles   = get_stats_count_any("salles", "salle")
+        classes  = get_stats_count_any("classes", "classes")
+        profs    = get_stats_count_any("professeurs", "professeurs")
+        salles   = get_stats_count_any("salles", "salles")
         maxv = max(1, eleves, classes, profs, salles)
 
         data = [
@@ -2135,7 +2136,7 @@ class MainApp(ctk.CTk):
             ("Réunion des parents", "15h00 - Salle A2", "calendar"),
             ("Examen de Maths", "10h00 - Salle B1", "grade"),
             ("Sortie scolaire", "Toute la journée - Muséum", "bus"),
-            ("Conseil de classe", "14h00 - Salle des profs", "group"),
+            ("Conseil de classes", "14h00 - Salle des profs", "group"),
             ("Cours de sport", "16h00 - Gymnase", "sport"),
         ]
         for title, subtitle, icon_name in events_data:
@@ -2309,7 +2310,7 @@ class MainApp(ctk.CTk):
             ("3ème A", "88%", "#FFEAA7")
         ]
         
-        for classe, performance, color in classes_data:
+        for classes, performance, color in classes_data:
             class_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
             class_frame.pack(fill="x", pady=3)
             
@@ -2324,10 +2325,10 @@ class MainApp(ctk.CTk):
             indicator.pack(side="left", padx=(0, 10))
             indicator.pack_propagate(False)
             
-            # Label de classe
+            # Label de classes
             label_widget = ctk.CTkLabel(
                 class_frame,
-                text=classe,
+                text=classes,
                 font=ctk.CTkFont(size=11),
                 text_color=TEXT
             )
@@ -2387,7 +2388,7 @@ class MainApp(ctk.CTk):
             ("Sciences", "15.1", "#96CEB4")
         ]
         
-        for matiere, note, color in evolution_data:
+        for matieres, notes, color in evolution_data:
             matiere_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
             matiere_frame.pack(fill="x", pady=3)
             
@@ -2405,7 +2406,7 @@ class MainApp(ctk.CTk):
             # Label de matière
             label_widget = ctk.CTkLabel(
                 matiere_frame,
-                text=matiere,
+                text=matieres,
                 font=ctk.CTkFont(size=11),
                 text_color=TEXT
             )
@@ -2414,7 +2415,7 @@ class MainApp(ctk.CTk):
             # Note
             note_widget = ctk.CTkLabel(
                 matiere_frame,
-                text=note,
+                text=notes,
                 font=ctk.CTkFont(size=12, weight="bold"),
                 text_color=color
             )
@@ -2506,17 +2507,17 @@ class MainApp(ctk.CTk):
 
     # ----- Graphe : Moyenne par matière (Tendance)
     def update_graph(self):
-        # Cette méthode est maintenant gérée par la classe PremiumGraphFrame
+        # Cette méthode est maintenant gérée par la classes PremiumGraphFrame
         pass
 
 # =================== CLASSE DASHBOARDVIEW (pour compatibilité) =====================
 class DashboardView(MainApp):
     """Alias pour MainApp pour maintenir la compatibilité avec les imports existants."""
-    def __init__(self, utilisateur):
-        super().__init__(utilisateur)
+    def __init__(self, utilisateurs):
+        super().__init__(utilisateurs)
 
 # =================== ENTRÉE DIRECTE (test rapide) =====================
 if __name__ == "__main__":
-    utilisateur = {"username": "admin", "id": 1, "role": "Administrateur"}
-    app = MainApp(utilisateur)
+    utilisateurs = {"username": "admin", "id": 1, "roles": "Administrateur"}
+    app = MainApp(utilisateurs)
     app.mainloop()

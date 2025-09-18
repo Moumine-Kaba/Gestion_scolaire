@@ -1,8 +1,11 @@
-import sqlite3
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+# Remplacé par SQL Server  # Remplacé par SQL Server
 DB_PATH = "database/edumanager.db"
 
 def get_all_transferts(eleve_id=None):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     if eleve_id:
         cur.execute("""
@@ -19,7 +22,7 @@ def get_all_transferts(eleve_id=None):
     return rows
 
 def add_transfert(eleve_id, ancienne_classe_id, nouvelle_classe_id, date_transfert, motif):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO transferts (eleve_id, ancienne_classe_id, nouvelle_classe_id, date_transfert, motif)
@@ -29,7 +32,7 @@ def add_transfert(eleve_id, ancienne_classe_id, nouvelle_classe_id, date_transfe
     conn.close()
 
 def delete_transfert(transfert_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM transferts WHERE id=?", (transfert_id,))
     conn.commit()

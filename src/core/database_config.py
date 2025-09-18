@@ -3,8 +3,11 @@
 Configuration centralisée de la base de données
 """
 
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import os
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
 from pathlib import Path
 
 # Chemin vers la base de données (relatif au projet)
@@ -18,10 +21,9 @@ def get_db_path():
 def connect_db():
     """Crée une connexion à la base de données"""
     try:
-        conn = sqlite3.connect(get_db_path())
-        conn.execute("PRAGMA foreign_keys = ON")
+        conn = get_db_connection())
         return conn
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"Erreur de connexion à la base de données: {e}")
         return None
 
@@ -48,7 +50,7 @@ def get_moyennes_par_matiere():
             return []
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT m.nom, AVG(n.note) as moyenne
+            SELECT m.nom, AVG(n.notes) as moyenne
             FROM matieres m
             LEFT JOIN notes n ON m.id = n.matiere_id
             GROUP BY m.id, m.nom
@@ -85,16 +87,16 @@ def get_recent_events():
         return []
 
 def get_user_info(user_id: int = None):
-    """Retourne les informations d'un utilisateur"""
+    """Retourne les informations d'un utilisateurs"""
     try:
         conn = connect_db()
         if not conn:
             return None
         cursor = conn.cursor()
         if user_id:
-            cursor.execute("SELECT id, username, prenom, nom, role FROM utilisateurs WHERE id = ?", (user_id,))
+            cursor.execute("SELECT id, username, prenom, nom, roles FROM utilisateurs WHERE id = ?", (user_id,))
         else:
-            cursor.execute("SELECT id, username, prenom, nom, role FROM utilisateurs LIMIT 1")
+            cursor.execute("SELECT id, username, prenom, nom, roles FROM utilisateurs LIMIT 1")
         result = cursor.fetchone()
         conn.close()
         if result:
@@ -103,10 +105,10 @@ def get_user_info(user_id: int = None):
                 "username": result[1],
                 "prenom": result[2],
                 "nom": result[3],
-                "role": result[4]
+                "roles": result[4]
             }
         return None
     except Exception as e:
-        print(f"Erreur lors de la récupération des infos utilisateur: {e}")
+        print(f"Erreur lors de la récupération des infos utilisateurs: {e}")
         return None
 

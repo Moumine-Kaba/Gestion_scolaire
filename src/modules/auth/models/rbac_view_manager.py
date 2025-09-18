@@ -7,7 +7,10 @@ Gestionnaire de Vues RBAC pour EduManager+
 Gère l'accès aux vues selon les rôles et permissions des utilisateurs.
 """
 
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import os
 from typing import Dict, List, Optional, Set
 from datetime import datetime
@@ -30,28 +33,28 @@ class RBACViewManager:
     def _init_view_tables(self):
         """Initialise les tables de gestion des vues"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Table des vues disponibles
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS views (
-                    id_view INTEGER PRIMARY KEY AUTOINCREMENT,
-                    nom_view TEXT UNIQUE NOT NULL,
-                    titre_view TEXT NOT NULL,
-                    description TEXT,
-                    module TEXT,
-                    icon TEXT,
+                CREATE TABLE views (
+                    id_view INT IDENTITY(1,1) PRIMARY KEY,
+                    nom_view NVARCHAR(255) UNIQUE NOT NULL,
+                    titre_view NVARCHAR(255) NOT NULL,
+                    description NVARCHAR(255),
+                    module NVARCHAR(255),
+                    icon NVARCHAR(255),
                     order_index INTEGER DEFAULT 0,
                     is_active BOOLEAN DEFAULT 1,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at DATETIME DEFAULT GETDATE()
                 )
             ''')
             
             # Table des permissions de vues par rôle
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS role_view_permissions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                CREATE TABLE role_view_permissions (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
                     role_id INTEGER NOT NULL,
                     view_id INTEGER NOT NULL,
                     can_read BOOLEAN DEFAULT 0,
@@ -74,13 +77,13 @@ class RBACViewManager:
     def _create_default_view_permissions(self):
         """Crée les permissions de vues par défaut"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Vues par défaut avec leurs permissions par rôle
             default_views = [
                 ("dashboard", "Dashboard", "Tableau de bord principal", "auth", "home.png", 0),
-                ("eleves", "Élèves", "Gestion des élèves", "academic", "eleve.png", 1),
+                ("eleves", "Élèves", "Gestion des élèves", "academic", "eleves.png", 1),
                 ("professeurs", "Professeurs", "Gestion des professeurs", "academic", "person.png", 2),
                 ("classes", "Classes", "Gestion des classes", "academic", "class.png", 3),
                 ("salles", "Salles", "Gestion des salles", "administrative", "classroom.png", 4),
@@ -119,12 +122,12 @@ class RBACViewManager:
                     "utilisateurs": 1, "enseignements": 2, "notes": 2, "presences": 3,
                     "bulletins": 2, "emplois": 2, "paiements": 3, "matieres": 1, "parametres": 1
                 },
-                "professeur": {
+                "professeurs": {
                     "dashboard": 2, "eleves": 2, "professeurs": 1, "classes": 2, "salles": 1,
                     "utilisateurs": 1, "enseignements": 2, "notes": 3, "presences": 3,
                     "bulletins": 2, "emplois": 1, "paiements": 1, "matieres": 2, "parametres": 1
                 },
-                "eleve": {
+                "eleves": {
                     "dashboard": 1, "eleves": 1, "professeurs": 1, "classes": 1, "salles": 1,
                     "utilisateurs": 1, "enseignements": 1, "notes": 1, "presences": 1,
                     "bulletins": 1, "emplois": 1, "paiements": 1, "matieres": 1, "parametres": 1
@@ -174,9 +177,9 @@ class RBACViewManager:
             print(f"❌ Erreur création permissions vues: {e}")
     
     def get_user_authorized_views(self, user_id: int) -> List[Dict]:
-        """Récupère les vues autorisées pour un utilisateur"""
+        """Récupère les vues autorisées pour un utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -213,9 +216,9 @@ class RBACViewManager:
             return []
     
     def can_access_view(self, user_id: int, view_name: str) -> bool:
-        """Vérifie si un utilisateur peut accéder à une vue"""
+        """Vérifie si un utilisateurs peut accéder à une vue"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -236,9 +239,9 @@ class RBACViewManager:
             return False
     
     def get_view_permissions(self, user_id: int, view_name: str) -> Dict[str, bool]:
-        """Récupère les permissions spécifiques d'un utilisateur pour une vue"""
+        """Récupère les permissions spécifiques d'un utilisateurs pour une vue"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -268,7 +271,7 @@ class RBACViewManager:
     def get_all_views(self) -> List[Dict]:
         """Récupère toutes les vues disponibles"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -299,11 +302,11 @@ class RBACViewManager:
             return []
     
     def set_current_user(self, user_id: int):
-        """Définit l'utilisateur actuel"""
+        """Définit l'utilisateurs actuel"""
         self.current_user_id = user_id
-        # Récupérer le rôle de l'utilisateur
+        # Récupérer le rôle de l'utilisateurs
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -321,7 +324,7 @@ class RBACViewManager:
             if result:
                 # Créer un objet rôle simple
                 self.current_user_role = type('Role', (), {
-                    'name': result[0],
+                    'TABLE_NAME': result[0],
                     'description': result[1],
                     'niveau_acces': result[2]
                 })()
@@ -329,16 +332,16 @@ class RBACViewManager:
                 self.current_user_role = None
                 
         except Exception as e:
-            print(f"❌ Erreur récupération rôle utilisateur: {e}")
+            print(f"❌ Erreur récupération rôle utilisateurs: {e}")
             self.current_user_role = None
     
     def get_filtered_navigation(self) -> Dict[str, List[tuple]]:
-        """Récupère la navigation filtrée pour l'utilisateur actuel"""
+        """Récupère la navigation filtrée pour l'utilisateurs actuel"""
         if not self.current_user_id:
             return {}
         
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''

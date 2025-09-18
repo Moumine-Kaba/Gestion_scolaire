@@ -1,17 +1,27 @@
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import os
 
 # Chemin de base de données relatif
 DB_PATH = "database/edumanager.db"
 
 def _connect():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # Permet d'accéder aux colonnes par leur nom
+    conn = get_db_connection()
+    # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server  # Permet d'accéder aux colonnes par leur nom
     return conn
 
 def get_all_enseignements():
     try:
-        with _connect() as conn:
+        conn = _connect()
+
+        if not conn:
+
+            print("❌ Impossible de se connecter à la base de données")
+
+            return
+
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT id, professeur_id, classe_id, matiere_id, salle_id, jours_cours, duree_cours, statut
@@ -25,13 +35,21 @@ def get_all_enseignements():
 
 def add_enseignement(professeur_id, classe_id, matiere_id, salle_id=None, jours_cours=None, duree_cours=None, statut=None):
     try:
-        with _connect() as conn:
+        conn = _connect()
+
+        if not conn:
+
+            print("❌ Impossible de se connecter à la base de données")
+
+            return
+
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO enseignement (professeur_id, classe_id, matiere_id, salle_id, jours_cours, duree_cours, statut)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (professeur_id, classe_id, matiere_id, salle_id, jours_cours, duree_cours, statut))
             conn.commit()
+                conn.close()
             return True
     except Exception as e:
         print(f"[Enseignement] Erreur add_enseignement : {e}")
@@ -39,7 +57,14 @@ def add_enseignement(professeur_id, classe_id, matiere_id, salle_id=None, jours_
 
 def update_enseignement(id, professeur_id, classe_id, matiere_id, salle_id, jours_cours, duree_cours, statut):
     try:
-        with _connect() as conn:
+        conn = _connect()
+
+        if not conn:
+
+            print("❌ Impossible de se connecter à la base de données")
+
+            return
+
             cursor = conn.cursor()
             cursor.execute("""
                 UPDATE enseignement
@@ -47,6 +72,7 @@ def update_enseignement(id, professeur_id, classe_id, matiere_id, salle_id, jour
                 WHERE id=?
             """, (professeur_id, classe_id, matiere_id, salle_id, jours_cours, duree_cours, statut, id))
             conn.commit()
+                conn.close()
             return True
     except Exception as e:
         print(f"[Enseignement] Erreur update_enseignement : {e}")
@@ -54,10 +80,18 @@ def update_enseignement(id, professeur_id, classe_id, matiere_id, salle_id, jour
 
 def delete_enseignement(id):
     try:
-        with _connect() as conn:
+        conn = _connect()
+
+        if not conn:
+
+            print("❌ Impossible de se connecter à la base de données")
+
+            return
+
             cursor = conn.cursor()
             cursor.execute("DELETE FROM enseignement WHERE id=?", (id,))
             conn.commit()
+                conn.close()
             return True
     except Exception as e:
         print(f"[Enseignement] Erreur delete_enseignement : {e}")

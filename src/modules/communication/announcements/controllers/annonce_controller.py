@@ -1,8 +1,11 @@
-import sqlite3
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+# Remplacé par SQL Server  # Remplacé par SQL Server
 DB_PATH = "database/edumanager.db"
 
 def get_all_annonces():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM annonces ORDER BY date DESC")
     rows = cur.fetchall()
@@ -10,7 +13,7 @@ def get_all_annonces():
     return rows
 
 def add_annonce(titre, contenu, date, auteur_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO annonces (titre, contenu, date, auteur_id)
@@ -20,7 +23,7 @@ def add_annonce(titre, contenu, date, auteur_id):
     conn.close()
 
 def update_annonce(annonce_id, titre, contenu, date, auteur_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         UPDATE annonces SET titre=?, contenu=?, date=?, auteur_id=?
@@ -30,7 +33,7 @@ def update_annonce(annonce_id, titre, contenu, date, auteur_id):
     conn.close()
 
 def delete_annonce(annonce_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM annonces WHERE id=?", (annonce_id,))
     conn.commit()

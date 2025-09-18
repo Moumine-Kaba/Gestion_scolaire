@@ -482,7 +482,7 @@ class SplashView(ctk.CTkToplevel):
             except Exception: pass
         gc.collect()
         try:
-            from src.modules.auth.views.login_view import LoginViewModern as _LV
+            from src.modules.auth.views.login_view import LoginView as _LV
             _LV().mainloop()
         except Exception as e:
             print(f"❌ Impossible d'ouvrir l'écran de connexion: {e}")

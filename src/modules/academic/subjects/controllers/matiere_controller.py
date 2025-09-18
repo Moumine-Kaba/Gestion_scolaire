@@ -1,9 +1,19 @@
-import sqlite3
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import os
+import sys
+
+# Ajouter le chemin du projet pour les imports
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../..'))
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+# Utiliser le gestionnaire de base de données unifié
+from database.connection import get_db_connection
 
 # ====== DB PATH from persistent information ======
 # Le chemin de la base de données est conservé comme demandé.
-DB_PATH = "database/edumanager.db"
 
 def _connect():
     """
@@ -11,30 +21,19 @@ def _connect():
     Utilise 'with' pour garantir la fermeture automatique de la connexion.
     """
     try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        try:
-            conn.execute("PRAGMA journal_mode=WAL;")
-            conn.execute("PRAGMA synchronous=NORMAL;")
-            conn.execute("PRAGMA temp_store=MEMORY;")
-            conn.execute("PRAGMA cache_size=-8000;")
-        except Exception:
-            pass
+        conn = get_db_connection()
+        # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
         return conn
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"Erreur de connexion à la base de données : {e}")
         return None
 
 # ====== CACHE MÉMOIRE ======
-_CACHE = {"matieres_all": None}
 
-def _invalidate_cache():
-    _CACHE["matieres_all"] = None
-
-def preload_matieres_cache():
+def preload_matieres():
+    """Précharge les matières en mémoire (supprimé - système de cache supprimé)"""
     try:
-        _CACHE["matieres_all"] = get_all_matieres()
-        print("⚡ Cache matières préchargé")
+        pass  # Fonction supprimée car le système de cache a été supprimé
     except Exception as e:
         print(f"⚠️ Préchargement matières ignoré: {e}")
 
@@ -43,17 +42,24 @@ def get_all_matieres():
     Récupère toutes les matières de la base de données, triées par nom.
     """
     try:
-        if _CACHE.get("matieres_all") is not None:
+        if None is not None:
             return _CACHE["matieres_all"]
-        with _connect() as conn:
+        conn = _connect()
+
+        if not conn:
+
+            print("❌ Impossible de se connecter à la base de données")
+
+            return
+
             if conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT id_matiere as id, nom_matiere as nom, code_matiere FROM matieres ORDER BY nom_matiere ASC")
                 matieres = cursor.fetchall()
                 data = [dict(m) for m in matieres]
-                _CACHE["matieres_all"] = data
+                
                 return data
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"Erreur lors de la récupération de toutes les matières : {e}")
     return []
 
@@ -62,7 +68,14 @@ def search_matieres(q):
     Recherche des matières par nom ou description, sans tenir compte de la casse.
     """
     try:
-        with _connect() as conn:
+        conn = _connect()
+
+        if not conn:
+
+            print("❌ Impossible de se connecter à la base de données")
+
+            return
+
             if conn:
                 like_term = f"%{q.strip()}%"
                 cursor = conn.cursor()
@@ -75,7 +88,7 @@ def search_matieres(q):
                 """, (like_term, like_term))
                 matieres = cursor.fetchall()
                 return [dict(m) for m in matieres]
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"Erreur lors de la recherche des matières : {e}")
     return []
 
@@ -85,16 +98,22 @@ def add_matiere(nom, description=""):
     Retourne True en cas de succès, False sinon.
     """
     try:
-        with _connect() as conn:
+        conn = _connect()
+
+        if not conn:
+
+            print("❌ Impossible de se connecter à la base de données")
+
+            return
+
             if conn:
                 cursor = conn.cursor()
                 cursor.execute("INSERT INTO matieres (nom, description) VALUES (?, ?)", (nom, description))
                 conn.commit()
-                _invalidate_cache()
+                conn.close()
+                
                 return True
-    except sqlite3.IntegrityError:
-        print(f"Erreur: La matière '{nom}' existe déjà.")
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"Erreur lors de l'ajout de la matière : {e}")
     return False
 
@@ -104,14 +123,22 @@ def update_matiere(matiere_id, nom, description):
     Retourne True en cas de succès, False sinon.
     """
     try:
-        with _connect() as conn:
+        conn = _connect()
+
+        if not conn:
+
+            print("❌ Impossible de se connecter à la base de données")
+
+            return
+
             if conn:
                 cursor = conn.cursor()
                 cursor.execute("UPDATE matieres SET nom = ?, description = ? WHERE id = ?", (nom, description, matiere_id))
                 conn.commit()
-                _invalidate_cache()
+                conn.close()
+                
                 return True
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"Erreur lors de la mise à jour de la matière : {e}")
     return False
 
@@ -121,13 +148,20 @@ def delete_matiere(matiere_id):
     Retourne True en cas de succès, False sinon.
     """
     try:
-        with _connect() as conn:
+        conn = _connect()
+
+        if not conn:
+
+            print("❌ Impossible de se connecter à la base de données")
+
+            return
+
             if conn:
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM matieres WHERE id_matiere = ?", (matiere_id,))
                 conn.commit()
-                _invalidate_cache()
+                conn.close()
+                
                 return True
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"Erreur lors de la suppression de la matière : {e}")
-    return False

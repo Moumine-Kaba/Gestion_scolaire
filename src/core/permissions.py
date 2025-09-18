@@ -16,50 +16,50 @@ class PermissionManager:
                 "enseignements", "utilisateurs", "matieres", "notes", 
                 "presences", "paiements", "bulletins", "emplois"
             ],
-            "professeur": [
+            "professeurs": [
                 "dashboard", "eleves", "classes", "notes", "presences", 
                 "bulletins", "emplois"
             ],
             "secretaire": [
                 "dashboard", "eleves", "classes", "paiements", "bulletins"
             ],
-            "utilisateur": [
+            "utilisateurs": [
                 "dashboard"
             ]
         }
     
     def get_user_role(self, user_id: int) -> str:
-        """Récupère le rôle d'un utilisateur depuis la base de données"""
+        """Récupère le rôle d'un utilisateurs depuis la base de données"""
         try:
             conn = connect_db()
             if not conn:
-                return "utilisateur"
+                return "utilisateurs"
             
             cursor = conn.cursor()
-            cursor.execute("SELECT role FROM utilisateurs WHERE id = ?", (user_id,))
+            cursor.execute("SELECT roles FROM utilisateurs WHERE id = ?", (user_id,))
             result = cursor.fetchone()
             conn.close()
             
             if result:
                 return result[0].lower()
-            return "utilisateur"
+            return "utilisateurs"
         except Exception as e:
             print(f"Erreur lors de la récupération du rôle: {e}")
-            return "utilisateur"
+            return "utilisateurs"
     
     def can_access_view(self, user_id: int, view_key: str) -> bool:
-        """Vérifie si un utilisateur peut accéder à une vue"""
-        role = self.get_user_role(user_id)
-        permissions = self.roles_permissions.get(role, [])
+        """Vérifie si un utilisateurs peut accéder à une vue"""
+        roles = self.get_user_role(user_id)
+        permissions = self.roles_permissions.get(roles, [])
         return view_key in permissions
     
     def get_available_views_for_user(self, user_id: int) -> List[str]:
-        """Retourne la liste des vues disponibles pour un utilisateur"""
-        role = self.get_user_role(user_id)
-        return self.roles_permissions.get(role, [])
+        """Retourne la liste des vues disponibles pour un utilisateurs"""
+        roles = self.get_user_role(user_id)
+        return self.roles_permissions.get(roles, [])
     
     def filter_nav_sections(self, user_id: int, nav_sections: Dict) -> Dict:
-        """Filtre les sections de navigation selon les permissions de l'utilisateur"""
+        """Filtre les sections de navigation selon les permissions de l'utilisateurs"""
         available_views = self.get_available_views_for_user(user_id)
         filtered_sections = {}
         
@@ -75,7 +75,7 @@ class PermissionManager:
         return filtered_sections
     
     def get_user_display_name(self, user_id: int) -> str:
-        """Récupère le nom d'affichage d'un utilisateur"""
+        """Récupère le nom d'affichage d'un utilisateurs"""
         try:
             conn = connect_db()
             if not conn:

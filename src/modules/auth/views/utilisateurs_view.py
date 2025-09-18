@@ -54,7 +54,7 @@ class UtilisateursView(tk.Frame):
     def modifier_user(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("Modification", "Veuillez sélectionner un utilisateur.")
+            messagebox.showwarning("Modification", "Veuillez sélectionner un utilisateurs.")
             return
         data = self.tree.item(selected[0])["values"]
         self._ouvrir_formulaire("Modifier", data)
@@ -62,10 +62,10 @@ class UtilisateursView(tk.Frame):
     def supprimer_user(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("Suppression", "Veuillez sélectionner un utilisateur.")
+            messagebox.showwarning("Suppression", "Veuillez sélectionner un utilisateurs.")
             return
         user_id = self.tree.item(selected[0])["values"][0]
-        if messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer cet utilisateur ?"):
+        if messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer cet utilisateurs ?"):
             delete_user(user_id)
             self.charger_users()
 
@@ -84,14 +84,14 @@ class UtilisateursView(tk.Frame):
             ("Email :", "email"),
             ("Téléphone :", "telephone"),
             ("Mot de passe :", "password"),
-            ("Rôle :", "role"),
+            ("Rôle :", "roles"),
             ("Niveau :", "niveau"),
         ]
         widgets = {}
         for lbl, key in labels:
             tk.Label(form, text=lbl, bg=BG, fg=ACCENT, font=FONT).place(x=34, y=y)
-            if key == "role":
-                w = ttk.Combobox(form, values=["admin", "directeur", "professeur", "surveillant", "comptable"], state="readonly", font=("Segoe UI", 10))
+            if key == "roles":
+                w = ttk.Combobox(form, values=["admin", "directeur", "professeurs", "surveillant", "comptable"], state="readonly", font=("Segoe UI", 10))
                 w.place(x=180, y=y, width=290)
             elif key == "password":
                 w = tk.Entry(form, show="*", font=("Segoe UI", 11), bg="#232f3e", fg=BTN_TEXT, relief="flat")
@@ -109,7 +109,7 @@ class UtilisateursView(tk.Frame):
             widgets["email"].insert(0, data[4])
             widgets["telephone"].insert(0, data[5])
             widgets["password"].insert(0, data[6])
-            widgets["role"].set(data[7])
+            widgets["roles"].set(data[7])
             widgets["niveau"].insert(0, data[8])
 
         def enregistrer():
@@ -118,10 +118,10 @@ class UtilisateursView(tk.Frame):
                 messagebox.showerror("Erreur", "Veuillez remplir tous les champs.", parent=form)
                 return
             if mode == "Ajouter":
-                add_user(vals["username"], vals["prenom"], vals["nom"], vals["email"], vals["telephone"], vals["password"], vals["role"], vals["niveau"])
+                add_user(vals["username"], vals["prenom"], vals["nom"], vals["email"], vals["telephone"], vals["password"], vals["roles"], vals["niveau"])
                 messagebox.showinfo("Succès", "Utilisateur ajouté avec succès.", parent=form)
             else:
-                update_user(data[0], vals["username"], vals["prenom"], vals["nom"], vals["email"], vals["telephone"], vals["password"], vals["role"], vals["niveau"])
+                update_user(data[0], vals["username"], vals["prenom"], vals["nom"], vals["email"], vals["telephone"], vals["password"], vals["roles"], vals["niveau"])
                 messagebox.showinfo("Succès", "Utilisateur modifié.", parent=form)
             self.charger_users()
             form.destroy()

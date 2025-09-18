@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 import customtkinter as ctk
 import os
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
@@ -76,7 +76,7 @@ class App(ctk.CTk):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
         
-        # Le 'icons' est une dépendance que l'on doit passer si la classe l'attend
+        # Le 'icons' est une dépendance que l'on doit passer si la classes l'attend
         # Création d'un dictionnaire d'icônes, ici il est vide, mais il pourrait être rempli
         self.icons = {} 
 
@@ -175,7 +175,6 @@ class SallesView(ctk.CTkFrame):
             add_btn.pack(side="left")
             print("Icône 'add.png' non trouvée. Utilisation du texte par défaut.")
 
-
     def create_salle_list_panel(self, parent_frame):
         """Crée le panneau de gauche avec la liste des salles."""
         # Container principal avec design moderne
@@ -204,13 +203,13 @@ class SallesView(ctk.CTkFrame):
         try:
             search_icon_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..', 'resources', 'icons', 'search.png')
             search_icon = ctk.CTkImage(Image.open(search_icon_path), size=(16, 16))
-            search_entry = ctk.CTkEntry(search_frame, placeholder_text="Rechercher une salle...",
+            search_entry = ctk.CTkEntry(search_frame, placeholder_text="Rechercher une salles...",
                                        font=FONT_PRIMARY, height=40, corner_radius=10,
                                        fg_color=THEME["header_bg"], border_color=THEME["border_color"],
                                        textvariable=self.search_var)
             search_entry.pack(side="left", fill="x", expand=True)
         except FileNotFoundError:
-            search_entry = ctk.CTkEntry(search_frame, placeholder_text="Rechercher une salle...",
+            search_entry = ctk.CTkEntry(search_frame, placeholder_text="Rechercher une salles...",
                                        font=FONT_PRIMARY, height=40, corner_radius=10,
                                        fg_color=THEME["header_bg"], border_color=THEME["border_color"],
                                        textvariable=self.search_var)
@@ -232,7 +231,7 @@ class SallesView(ctk.CTkFrame):
         self.salle_list_frame.pack(fill="both", expand=True, padx=INTERNAL_PADDING_MEDIUM, pady=(0, INTERNAL_PADDING_MEDIUM))
 
     def create_salle_details_panel(self, parent_frame):
-        """Crée le panneau de droite pour afficher les détails et les stats d'une salle."""
+        """Crée le panneau de droite pour afficher les détails et les stats d'une salles."""
         # Container principal avec design moderne
         self.details_panel = ctk.CTkFrame(parent_frame, fg_color=THEME["card_bg"], corner_radius=15,
                                          border_color=THEME["border_color"], border_width=1)
@@ -248,10 +247,10 @@ class SallesView(ctk.CTkFrame):
         all_salles = self.salle_controller.get_all_salles()
 
         filtered_salles = [
-            salle for salle in all_salles
-            if search_term in salle['nom_salle'].lower() or
-               search_term in str(salle['capacite']).lower() or
-               search_term in salle['type_salle'].lower()
+            salles for salles in all_salles
+            if search_term in salles['nom_salle'].lower() or
+               search_term in str(salles['capacite']).lower() or
+               search_term in salles['type_salle'].lower()
         ]
 
         if sort_by == "nom":
@@ -270,7 +269,7 @@ class SallesView(ctk.CTkFrame):
 
         # Mettre à jour le compteur de salles
         total_salles = len(salles_to_display)
-        self.salle_count_label.configure(text=f"{total_salles} salle{'s' if total_salles > 1 else ''}")
+        self.salle_count_label.configure(text=f"{total_salles} salles{'s' if total_salles > 1 else ''}")
 
         if not salles_to_display:
             # Message d'état vide avec design moderne
@@ -285,7 +284,7 @@ class SallesView(ctk.CTkFrame):
             except FileNotFoundError:
                 pass
             
-            empty_label = ctk.CTkLabel(empty_frame, text="Aucune salle trouvée",
+            empty_label = ctk.CTkLabel(empty_frame, text="Aucune salles trouvée",
                                       font=FONT_CARD_TITLE, text_color=THEME["secondary_text"])
             empty_label.pack(pady=PADDING_MEDIUM)
             
@@ -297,13 +296,13 @@ class SallesView(ctk.CTkFrame):
             return
 
         # Afficher les salles avec design amélioré
-        for i, salle in enumerate(salles_to_display):
-            salle_item_frame = SalleListItem(self.salle_list_frame, salle, self.show_salle_details)
+        for i, salles in enumerate(salles_to_display):
+            salle_item_frame = SalleListItem(self.salle_list_frame, salles, self.show_salle_details)
             salle_item_frame.pack(fill="x", padx=PADDING_MEDIUM, pady=(MARGIN_MEDIUM if i == 0 else MARGIN_MEDIUM//2, MARGIN_MEDIUM//2))
 
-    def show_salle_details(self, salle, item_frame):
-        """Affiche les détails, les stats et le graphique d'une salle sélectionnée."""
-        self.selected_salle = salle
+    def show_salle_details(self, salles, item_frame):
+        """Affiche les détails, les stats et le graphique d'une salles sélectionnée."""
+        self.selected_salle = salles
 
         if self.selected_salle_frame:
             self.selected_salle_frame.deselect()
@@ -317,9 +316,9 @@ class SallesView(ctk.CTkFrame):
         details_frame.pack(fill="both", expand=True, padx=PADDING_MEDIUM, pady=PADDING_MEDIUM)
 
         # Titre
-        ctk.CTkLabel(details_frame, text=salle['nom_salle'], font=FONT_TITLE, text_color=THEME["primary_text"]).pack(pady=(0, PADDING_MEDIUM))
+        ctk.CTkLabel(details_frame, text=salles['nom_salle'], font=FONT_TITLE, text_color=THEME["primary_text"]).pack(pady=(0, PADDING_MEDIUM))
 
-        # Détails de la salle
+        # Détails de la salles
         details_card = ctk.CTkFrame(details_frame, fg_color=THEME["header_bg"], corner_radius=12)
         details_card.pack(fill="x", pady=(0, PADDING_MEDIUM), padx=PADDING_MEDIUM)
 
@@ -329,8 +328,8 @@ class SallesView(ctk.CTkFrame):
             ctk.CTkLabel(frame, text=f"{label} :", font=FONT_SUBTITLE, text_color=THEME["secondary_text"], width=150, anchor="w").pack(side="left")
             ctk.CTkLabel(frame, text=value, font=FONT_SUBTITLE, text_color=THEME["primary_text"], anchor="w").pack(side="left", padx=PADDING_MEDIUM)
 
-        create_detail_row(details_card, "Capacité", str(salle['capacite']))
-        create_detail_row(details_card, "Type de salle", salle['type_salle'])
+        create_detail_row(details_card, "Capacité", str(salles['capacite']))
+        create_detail_row(details_card, "Type de salles", salles['type_salle'])
 
         # Panneau des stats et du graphique
         stats_frame = ctk.CTkFrame(details_frame, fg_color=THEME["header_bg"], corner_radius=12)
@@ -347,13 +346,13 @@ class SallesView(ctk.CTkFrame):
             edit_icon = ctk.CTkImage(Image.open(edit_icon_path), size=(20, 20))
             edit_btn = ctk.CTkButton(btn_frame, text="Modifier", image=edit_icon, compound="left", font=FONT_PRIMARY,
                                       fg_color=THEME["header_bg"], hover_color=HOVER_COLOR, text_color=THEME["primary_text"],
-                                      command=lambda: self.modifier_salle(salle), height=35,
+                                      command=lambda: self.modifier_salle(salles), height=35,
                                       border_color=THEME["border_color"], border_width=2)
             edit_btn.pack(side="left", padx=PADDING_MEDIUM, fill="x", expand=True)
         except FileNotFoundError:
             edit_btn = ctk.CTkButton(btn_frame, text="Modifier", font=FONT_PRIMARY,
                                       fg_color=THEME["header_bg"], hover_color=HOVER_COLOR, text_color=THEME["primary_text"],
-                                      command=lambda: self.modifier_salle(salle), height=35,
+                                      command=lambda: self.modifier_salle(salles), height=35,
                                       border_color=THEME["border_color"], border_width=2)
             edit_btn.pack(side="left", padx=PADDING_MEDIUM, fill="x", expand=True)
             print("Icône 'edit.png' non trouvée. Utilisation du texte par défaut.")
@@ -363,13 +362,13 @@ class SallesView(ctk.CTkFrame):
             delete_icon = ctk.CTkImage(Image.open(delete_icon_path), size=(20, 20))
             delete_btn = ctk.CTkButton(btn_frame, text="Supprimer", image=delete_icon, compound="left", font=FONT_PRIMARY,
                                         fg_color=THEME["header_bg"], hover_color=HOVER_COLOR, text_color=THEME["primary_text"],
-                                        command=lambda: self.supprimer_salle(salle), height=35,
+                                        command=lambda: self.supprimer_salle(salles), height=35,
                                         border_color=THEME["border_color"], border_width=2)
             delete_btn.pack(side="left", padx=PADDING_MEDIUM, fill="x", expand=True)
         except FileNotFoundError:
             delete_btn = ctk.CTkButton(btn_frame, text="Supprimer", font=FONT_PRIMARY,
                                         fg_color=THEME["header_bg"], hover_color=HOVER_COLOR, text_color=THEME["primary_text"],
-                                        command=lambda: self.supprimer_salle(salle), height=35,
+                                        command=lambda: self.supprimer_salle(salles), height=35,
                                         border_color=THEME["border_color"], border_width=2)
             delete_btn.pack(side="left", padx=PADDING_MEDIUM, fill="x", expand=True)
             print("Icône 'delete.png' non trouvée. Utilisation du texte par défaut.")
@@ -442,7 +441,7 @@ class SallesView(ctk.CTkFrame):
                 print("Icône 'classroom.png' non trouvée.")
             
             # Message principal
-            main_label = ctk.CTkLabel(placeholder_frame, text="Sélectionnez une salle",
+            main_label = ctk.CTkLabel(placeholder_frame, text="Sélectionnez une salles",
                                      font=FONT_HERO, text_color=THEME["primary_text"])
             main_label.pack(pady=PADDING_MEDIUM)
             
@@ -452,7 +451,7 @@ class SallesView(ctk.CTkFrame):
             subtitle_label.pack(pady=PADDING_MEDIUM)
             
             # Message informatif
-            info_label = ctk.CTkLabel(placeholder_frame, text="Cliquez sur une salle dans la liste à gauche",
+            info_label = ctk.CTkLabel(placeholder_frame, text="Cliquez sur une salles dans la liste à gauche",
                                      font=FONT_PRIMARY, text_color=THEME["secondary_text"])
             info_label.pack(pady=PADDING_MEDIUM)
             
@@ -468,18 +467,18 @@ class SallesView(ctk.CTkFrame):
         self.clear_details_panel()
 
     def ajouter_salle(self):
-        """Ouvre le formulaire d'ajout de salle."""
+        """Ouvre le formulaire d'ajout de salles."""
         self._ouvrir_formulaire("Ajouter")
 
     def modifier_salle(self, salle_data):
-        """Ouvre le formulaire de modification de salle."""
+        """Ouvre le formulaire de modification de salles."""
         self._ouvrir_formulaire("Modifier", salle_data)
 
     def supprimer_salle(self, salle_data):
-        """Supprime une salle après confirmation."""
-        if messagebox.askyesno("Confirmation", f"Voulez-vous vraiment supprimer la salle « {salle_data['nom_salle']} » ?"):
+        """Supprime une salles après confirmation."""
+        if messagebox.askyesno("Confirmation", f"Voulez-vous vraiment supprimer la salles « {salle_data['nom_salle']} » ?"):
             if self.salle_controller.delete_salle(salle_data['id_salle']):
-                messagebox.showinfo("Succès", f"La salle '{salle_data['nom_salle']}' a été supprimée.")
+                messagebox.showinfo("Succès", f"La salles '{salle_data['nom_salle']}' a été supprimée.")
                 self.refresh_salles_view()
 
     def _ouvrir_formulaire(self, mode, data=None):
@@ -490,7 +489,7 @@ class SallesView(ctk.CTkFrame):
 
 # --- Composants réutilisables (Reusable Components) ---
 class SalleListItem(ctk.CTkFrame):
-    """Un élément de liste cliquable pour une salle avec design moderne."""
+    """Un élément de liste cliquable pour une salles avec design moderne."""
     def __init__(self, parent, salle_data, command):
         super().__init__(parent, fg_color=THEME["card_bg"], height=60, corner_radius=12, 
                          border_color=THEME["border_color"], border_width=1)
@@ -502,7 +501,7 @@ class SalleListItem(ctk.CTkFrame):
         main_frame = ctk.CTkFrame(self, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=INTERNAL_PADDING_MEDIUM, pady=INTERNAL_PADDING_MEDIUM)
 
-        # Icône selon le type de salle
+        # Icône selon le type de salles
         try:
             if salle_data['type_salle'] == "Amphithéâtre":
                 icon_name = "stacks.png"
@@ -520,11 +519,11 @@ class SalleListItem(ctk.CTkFrame):
         except FileNotFoundError:
             print(f"Icône '{icon_name}' non trouvée.")
 
-        # Informations de la salle
+        # Informations de la salles
         info_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         info_frame.pack(side="left", fill="both", expand=True)
 
-        # Nom de la salle
+        # Nom de la salles
         self.name_label = ctk.CTkLabel(info_frame, text=salle_data['nom_salle'], font=FONT_CARD_TITLE, 
                                        text_color=THEME["primary_text"], anchor="w")
         self.name_label.pack(side="left", fill="x", expand=True)
@@ -572,7 +571,7 @@ class SalleListItem(ctk.CTkFrame):
         self.configure(fg_color=THEME["card_bg"], border_color=THEME["border_color"], border_width=1)
 
 class SalleForm(ctk.CTkToplevel):
-    """Fenêtre modale pour ajouter ou modifier une salle."""
+    """Fenêtre modale pour ajouter ou modifier une salles."""
     def __init__(self, parent, mode, data=None):
         super().__init__(parent)
         self.parent = parent
@@ -630,8 +629,8 @@ class SalleForm(ctk.CTkToplevel):
         fields_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
         fields_frame.pack(fill="x", padx=INTERNAL_PADDING_LARGE, pady=INTERNAL_PADDING_MEDIUM)
 
-        # Nom de la salle
-        nom_label = ctk.CTkLabel(fields_frame, text="Nom de la salle", 
+        # Nom de la salles
+        nom_label = ctk.CTkLabel(fields_frame, text="Nom de la salles", 
                                 font=FONT_SUBTITLE, text_color=THEME["primary_text"])
         nom_label.pack(anchor="w", pady=(0, INTERNAL_PADDING_SMALL//2))
         
@@ -652,8 +651,8 @@ class SalleForm(ctk.CTkToplevel):
         self.capacite_entry.pack(fill="x", pady=(0, INTERNAL_PADDING_SMALL))
         if self.data: self.capacite_entry.insert(0, self.data['capacite'])
 
-        # Type de salle
-        type_label = ctk.CTkLabel(fields_frame, text="Type de salle", 
+        # Type de salles
+        type_label = ctk.CTkLabel(fields_frame, text="Type de salles", 
                                  font=FONT_SUBTITLE, text_color=THEME["primary_text"])
         type_label.pack(anchor="w", pady=(0, INTERNAL_PADDING_SMALL//2))
         
@@ -726,7 +725,7 @@ class SalleForm(ctk.CTkToplevel):
         statut = self.statut_optionmenu.get()
 
         if not nom_salle:
-            messagebox.showerror("Erreur de saisie", "Le nom de la salle est obligatoire.")
+            messagebox.showerror("Erreur de saisie", "Le nom de la salles est obligatoire.")
             return
         if not capacite or not capacite.isdigit() or int(capacite) <= 0:
             messagebox.showerror("Erreur de saisie", "La capacité doit être un nombre entier positif.")
@@ -735,10 +734,10 @@ class SalleForm(ctk.CTkToplevel):
         try:
             if self.mode == "Ajouter":
                 if salle_controller.add_salle(nom_salle, int(capacite), type_salle, equipements, statut):
-                    messagebox.showinfo("Succès", f"La salle '{nom_salle}' a été ajoutée avec succès.")
+                    messagebox.showinfo("Succès", f"La salles '{nom_salle}' a été ajoutée avec succès.")
             else: # mode == "Modifier"
                 if salle_controller.update_salle(self.data['id_salle'], nom_salle, int(capacite), type_salle, equipements, statut):
-                    messagebox.showinfo("Succès", f"La salle '{nom_salle}' a été mise à jour avec succès.")
+                    messagebox.showinfo("Succès", f"La salles '{nom_salle}' a été mise à jour avec succès.")
             
             self.parent.refresh_salles_view()
             self.destroy()

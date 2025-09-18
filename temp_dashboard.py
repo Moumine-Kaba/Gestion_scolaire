@@ -106,18 +106,18 @@ def fetch_effectifs_par_classe(limit: int = 10):
     try:
         cur = conn.cursor()
         cur.execute("""
-            SELECT c.nom_classe AS classe, COUNT(e.id_eleve) AS nb
+            SELECT c.nom_classe AS classes, COUNT(e.id_eleve) AS nb
             FROM classes c
             LEFT JOIN eleves e ON e.id_classe = c.id_classe
             GROUP BY c.id_classe, c.nom_classe
-            ORDER BY nb DESC, classe ASC
+            ORDER BY nb DESC, classes ASC
             LIMIT ?
         """, (limit,))
         rows = cur.fetchall()
         out = []
         for r in rows:
             if isinstance(r, sqlite3.Row):
-                out.append((r["classe"], int(r["nb"] or 0)))
+                out.append((r["classes"], int(r["nb"] or 0)))
             else:
                 out.append((r[0], int(r[1] or 0)))
         return out
@@ -261,7 +261,7 @@ def draw_vertical_gradient_bar(cnv, x, y, w, h, base_color, steps=28, radius=6):
 
 # =================== MAPPING ICONES / ACTIONS =====================
 ICON_MAP = {
-    "dashboard": "home", "eleves": "eleve", "utilisateurs": "group",
+    "dashboard": "home", "eleves": "eleves", "utilisateurs": "group",
     "person": "person", "classes": "class", "profs": "person",
     "salles": "classroom", "logout": "logout", "presences": "check",
     "notes": "grade", "bulletins": "stats", "paiements": "transfer",
@@ -495,10 +495,10 @@ def calculate_real_averages():
             
         # Calculer les moyennes par matiÃ¨re
             cur.execute("""
-            SELECT m.nom_matiere, AVG(n.note) as moyenne
+            SELECT m.nom_matiere, AVG(n.notes) as moyenne
                 FROM notes n
                 JOIN matieres m ON n.id_matiere = m.id_matiere
-                WHERE n.note IS NOT NULL AND n.note > 0
+                WHERE n.notes IS NOT NULL AND n.notes > 0
                 GROUP BY m.id_matiere, m.nom_matiere
                 ORDER BY moyenne DESC
                 LIMIT 6
@@ -507,7 +507,7 @@ def calculate_real_averages():
             results = cur.fetchall()
             
             if not results:
-            print("âš ï¸ Aucune note trouvÃ©e, utilisation des donnÃ©es par dÃ©faut")
+            print("âš ï¸ Aucune notes trouvÃ©e, utilisation des donnÃ©es par dÃ©faut")
                 return default_labels, default_points
             
             labels = []

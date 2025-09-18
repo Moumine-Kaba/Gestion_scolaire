@@ -1,9 +1,12 @@
-import sqlite3
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+# Remplacé par SQL Server  # Remplacé par SQL Server
 DB_PATH = "database/edumanager.db"
 
 def get_all_bibliotheques():
     """Retourne tous les livres/documents de la bibliothèque."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM bibliotheque ORDER BY id DESC")
     rows = cur.fetchall()
@@ -11,7 +14,7 @@ def get_all_bibliotheques():
     return rows
 
 def add_bibliotheque(titre, auteur, type, annee):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO bibliotheque (titre, auteur, type, annee)
@@ -21,7 +24,7 @@ def add_bibliotheque(titre, auteur, type, annee):
     conn.close()
 
 def update_bibliotheque(id, titre, auteur, type, annee):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         UPDATE bibliotheque
@@ -32,7 +35,7 @@ def update_bibliotheque(id, titre, auteur, type, annee):
     conn.close()
 
 def delete_bibliotheque(id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM bibliotheque WHERE id=?", (id,))
     conn.commit()

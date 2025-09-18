@@ -1,8 +1,11 @@
-import sqlite3
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+# Remplacé par SQL Server  # Remplacé par SQL Server
 DB_PATH = "database/edumanager.db"
 
 def get_all_bulletins(eleve_id=None):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     if eleve_id:
         cur.execute("""
@@ -17,7 +20,7 @@ def get_all_bulletins(eleve_id=None):
     return rows
 
 def add_bulletin(eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO bulletins (eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition)
@@ -27,7 +30,7 @@ def add_bulletin(eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_ed
     conn.close()
 
 def update_bulletin(bulletin_id, eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         UPDATE bulletins SET eleve_id=?, annee_scolaire=?, trimestre=?, moyenne=?, remarque=?, date_edition=?
@@ -37,7 +40,7 @@ def update_bulletin(bulletin_id, eleve_id, annee_scolaire, trimestre, moyenne, r
     conn.close()
 
 def delete_bulletin(bulletin_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM bulletins WHERE id=?", (bulletin_id,))
     conn.commit()

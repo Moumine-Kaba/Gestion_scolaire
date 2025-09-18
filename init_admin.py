@@ -9,7 +9,7 @@ def init_admin():
     prenom = 'Admin'
     nom = 'User'
     telephone = '0000000000'
-    role = 'admin'
+    roles = 'admin'
     niveau = None
 
     conn = sqlite3.connect(db_path)
@@ -19,9 +19,9 @@ def init_admin():
     cursor.execute("DELETE FROM utilisateurs WHERE nom_utilisateur = ?", (username,))
 
     cursor.execute("""
-        INSERT INTO utilisateurs (nom_utilisateur, prenom, nom, email, telephone, mot_de_passe, role, niveau)
+        INSERT INTO utilisateurs (nom_utilisateur, prenom, nom, email, telephone, mot_de_passe, roles, niveau)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (username, prenom, nom, email, telephone, password, role, niveau))
+    """, (username, prenom, nom, email, telephone, password, roles, niveau))
 
     conn.commit()
     conn.close()

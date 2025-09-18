@@ -41,8 +41,8 @@ def debug_rbac_system():
         cursor.execute("SELECT * FROM rbac_roles")
         roles = cursor.fetchall()
         print(f"👥 Rôles disponibles: {len(roles)}")
-        for role in roles:
-            print(f"  - {role[1]} (ID: {role[0]})")
+        for roles in roles:
+            print(f"  - {roles[1]} (ID: {roles[0]})")
         
         # Vérifier les utilisateurs
         cursor.execute("SELECT id_utilisateur, nom_utilisateur, nom, prenom FROM utilisateurs")
@@ -75,8 +75,8 @@ def debug_rbac_system():
         test_views = ["dashboard", "eleves", "paiements", "utilisateurs", "presences"]
         for view in test_views:
             can_access = rbac.can_access_view(comptable_id, view)
-            permission = rbac.get_view_permission_level(comptable_id, view)
-            print(f"  {view}: Accès={can_access}, Permission={permission.name}")
+            permissions = rbac.get_view_permission_level(comptable_id, view)
+            print(f"  {view}: Accès={can_access}, Permission={permissions.name}")
         
         # 3. Tester le RBACViewManager
         print("\n🎯 TEST DU RBACViewManager")
@@ -98,8 +98,8 @@ def debug_rbac_system():
         print(f"\n🔍 PERMISSIONS DU RÔLE COMPTABLE")
         if user_role:
             print(f"Permissions du rôle '{user_role.name}':")
-            for view, permission in user_role.permissions.items():
-                print(f"  {view}: {permission.name}")
+            for view, permissions in user_role.permissions.items():
+                print(f"  {view}: {permissions.name}")
         
         return True
         

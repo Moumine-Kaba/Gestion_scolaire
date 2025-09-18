@@ -1,8 +1,11 @@
-import sqlite3
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+# Remplacé par SQL Server  # Remplacé par SQL Server
 DB_PATH = "database/edumanager.db"
 
 def get_all_maintenances():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT id, objet, description, statut, date_signalement FROM maintenances ORDER BY date_signalement DESC")
     rows = cur.fetchall()
@@ -10,7 +13,7 @@ def get_all_maintenances():
     return rows
 
 def add_maintenance(objet, description, statut, date_signalement):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO maintenances (objet, description, statut, date_signalement)
@@ -20,7 +23,7 @@ def add_maintenance(objet, description, statut, date_signalement):
     conn.close()
 
 def update_maintenance(maintenance_id, objet, description, statut, date_signalement):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         UPDATE maintenances 
@@ -31,7 +34,7 @@ def update_maintenance(maintenance_id, objet, description, statut, date_signalem
     conn.close()
 
 def delete_maintenance(maintenance_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM maintenances WHERE id=?", (maintenance_id,))
     conn.commit()

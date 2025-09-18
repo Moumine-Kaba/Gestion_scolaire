@@ -7,13 +7,16 @@ Module de gestion des permissions pour EduManager+
 Gère les permissions et leur attribution aux rôles.
 """
 
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import os
 from typing import Dict, List, Optional, Set
 from datetime import datetime
 
 class Permission:
-    """Représente une permission dans le système"""
+    """Représente une permissions dans le système"""
     
     def __init__(self, id_permission: int, nom_permission: str, description: str = "", 
                  resource: str = "", action: str = ""):
@@ -42,7 +45,7 @@ class PermissionManager:
     def _init_permission_tables(self):
         """Initialise les tables des permissions"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Table des permissions
@@ -67,7 +70,7 @@ class PermissionManager:
     def _create_default_permissions(self):
         """Crée les permissions par défaut"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Permissions par défaut
@@ -141,9 +144,9 @@ class PermissionManager:
             print(f"❌ Erreur création permissions par défaut: {e}")
     
     def get_permission_by_name(self, nom_permission: str) -> Optional[Permission]:
-        """Récupère une permission par son nom"""
+        """Récupère une permissions par son nom"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -161,13 +164,13 @@ class PermissionManager:
             return None
             
         except Exception as e:
-            print(f"❌ Erreur récupération permission: {e}")
+            print(f"❌ Erreur récupération permissions: {e}")
             return None
     
     def get_all_permissions(self) -> List[Permission]:
         """Récupère toutes les permissions"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -192,7 +195,7 @@ class PermissionManager:
     def get_permissions_by_resource(self, resource: str) -> List[Permission]:
         """Récupère les permissions pour une ressource donnée"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -217,9 +220,9 @@ class PermissionManager:
     
     def create_permission(self, nom_permission: str, description: str = "", 
                          resource: str = "", action: str = "") -> bool:
-        """Crée une nouvelle permission"""
+        """Crée une nouvelle permissions"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -233,16 +236,16 @@ class PermissionManager:
             return True
             
         except Exception as e:
-            print(f"❌ Erreur création permission: {e}")
+            print(f"❌ Erreur création permissions: {e}")
             return False
     
     def delete_permission(self, nom_permission: str) -> bool:
-        """Supprime une permission"""
+        """Supprime une permissions"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Vérifier si la permission est utilisée
+            # Vérifier si la permissions est utilisée
             cursor.execute('''
                 SELECT COUNT(*) FROM role_permissions 
                 WHERE permission_id = (SELECT id_permission FROM permissions WHERE nom_permission = ?)
@@ -250,7 +253,7 @@ class PermissionManager:
             count = cursor.fetchone()[0]
             
             if count > 0:
-                print(f"❌ Impossible de supprimer la permission '{nom_permission}' car elle est utilisée par {count} rôle(s)")
+                print(f"❌ Impossible de supprimer la permissions '{nom_permission}' car elle est utilisée par {count} rôle(s)")
                 conn.close()
                 return False
             
@@ -261,14 +264,14 @@ class PermissionManager:
             return True
             
         except Exception as e:
-            print(f"❌ Erreur suppression permission: {e}")
+            print(f"❌ Erreur suppression permissions: {e}")
             return False
     
     def update_permission(self, nom_permission: str, description: str = None, 
                          resource: str = None, action: str = None) -> bool:
-        """Met à jour une permission"""
+        """Met à jour une permissions"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Construire la requête de mise à jour dynamiquement
@@ -302,6 +305,6 @@ class PermissionManager:
             return True
             
         except Exception as e:
-            print(f"❌ Erreur mise à jour permission: {e}")
+            print(f"❌ Erreur mise à jour permissions: {e}")
             return False
 

@@ -14,6 +14,9 @@ Fonctionnalités :
 - Compatible avec l'architecture existante
 """
 
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import threading
 import time
 import queue
@@ -21,7 +24,7 @@ from typing import Dict, List, Any, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from enum import Enum
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
 import os
 
 class Priority(Enum):
@@ -153,15 +156,10 @@ class IntelligentPreloader:
     def _connect_db(self):
         """Connexion optimisée à la base de données"""
         db_path = "database/edumanager.db"
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
+        conn = get_db_connection()
+        # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
         
         # Optimisations SQLite
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        conn.execute("PRAGMA temp_store=MEMORY")
-        conn.execute("PRAGMA cache_size=-50000")
-        
         return conn
     
     def _load_all_eleves(self) -> List[Dict[str, Any]]:
@@ -174,7 +172,6 @@ class IntelligentPreloader:
                     e.prenom,
                     e.genre,
                     e.date_naissance,
-                    e.lieu_naissance,
                     e.adresse,
                     e.telephone,
                     e.email,
@@ -184,12 +181,12 @@ class IntelligentPreloader:
                     c.nom as classe_nom,
                     c.niveau as classe_niveau,
                     COUNT(n.id_note) as nb_notes,
-                    COALESCE(AVG(n.note), 0) as moyenne_generale
+                    COALESCE(AVG(n.notes), 0) as moyenne_generale
                 FROM eleves e
                 LEFT JOIN classes c ON e.id_classe = c.id_classe
                 LEFT JOIN notes n ON e.id_eleve = n.id_eleve
                 GROUP BY e.id_eleve, e.nom, e.prenom, e.genre, e.date_naissance, 
-                         e.lieu_naissance, e.adresse, e.telephone, e.email, 
+                         e.adresse, e.telephone, e.email, 
                          e.statut, e.date_inscription, e.id_classe, c.nom, c.niveau
                 ORDER BY e.nom, e.prenom
             """)
@@ -203,16 +200,15 @@ class IntelligentPreloader:
                     c.id_classe,
                     c.nom,
                     c.niveau,
-                    c.capacite,
                     c.statut,
                     COUNT(e.id_eleve) as effectif,
                     COUNT(CASE WHEN e.statut = 'actif' THEN 1 END) as eleves_actifs,
                     COUNT(CASE WHEN e.statut = 'inactif' THEN 1 END) as eleves_inactifs,
-                    COALESCE(AVG(n.note), 0) as moyenne_generale
+                    COALESCE(AVG(n.notes), 0) as moyenne_generale
                 FROM classes c
                 LEFT JOIN eleves e ON c.id_classe = e.id_classe
                 LEFT JOIN notes n ON e.id_eleve = n.id_eleve
-                GROUP BY c.id_classe, c.nom, c.niveau, c.capacite, c.statut
+                GROUP BY c.id_classe, c.nom, c.niveau, c.statut
                 ORDER BY c.niveau, c.nom
             """)
             return [dict(row) for row in cursor.fetchall()]
@@ -288,9 +284,9 @@ class IntelligentPreloader:
             cursor = conn.execute("""
                 SELECT 
                     COUNT(*) as total_notes,
-                    AVG(note) as moyenne_generale,
-                    MIN(note) as note_min,
-                    MAX(note) as note_max,
+                    AVG(notes) as moyenne_generale,
+                    MIN(notes) as note_min,
+                    MAX(notes) as note_max,
                     COUNT(DISTINCT id_eleve) as eleves_avec_notes,
                     COUNT(DISTINCT id_matiere) as matieres_evaluees
                 FROM notes
@@ -320,7 +316,7 @@ class IntelligentPreloader:
             notes_stats = conn.execute("""
                 SELECT 
                     COUNT(*) as total_notes,
-                    AVG(note) as moyenne_generale
+                    AVG(notes) as moyenne_generale
                 FROM notes
             """).fetchone()
             
@@ -348,7 +344,7 @@ class IntelligentPreloader:
                     (SELECT COUNT(*) FROM classes WHERE statut = 'actif') as classes_actives,
                     (SELECT COUNT(*) FROM professeurs WHERE statut = 'actif') as professeurs_actifs,
                     (SELECT COUNT(*) FROM notes) as total_notes,
-                    (SELECT AVG(note) FROM notes) as moyenne_generale,
+                    (SELECT AVG(notes) FROM notes) as moyenne_generale,
                     (SELECT COUNT(*) FROM cours WHERE statut = 'termine') as cours_termines,
                     (SELECT COUNT(DISTINCT matiere_id) FROM matieres) as matieres_uniques
             """)
@@ -426,14 +422,7 @@ class IntelligentPreloader:
         
         self.stats['cache_misses'] += 1
         return None
-    
-    def preload_critical_data(self):
-        """Précharge uniquement les données critiques"""
-        critical_tasks = [task for task in self.preload_tasks.values() 
-                         if task.priority == Priority.CRITICAL]
-        
-        print("🚀 Préchargement des données critiques...")
-        
+
         for task in critical_tasks:
             try:
                 start_time = time.time()
@@ -478,35 +467,6 @@ def stop_intelligent_preloading():
     preloader = get_preloader()
     preloader.stop_preloading()
 
-def preload_critical_data():
-    """Précharge les données critiques"""
-    preloader = get_preloader()
-    preloader.preload_critical_data()
-
-def get_preloaded_data(data_name: str) -> Optional[Any]:
-    """Récupère les données préchargées"""
-    preloader = get_preloader()
-    return preloader.get_data(data_name)
-
-def get_preloader_stats() -> Dict[str, Any]:
-    """Retourne les statistiques du préchargeur"""
-    preloader = get_preloader()
-    return preloader.get_stats()
-
-# ===== INTÉGRATION AVEC LES VUES =====
-
-def get_eleves_data() -> List[Dict[str, Any]]:
-    """Récupère les données des élèves (préchargées ou en temps réel)"""
-    data = get_preloaded_data('eleves_all')
-    if data is not None:
-        return data
-    
-    # Fallback vers le contrôleur
-    try:
-        from src.modules.academic.students.controllers.eleve_controller import get_all_eleves
-        return get_all_eleves()
-    except Exception as e:
-        print(f"⚠️ Erreur fallback élèves: {e}")
         return []
 
 def get_classes_data() -> List[Dict[str, Any]]:
@@ -552,7 +512,7 @@ if __name__ == "__main__":
     print("🧪 Test du système de préchargement intelligent...")
     
     # Précharger les données critiques
-    preload_critical_data()
+    # preload_critical_data()  # Supprimé - système de cache supprimé
     
     # Tester l'accès aux données
     eleves = get_eleves_data()

@@ -1,5 +1,8 @@
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import os
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
 from datetime import datetime
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
@@ -56,8 +59,8 @@ STATUTS = ["Présent", "Absent", "Retard", "Justifié"]
 
 # Database and utility functions (unchanged)
 def _connect():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_db_connection()
+    # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
     return conn
 
 def get_all_classes():
@@ -67,14 +70,14 @@ def get_all_classes():
 
 def get_all_eleves(classe_id, search_term="", statut_filter=None, date=None):
     with _connect() as c:
-        q = "SELECT e.id, e.nom, e.prenom, e.email_parent FROM eleves e WHERE e.classe_id=?"
+        q = "SELECT e.id_eleve, e.nom, e.prenom, e.email FROM eleves e WHERE e.id_classe=?"
         p = [classe_id]
         if search_term:
             pat = f"%{search_term}%"
             q += " AND (e.nom LIKE ? OR e.prenom LIKE ?)"
             p += [pat, pat]
         if statut_filter and statut_filter != "Tous" and date:
-            q += " AND e.id IN (SELECT eleve_id FROM presence WHERE classe_id=? AND statut=? AND date=?)"
+            q += " AND e.id IN (SELECT eleve_id FROM presences WHERE classe_id=? AND statut=? AND date=?)"
             p += [classe_id, statut_filter, date]
         q += " ORDER BY e.nom, e.prenom"
         return [dict(r) for r in c.execute(q, p).fetchall()]
@@ -82,8 +85,8 @@ def get_all_eleves(classe_id, search_term="", statut_filter=None, date=None):
 def get_presence_for_date_and_class(classe_id, date):
     with _connect() as c:
         r = c.execute("""
-            SELECT eleve_id, statut, commentaire, justificatif_path
-            FROM presence
+            SELECT eleve_id, statut, commentaire
+            FROM presences
             WHERE classe_id=? AND date=?
         """, (classe_id, date)).fetchall()
         return {row["eleve_id"]: dict(row) for row in r}
@@ -91,25 +94,25 @@ def get_presence_for_date_and_class(classe_id, date):
 def add_presence(eleve_id, classe_id, date, statut, commentaire, justificatif_path=None):
     with _connect() as c:
         c.execute("""
-            INSERT INTO presence (eleve_id, classe_id, date, statut, commentaire, justificatif_path)
-            VALUES (?,?,?,?,?,?)
-        """, (eleve_id, classe_id, date, statut, commentaire, justificatif_path))
+            INSERT INTO presences (eleve_id, classe_id, date, statut, commentaire)
+            VALUES (?,?,?,?,?)
+        """, (eleve_id, classe_id, date, statut, commentaire))
         c.commit()
 
 def update_presence(eleve_id, classe_id, date, statut, commentaire, justificatif_path=None):
     with _connect() as c:
         c.execute("""
-            UPDATE presence
-            SET statut=?, commentaire=?, justificatif_path=?
+            UPDATE presences
+            SET statut=?, commentaire=?
             WHERE eleve_id=? AND classe_id=? AND date=?
-        """, (statut, commentaire, justificatif_path, eleve_id, classe_id, date))
+        """, (statut, commentaire, eleve_id, classe_id, date))
         c.commit()
 
 def get_student_history(eleve_id):
     with _connect() as c:
         return c.execute("""
-            SELECT p.date, p.statut, p.commentaire, p.justificatif_path, e.prenom, e.nom
-            FROM presence p JOIN eleves e ON p.eleve_id=e.id
+            SELECT p.date, p.statut, p.commentaire, e.prenom, e.nom
+            FROM presences p JOIN eleves e ON p.eleve_id=e.id
             WHERE p.eleve_id=? ORDER BY p.date DESC
         """, (eleve_id,)).fetchall()
 
@@ -117,7 +120,7 @@ def get_monthly_attendance_data(classe_id, year, month):
     with _connect() as c:
         return c.execute("""
             SELECT e.prenom, e.nom, p.statut, p.date, p.commentaire
-            FROM presence p JOIN eleves e ON p.eleve_id=e.id
+            FROM presences p JOIN eleves e ON p.eleve_id=e.id
             WHERE p.classe_id=? AND strftime('%Y',p.date)=? AND strftime('%m',p.date)=?
             ORDER BY e.nom, e.prenom, p.date
         """, (classe_id, year, month)).fetchall()
@@ -126,7 +129,7 @@ def get_monthly_status_counts(classe_id, year, month):
     with _connect() as c:
         rows = c.execute("""
             SELECT statut, COUNT(*) c
-            FROM presence
+            FROM presences
             WHERE classe_id=? AND strftime('%Y',date)=? AND strftime('%m',date)=?
             GROUP BY statut
         """, (classe_id, year, month)).fetchall()
@@ -141,8 +144,8 @@ def get_unjustified_absences_count(eleve_id):
     with _connect() as c:
         r = c.execute("""
             SELECT COUNT(*) c
-            FROM presence
-            WHERE eleve_id=? AND statut='Absent' AND (justificatif_path IS NULL OR justificatif_path='')
+            FROM presences
+            WHERE eleve_id=? AND statut='Absent' AND commentaire IS NULL
         """, (eleve_id,)).fetchone()
         return r[0]
 
@@ -245,7 +248,7 @@ class PresenceView(ctk.CTkFrame):
         # Header for the master panel
         header_frame = ctk.CTkFrame(master_panel, fg_color="transparent")
         header_frame.pack(fill="x", padx=20, pady=(20, 10))
-        ctk.CTkLabel(header_frame, text="Sélectionner une classe et une date", font=F_SUB, text_color=THEME["primary_text"]).pack(anchor="w")
+        ctk.CTkLabel(header_frame, text="Sélectionner une classes et une date", font=F_SUB, text_color=THEME["primary_text"]).pack(anchor="w")
 
         # Controls
         controls_frame = ctk.CTkFrame(master_panel, fg_color="transparent")
@@ -311,7 +314,7 @@ class PresenceView(ctk.CTkFrame):
         p = self.pres_map.get(eleve_id, {})
         statut = p.get("statut") or "Présent"
         commentaire = p.get("commentaire", "")
-        justificatif = p.get("justificatif_path", "")
+        justificatif = p.get("commentaire", "")
         
         header_frame = ctk.CTkFrame(self.detail_panel, fg_color="transparent")
         header_frame.pack(fill="x", padx=20, pady=(20, 10))
@@ -365,11 +368,11 @@ class PresenceView(ctk.CTkFrame):
                       fg_color=THEME["error_red"], text_color=THEME["bg_main"], hover_color="#e55252", command=lambda: self._render_detail_for(eleve_id)).pack(side="left", padx=5)
 
     def _reload(self):
-        classe = self.cb_class.get()
-        if not classe:
+        classes = self.cb_class.get()
+        if not classes:
             return
             
-        self.selected_classe_id = self._classe_name_to_id.get(classe)
+        self.selected_classe_id = self._classe_name_to_id.get(classes)
         date_str = self.ent_date.get().strip()
         self.pres_map = get_presence_for_date_and_class(self.selected_classe_id, date_str) if date_str else {}
         self.eleves = get_all_eleves(self.selected_classe_id,
@@ -466,7 +469,7 @@ class PresenceView(ctk.CTkFrame):
 
     def _apply_one(self, eleve_id, statut, commentaire, path):
         if not self.selected_classe_id:
-            messagebox.showwarning("Attention", "Sélectionnez une classe.")
+            messagebox.showwarning("Attention", "Sélectionnez une classes.")
             return
         
         date_str = self.ent_date.get().strip()
@@ -491,10 +494,10 @@ class PresenceView(ctk.CTkFrame):
 
     def _report_pdf(self):
         if not self.selected_classe_id:
-            messagebox.showwarning("Attention", "Sélectionnez une classe.")
+            messagebox.showwarning("Attention", "Sélectionnez une classes.")
             return
             
-        classe = self.cb_class.get()
+        classes = self.cb_class.get()
         y = datetime.now().strftime("%Y")
         m = datetime.now().strftime("%m")
         month_name = datetime.now().strftime("%B")
@@ -507,7 +510,7 @@ class PresenceView(ctk.CTkFrame):
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", 'B', 16)
-        pdf.cell(200, 10, txt=f"Rapport de présence - {classe} ({month_name} {y})", ln=True, align='C')
+        pdf.cell(200, 10, txt=f"Rapport de présence - {classes} ({month_name} {y})", ln=True, align='C')
         pdf.ln(6)
         
         pdf.set_font("Arial", 'B', 11)
@@ -524,7 +527,7 @@ class PresenceView(ctk.CTkFrame):
             pdf.cell(0, 8, (r['commentaire'] or "")[:80], 1, ln=True)
             
         path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")],
-                                             initialfile=f"Rapport_Presences_{classe}_{y}_{m}.pdf")
+                                             initialfile=f"Rapport_Presences_{classes}_{y}_{m}.pdf")
         if path:
             pdf.output(path)
             messagebox.showinfo("PDF", f"Rapport sauvegardé : {path}")
@@ -553,10 +556,10 @@ class PresenceView(ctk.CTkFrame):
             ctk.CTkLabel(line, text=r["statut"], width=110, font=F_BOLD, text_color=THEME["accent_blue"]).pack(side="left")
             ctk.CTkLabel(line, text=r["commentaire"] or "-", font=F_TXT, text_color=THEME["primary_text"]).pack(side="left", padx=10)
             
-            if r["justificatif_path"]:
+            if r["commentaire"]:
                 ctk.CTkButton(line, text="Ouvrir", width=70,
                               fg_color=THEME["accent_blue"], text_color=THEME["bg_main"],
-                              command=lambda p=r["justificatif_path"]: os.startfile(p)).pack(side="right", padx=8)
+                              command=lambda p=r["commentaire"]: print(f"Justificatif: {p}")).pack(side="right", padx=8)
 
 if __name__ == "__main__":
     app = App()

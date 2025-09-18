@@ -95,13 +95,6 @@ class ViewPreloader:
         """Enregistre une factory pour créer une vue"""
         self._view_factories[view_key] = factory_func
         print(f"📝 Factory enregistrée: {view_key}")
-    
-    def preload_view(self, view_key: str, priority: ViewLoadPriority = ViewLoadPriority.MEDIUM, 
-                    *args, **kwargs):
-        """Programme le préchargement d'une vue"""
-        if view_key not in self._view_factories:
-            print(f"⚠️ Factory non trouvée pour: {view_key}")
-            return False
         
         # Vérifier si déjà dans le pool
         if view_key in self._view_pool:
@@ -192,19 +185,7 @@ class ViewPreloader:
                 "avg_loading_time": f"{avg_loading_time:.2f}s"
             }
         }
-    
-    def preload_critical_views(self):
-        """Précharge les vues critiques au démarrage"""
-        critical_views = [
-            ("classes", ViewLoadPriority.CRITICAL),
-            ("cours", ViewLoadPriority.CRITICAL),
-            ("notes", ViewLoadPriority.CRITICAL),
-            ("eleves", ViewLoadPriority.HIGH),
-            ("profs", ViewLoadPriority.HIGH),
-        ]
-        
-        print("🚀 Préchargement des vues critiques...")
-        
+
         for view_key, priority in critical_views:
             if view_key in self._view_factories:
                 self.preload_view(view_key, priority)

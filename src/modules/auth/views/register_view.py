@@ -69,7 +69,7 @@ class RegisterView(ctk.CTkToplevel):
         row = 0
         
         # Username
-        self.create_field(content, "Nom d'utilisateur *", self.username_var, row, 0, "Entrez votre nom d'utilisateur")
+        self.create_field(content, "Nom d'utilisateurs *", self.username_var, row, 0, "Entrez votre nom d'utilisateurs")
         # Email
         self.create_field(content, "Email *", self.email_var, row, 1, "votre@email.com")
         
@@ -139,7 +139,7 @@ class RegisterView(ctk.CTkToplevel):
         entry.grid(row=row*2+1, column=column, sticky="ew", pady=(0, 16))
         
         # Stocker la référence pour le focus
-        if label_text == "Nom d'utilisateur *":
+        if label_text == "Nom d'utilisateurs *":
             self.username_entry = entry
         elif label_text == "Email *":
             self.email_entry = entry
@@ -196,7 +196,7 @@ class RegisterView(ctk.CTkToplevel):
         """Valide le formulaire d'inscription"""
         # Vérifier les champs obligatoires
         required_fields = {
-            "Nom d'utilisateur": self.username_var.get().strip(),
+            "Nom d'utilisateurs": self.username_var.get().strip(),
             "Email": self.email_var.get().strip(),
             "Prénom": self.prenom_var.get().strip(),
             "Nom": self.nom_var.get().strip(),
@@ -228,16 +228,16 @@ class RegisterView(ctk.CTkToplevel):
             self.email_entry.focus()
             return False
         
-        # Vérifier la longueur du nom d'utilisateur
+        # Vérifier la longueur du nom d'utilisateurs
         if len(self.username_var.get()) < 3:
-            messagebox.showerror("Erreur", "Le nom d'utilisateur doit contenir au moins 3 caractères")
+            messagebox.showerror("Erreur", "Le nom d'utilisateurs doit contenir au moins 3 caractères")
             self.username_entry.focus()
             return False
         
         return True
 
     def register(self, event=None):
-        """Traite l'inscription de l'utilisateur"""
+        """Traite l'inscription de l'utilisateurs"""
         if not self.validate_form():
             return
         
@@ -246,7 +246,7 @@ class RegisterView(ctk.CTkToplevel):
         self.update()
         
         try:
-            # Créer l'utilisateur
+            # Créer l'utilisateurs
             success = self.auth_manager.create_user_simple(
                 username=self.username_var.get().strip(),
                 password=self.password_var.get(),
@@ -259,13 +259,13 @@ class RegisterView(ctk.CTkToplevel):
             if success:
                 messagebox.showinfo("Succès", 
                     f"Compte créé avec succès !\n\n"
-                    f"Nom d'utilisateur: {self.username_var.get().strip()}\n"
+                    f"Nom d'utilisateurs: {self.username_var.get().strip()}\n"
                     f"Vous pouvez maintenant vous connecter avec vos identifiants.")
                 
                 # Fermer la fenêtre d'inscription
                 self.close_window()
             else:
-                messagebox.showerror("Erreur", "Impossible de créer le compte. Vérifiez que le nom d'utilisateur et l'email ne sont pas déjà utilisés.")
+                messagebox.showerror("Erreur", "Impossible de créer le compte. Vérifiez que le nom d'utilisateurs et l'email ne sont pas déjà utilisés.")
                 
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur lors de la création du compte: {str(e)}")
@@ -282,7 +282,7 @@ if __name__ == "__main__":
         # Créer un AuthManager factice pour les tests
         class MockAuthManager:
             def create_user_simple(self, **kwargs):
-                print(f"Mock: Création utilisateur {kwargs}")
+                print(f"Mock: Création utilisateurs {kwargs}")
                 return True
         
         app = RegisterView(MockAuthManager())

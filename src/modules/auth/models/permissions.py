@@ -5,7 +5,10 @@ Système de Gestion des Permissions et Vues
 EduManager+ - Gestion Scolaire
 """
 
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import os
 from typing import List, Dict, Optional, Set
 from enum import Enum
@@ -33,7 +36,7 @@ class ViewType(Enum):
     PAIEMENTS = "paiements"
 
 class PermissionLevel(Enum):
-    """Niveaux de permission pour les vues"""
+    """Niveaux de permissions pour les vues"""
     NONE = "none"           # Pas d'accès
     READ = "read"           # Lecture seule
     WRITE = "write"         # Lecture + Écriture
@@ -113,7 +116,7 @@ class ModulePermission(Enum):
     SYSTEM_MAINTENANCE = "system_maintenance"
 
 class ViewPermission:
-    """Classe représentant une permission de vue"""
+    """Classe représentant une permissions de vue"""
     def __init__(self, view_name: str, permission_level: PermissionLevel):
         self.view_name = view_name
         self.permission_level = permission_level
@@ -134,17 +137,17 @@ class PermissionManager:
     def _init_permissions_table(self):
         """Initialise la table des permissions de vues"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with get_db_connection() as conn:
                 cursor = conn.cursor()
                 
                 # Table des permissions de vues par rôle
                 cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS role_view_permissions (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CREATE TABLE role_view_permissions (
+                        id INT IDENTITY(1,1) PRIMARY KEY,
                         role_id INTEGER NOT NULL,
-                        view_name TEXT NOT NULL,
-                        permission_level TEXT NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        view_name NVARCHAR(255) NOT NULL,
+                        permission_level NVARCHAR(255) NOT NULL,
+                        created_at DATETIME DEFAULT GETDATE(),
                         FOREIGN KEY (role_id) REFERENCES roles (id_role) ON DELETE CASCADE,
                         UNIQUE(role_id, view_name)
                     )
@@ -152,14 +155,14 @@ class PermissionManager:
                 
                 # Table des permissions détaillées par module
                 cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS role_module_permissions (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CREATE TABLE role_module_permissions (
+                        id INT IDENTITY(1,1) PRIMARY KEY,
                         role_id INTEGER NOT NULL,
-                        module TEXT NOT NULL,
-                        permission TEXT NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        module NVARCHAR(255) NOT NULL,
+                        permissions NVARCHAR(255) NOT NULL,
+                        created_at DATETIME DEFAULT GETDATE(),
                         FOREIGN KEY (role_id) REFERENCES roles (id_role) ON DELETE CASCADE,
-                        UNIQUE(role_id, module, permission)
+                        UNIQUE(role_id, module, permissions)
                     )
                 ''')
                 
@@ -171,7 +174,7 @@ class PermissionManager:
     def _create_default_view_permissions(self):
         """Crée les permissions par défaut pour chaque rôle"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with get_db_connection() as conn:
                 cursor = conn.cursor()
                 
                 # Récupérer tous les rôles
@@ -324,7 +327,7 @@ class PermissionManager:
                                     VALUES (?, ?, ?)
                                 ''', (role_id, view_name, permission_level))
                             except Exception as e:
-                                print(f"⚠️ Erreur permission {role_name} -> {view_name}: {e}")
+                                print(f"⚠️ Erreur permissions {role_name} -> {view_name}: {e}")
                 
                 conn.commit()
                 print("✅ Permissions par défaut créées")
@@ -332,12 +335,12 @@ class PermissionManager:
             print(f"❌ Erreur création permissions par défaut: {e}")
 
     def get_user_view_permissions(self, user_id: int) -> Dict[str, str]:
-        """Récupère les permissions de vues d'un utilisateur"""
+        """Récupère les permissions de vues d'un utilisateurs"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with get_db_connection() as conn:
                 cursor = conn.cursor()
                 
-                # Récupérer les rôles de l'utilisateur et leurs permissions
+                # Récupérer les rôles de l'utilisateurs et leurs permissions
                 cursor.execute('''
                     SELECT DISTINCT vp.view_name, vp.permission_level
                     FROM role_view_permissions vp
@@ -348,13 +351,13 @@ class PermissionManager:
                 
                 permissions = {}
                 for view_name, permission_level in cursor.fetchall():
-                    # Si l'utilisateur a plusieurs rôles, prendre le plus élevé
+                    # Si l'utilisateurs a plusieurs rôles, prendre le plus élevé
                     if view_name not in permissions or self._is_higher_permission(permission_level, permissions[view_name]):
                         permissions[view_name] = permission_level
                 
                 return permissions
         except Exception as e:
-            print(f"❌ Erreur récupération permissions utilisateur: {e}")
+            print(f"❌ Erreur récupération permissions utilisateurs: {e}")
             return {}
 
     def _is_higher_permission(self, perm1: str, perm2: str) -> bool:
@@ -369,7 +372,7 @@ class PermissionManager:
         return levels.get(perm1, 0) > levels.get(perm2, 0)
 
     def can_access_view(self, user_id: int, view_name: str) -> bool:
-        """Vérifie si un utilisateur peut accéder à une vue"""
+        """Vérifie si un utilisateurs peut accéder à une vue"""
         try:
             permissions = self.get_user_view_permissions(user_id)
             return permissions.get(view_name, PermissionLevel.NONE.value) != PermissionLevel.NONE.value
@@ -378,16 +381,16 @@ class PermissionManager:
             return False
 
     def get_view_permission_level(self, user_id: int, view_name: str) -> str:
-        """Récupère le niveau de permission d'un utilisateur pour une vue"""
+        """Récupère le niveau de permissions d'un utilisateurs pour une vue"""
         try:
             permissions = self.get_user_view_permissions(user_id)
             return permissions.get(view_name, PermissionLevel.NONE.value)
         except Exception as e:
-            print(f"❌ Erreur récupération niveau permission: {e}")
+            print(f"❌ Erreur récupération niveau permissions: {e}")
             return PermissionLevel.NONE.value
 
     def can_perform_action(self, user_id: int, view_name: str, action: str) -> bool:
-        """Vérifie si un utilisateur peut effectuer une action spécifique"""
+        """Vérifie si un utilisateurs peut effectuer une action spécifique"""
         try:
             permission_level = self.get_view_permission_level(user_id, view_name)
             
@@ -406,9 +409,9 @@ class PermissionManager:
             return False
 
     def get_user_role_name(self, user_id: int) -> str:
-        """Récupère le nom du rôle principal d'un utilisateur"""
+        """Récupère le nom du rôle principal d'un utilisateurs"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with get_db_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
                     SELECT r.nom FROM roles r
@@ -419,11 +422,11 @@ class PermissionManager:
                 result = cursor.fetchone()
                 return result[0] if result else "Utilisateur"
         except Exception as e:
-            print(f"❌ Erreur récupération rôle utilisateur: {e}")
+            print(f"❌ Erreur récupération rôle utilisateurs: {e}")
             return "Utilisateur"
 
     def get_accessible_views_for_user(self, user_id: int) -> List[str]:
-        """Récupère la liste des vues accessibles pour un utilisateur"""
+        """Récupère la liste des vues accessibles pour un utilisateurs"""
         try:
             permissions = self.get_user_view_permissions(user_id)
             return [view for view, level in permissions.items() if level != PermissionLevel.NONE.value]
@@ -432,7 +435,7 @@ class PermissionManager:
             return []
 
     def get_views_with_permission_level(self, user_id: int, min_level: str) -> List[str]:
-        """Récupère les vues où l'utilisateur a au moins le niveau de permission spécifié"""
+        """Récupère les vues où l'utilisateurs a au moins le niveau de permissions spécifié"""
         try:
             permissions = self.get_user_view_permissions(user_id)
             min_level_value = {
@@ -458,14 +461,14 @@ class PermissionManager:
             return []
 
     def get_user_permissions_summary(self, user_id: int) -> Dict[str, any]:
-        """Récupère un résumé complet des permissions d'un utilisateur"""
+        """Récupère un résumé complet des permissions d'un utilisateurs"""
         try:
             permissions = self.get_user_view_permissions(user_id)
             role_name = self.get_user_role_name(user_id)
             accessible_views = self.get_accessible_views_for_user(user_id)
             
             return {
-                "role": role_name,
+                "roles": role_name,
                 "total_views": len(permissions),
                 "accessible_views": len(accessible_views),
                 "permissions": permissions,

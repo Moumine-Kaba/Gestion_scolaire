@@ -38,27 +38,27 @@ try:
     # Test d'ajout (simulation)
     test_nom = "Salle Test"
     test_capacite = 25
-    test_type = "Salle de classe"
+    test_type = "Salle de classes"
     test_equipements = "Tableau, Projecteur"
     test_statut = "Disponible"
     
     result = controller.add_salle(test_nom, test_capacite, test_type, test_equipements, test_statut)
-    print(f"✅ Ajout de salle: {'OK' if result else 'Échec'}")
+    print(f"✅ Ajout de salles: {'OK' if result else 'Échec'}")
     
-    # Vérifier que la salle a été ajoutée
+    # Vérifier que la salles a été ajoutée
     salles_apres = controller.get_all_salles()
     print(f"✅ Nombre de salles après ajout: {len(salles_apres)}")
     
-    # Trouver la salle ajoutée et la supprimer
+    # Trouver la salles ajoutée et la supprimer
     salle_ajoutee = None
-    for salle in salles_apres:
-        if salle['nom_salle'] == test_nom:
-            salle_ajoutee = salle
+    for salles in salles_apres:
+        if salles['nom_salle'] == test_nom:
+            salle_ajoutee = salles
             break
     
     if salle_ajoutee:
         result_delete = controller.delete_salle(salle_ajoutee['id_salle'])
-        print(f"✅ Suppression de salle: {'OK' if result_delete else 'Échec'}")
+        print(f"✅ Suppression de salles: {'OK' if result_delete else 'Échec'}")
     
     # Vérifier le nombre final
     salles_final = controller.get_all_salles()

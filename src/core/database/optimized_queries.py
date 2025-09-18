@@ -6,7 +6,10 @@ Système de requêtes optimisées avec procédures stockées pour EduManager+
 - Index automatiques pour les requêtes fréquentes
 """
 
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import time
 import json
 from typing import Dict, List, Any, Optional
@@ -28,12 +31,7 @@ class OptimizedQueryManager:
     
     def _initialize_optimizations(self):
         """Initialise les optimisations de base de données"""
-        conn = sqlite3.connect(self.db_path)
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        conn.execute("PRAGMA temp_store=MEMORY")
-        conn.execute("PRAGMA cache_size=10000")
-        
+        conn = get_db_connection()
         try:
             # Créer les index pour les requêtes fréquentes
             self._create_performance_indexes(conn)
@@ -51,15 +49,14 @@ class OptimizedQueryManager:
     def _create_performance_indexes(self, conn):
         """Crée les index pour optimiser les performances"""
         # Vérifier d'abord quelles tables existent
-        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        cursor = conn.execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES")
         existing_tables = [row[0] for row in cursor.fetchall()]
         
         indexes = []
         
         # Index pour les élèves (si la table existe)
         if 'eleves' in existing_tables:
-            cursor = conn.execute("PRAGMA table_info(eleves)")
-            eleves_columns = [row[1] for row in cursor.fetchall()]
+            cursor = eleves_columns = [row[1] for row in cursor.fetchall()]
             
             if 'classe_id' in eleves_columns:
                 indexes.append("CREATE INDEX IF NOT EXISTS idx_eleves_classe_id ON eleves(classe_id)")
@@ -68,8 +65,7 @@ class OptimizedQueryManager:
         
         # Index pour les classes (si la table existe)
         if 'classes' in existing_tables:
-            cursor = conn.execute("PRAGMA table_info(classes)")
-            classes_columns = [row[1] for row in cursor.fetchall()]
+            cursor = classes_columns = [row[1] for row in cursor.fetchall()]
             
             if 'nom' in classes_columns:
                 indexes.append("CREATE INDEX IF NOT EXISTS idx_classes_nom ON classes(nom)")
@@ -78,8 +74,7 @@ class OptimizedQueryManager:
         
         # Index pour les matières (si la table existe)
         if 'matieres' in existing_tables:
-            cursor = conn.execute("PRAGMA table_info(matieres)")
-            matieres_columns = [row[1] for row in cursor.fetchall()]
+            cursor = matieres_columns = [row[1] for row in cursor.fetchall()]
             
             if 'nom' in matieres_columns:
                 indexes.append("CREATE INDEX IF NOT EXISTS idx_matieres_nom ON matieres(nom)")
@@ -88,8 +83,7 @@ class OptimizedQueryManager:
         
         # Index pour les notes (si la table existe)
         if 'notes' in existing_tables:
-            cursor = conn.execute("PRAGMA table_info(notes)")
-            notes_columns = [row[1] for row in cursor.fetchall()]
+            cursor = notes_columns = [row[1] for row in cursor.fetchall()]
             
             if 'eleve_id' in notes_columns:
                 indexes.append("CREATE INDEX IF NOT EXISTS idx_notes_eleve_id ON notes(eleve_id)")
@@ -100,8 +94,7 @@ class OptimizedQueryManager:
         
         # Index pour les cours (si la table existe)
         if 'cours' in existing_tables:
-            cursor = conn.execute("PRAGMA table_info(cours)")
-            cours_columns = [row[1] for row in cursor.fetchall()]
+            cursor = cours_columns = [row[1] for row in cursor.fetchall()]
             
             if 'classe_id' in cours_columns:
                 indexes.append("CREATE INDEX IF NOT EXISTS idx_cours_classe_id ON cours(classe_id)")
@@ -112,8 +105,7 @@ class OptimizedQueryManager:
         
         # Index pour les professeurs (si la table existe)
         if 'professeurs' in existing_tables:
-            cursor = conn.execute("PRAGMA table_info(professeurs)")
-            profs_columns = [row[1] for row in cursor.fetchall()]
+            cursor = profs_columns = [row[1] for row in cursor.fetchall()]
             
             if 'nom' in profs_columns:
                 indexes.append("CREATE INDEX IF NOT EXISTS idx_professeurs_nom ON professeurs(nom)")
@@ -154,9 +146,9 @@ class OptimizedQueryManager:
                 e.prenom,
                 c.nom as classe_nom,
                 COUNT(n.id) as nb_notes,
-                AVG(n.note) as moyenne,
-                MIN(n.note) as note_min,
-                MAX(n.note) as note_max
+                AVG(n.notes) as moyenne,
+                MIN(n.notes) as note_min,
+                MAX(n.notes) as note_max
             FROM eleves e
             LEFT JOIN classes c ON e.classe_id = c.id
             LEFT JOIN notes n ON e.id = n.eleve_id
@@ -202,13 +194,12 @@ class OptimizedQueryManager:
                     return cached_data
         
         # Requête adaptative selon la structure de la base
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = get_db_connection()
+        # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
         
         try:
             # Vérifier la structure de la table eleves
-            cursor = conn.execute("PRAGMA table_info(eleves)")
-            eleves_columns = [row[1] for row in cursor.fetchall()]
+            cursor = eleves_columns = [row[1] for row in cursor.fetchall()]
             
             if not eleves_columns:
                 print("⚠️ Table eleves n'existe pas")
@@ -225,7 +216,7 @@ class OptimizedQueryManager:
             if 'classe_id' in eleves_columns:
                 select_fields.append("classe_id")
                 # Vérifier si la table classes existe
-                cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='classes'")
+                cursor = conn.execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='classes'")
                 if cursor.fetchone():
                     join_clause = "LEFT JOIN classes c ON eleves.classe_id = c.id_classe"
                     select_fields.extend(["c.nom as classe_nom", "c.niveau as classe_niveau"])
@@ -267,13 +258,12 @@ class OptimizedQueryManager:
                     return cached_data
         
         # Requête optimisée avec vue
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = get_db_connection()
+        # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
         
         try:
             # Vérifier la structure de la table classes
-            cursor = conn.execute("PRAGMA table_info(classes)")
-            classes_columns = [row[1] for row in cursor.fetchall()]
+            cursor = classes_columns = [row[1] for row in cursor.fetchall()]
             
             if not classes_columns:
                 print("⚠️ Table classes n'existe pas")
@@ -325,13 +315,12 @@ class OptimizedQueryManager:
                     return cached_data
         
         # Requête optimisée
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = get_db_connection()
+        # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
         
         try:
             # Vérifier la structure de la table matieres
-            cursor = conn.execute("PRAGMA table_info(matieres)")
-            matieres_columns = [row[1] for row in cursor.fetchall()]
+            cursor = matieres_columns = [row[1] for row in cursor.fetchall()]
             
             if not matieres_columns:
                 print("⚠️ Table matieres n'existe pas")
@@ -348,7 +337,7 @@ class OptimizedQueryManager:
             if 'classe_id' in matieres_columns:
                 select_fields.append("classe_id")
                 # Vérifier si la table classes existe
-                cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='classes'")
+                cursor = conn.execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='classes'")
                 if cursor.fetchone():
                     join_clause = "LEFT JOIN classes c ON matieres.classe_id = c.id_classe"
                     select_fields.append("c.nom as classe_nom")
@@ -390,14 +379,14 @@ class OptimizedQueryManager:
                     return cached_data
         
         # Requête optimisée
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = get_db_connection()
+        # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
         
         try:
             cursor = conn.execute("""
                 SELECT 
                     n.id,
-                    n.note,
+                    n.notes,
                     n.date_note,
                     n.type_evaluation,
                     n.coefficient,
@@ -437,8 +426,8 @@ class OptimizedQueryManager:
                     return cached_data
         
         # Requête optimisée avec vue
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = get_db_connection()
+        # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
         
         try:
             cursor = conn.execute("""

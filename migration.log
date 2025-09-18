@@ -1,0 +1,72 @@
+2025-09-18 12:26:13,559 - INFO - Test des connexions...
+2025-09-18 12:26:13,560 - INFO - Connexion à la base de données établie: database\edumanager.db
+2025-09-18 12:26:13,561 - INFO - Test de connexion réussi
+2025-09-18 12:26:13,652 - ERROR - Erreur de connexion à SQL Server: (pyodbc.InterfaceError) ('28000', "[28000] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]Login failed for user 'sa'. (18456) (SQLDriverConnect); [28000] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]Login failed for user 'sa'. (18456)")
+(Background on this error at: https://sqlalche.me/e/20/rvf5)
+2025-09-18 12:26:13,667 - ERROR - Erreur lors du test de connexion: [DB_ERROR] Opération 'connect': Impossible de se connecter à SQL Server
+2025-09-18 12:26:13,667 - ERROR - Impossible de se connecter à SQL Server
+2025-09-18 12:26:13,668 - INFO - Connexion à la base de données fermée
+2025-09-18 12:26:13,669 - INFO - Connexion à SQL Server fermée
+2025-09-18 12:26:27,762 - INFO - Test des connexions...
+2025-09-18 12:26:27,764 - INFO - Connexion à la base de données établie: database\edumanager.db
+2025-09-18 12:26:27,764 - INFO - Test de connexion réussi
+2025-09-18 12:26:28,157 - INFO - Connexion à SQL Server établie: ./EduManager
+2025-09-18 12:26:28,159 - INFO - Test de connexion SQL Server réussi
+2025-09-18 12:26:28,162 - INFO - Création des tables dans SQL Server...
+2025-09-18 12:26:28,264 - INFO - Base de données 'EduManager' existe déjà
+2025-09-18 12:26:28,416 - INFO - Début de la migration des données...
+2025-09-18 12:26:28,417 - ERROR - Erreur lors de l'exécution de la requête multiple: List argument must consist only of dictionaries
+2025-09-18 12:26:28,417 - ERROR - Erreur lors de la migration de la table 'professeurs': [DB_ERROR] Opération 'execute_many': Erreur lors de l'exécution de la requête multiple
+2025-09-18 12:26:28,418 - ERROR - Échec de la migration de la table 'professeurs'
+2025-09-18 12:26:28,421 - INFO - Connexion à la base de données fermée
+2025-09-18 12:26:28,421 - INFO - Connexion à SQL Server fermée
+2025-09-18 12:26:40,731 - INFO - Test des connexions...
+2025-09-18 12:26:40,732 - INFO - Connexion à la base de données établie: database\edumanager.db
+2025-09-18 12:26:40,733 - INFO - Test de connexion réussi
+2025-09-18 12:26:40,798 - INFO - Connexion à SQL Server établie: ./EduManager
+2025-09-18 12:26:40,800 - INFO - Test de connexion SQL Server réussi
+2025-09-18 12:26:40,804 - INFO - Création des tables dans SQL Server...
+2025-09-18 12:26:40,814 - INFO - Base de données 'EduManager' existe déjà
+2025-09-18 12:26:40,826 - ERROR - Erreur lors de l'exécution de la requête: (pyodbc.ProgrammingError) ('42S01', "[42S01] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]There is already an object named 'professeurs' in the database. (2714) (SQLExecDirectW)")
+[SQL: 
+                CREATE TABLE professeurs (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
+                    nom NVARCHAR(255) NOT NULL,
+                    prenom NVARCHAR(255) NOT NULL,
+                    sexe NVARCHAR(10),
+                    telephone NVARCHAR(20),
+                    email NVARCHAR(255),
+                    specialite NVARCHAR(255),
+                    photo_path NVARCHAR(500),
+                    date_embauche DATE
+                )
+            ]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+2025-09-18 12:26:40,872 - INFO - Connexion à la base de données fermée
+2025-09-18 12:26:40,873 - INFO - Connexion à SQL Server fermée
+2025-09-18 12:26:52,996 - INFO - Test des connexions...
+2025-09-18 12:26:52,998 - INFO - Connexion à la base de données établie: database\edumanager.db
+2025-09-18 12:26:52,998 - INFO - Test de connexion réussi
+2025-09-18 12:26:54,291 - INFO - Connexion à SQL Server établie: ./EduManager
+2025-09-18 12:26:54,293 - INFO - Test de connexion SQL Server réussi
+2025-09-18 12:26:54,296 - INFO - Création des tables dans SQL Server...
+2025-09-18 12:26:54,404 - INFO - Base de données 'EduManager' existe déjà
+2025-09-18 12:26:54,412 - ERROR - Erreur lors de la récupération d'une ligne: List argument must consist only of dictionaries
+2025-09-18 12:26:54,412 - ERROR - Erreur lors de la vérification de l'existence de la table: [DB_ERROR] Opération 'fetch_one': Erreur lors de la récupération d'une ligne
+2025-09-18 12:26:54,431 - ERROR - Erreur lors de l'exécution de la requête: (pyodbc.ProgrammingError) ('42S01', "[42S01] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]There is already an object named 'professeurs' in the database. (2714) (SQLExecDirectW)")
+[SQL: 
+                CREATE TABLE professeurs (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
+                    nom NVARCHAR(255) NOT NULL,
+                    prenom NVARCHAR(255) NOT NULL,
+                    sexe NVARCHAR(10),
+                    telephone NVARCHAR(20),
+                    email NVARCHAR(255),
+                    specialite NVARCHAR(255),
+                    photo_path NVARCHAR(500),
+                    date_embauche DATE
+                )
+            ]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+2025-09-18 12:26:54,446 - INFO - Connexion à la base de données fermée
+2025-09-18 12:26:54,446 - INFO - Connexion à SQL Server fermée

@@ -73,7 +73,7 @@ def update_classes_table():
         
         print("\n📚 Répartition par niveau:")
         for niveau, count in niveaux:
-            print(f"   {niveau}: {count} classe(s)")
+            print(f"   {niveau}: {count} classes(s)")
         
         conn.close()
         print("\n🎉 Mise à jour terminée avec succès!")

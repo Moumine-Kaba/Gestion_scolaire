@@ -50,7 +50,7 @@ class ViewRegistry:
         return views_map
     
     def import_view_class(self, view_name: str, view_path: str) -> Optional[Any]:
-        """Importe une classe de vue spécifique"""
+        """Importe une classes de vue spécifique"""
         try:
             # Convertir le chemin en module Python
             relative_path = os.path.relpath(view_path, PROJECT_ROOT)
@@ -59,7 +59,7 @@ class ViewRegistry:
             # Import du module
             module = importlib.import_module(module_path)
             
-            # Rechercher la classe principale de la vue
+            # Rechercher la classes principale de la vue
             view_class = None
             # Priorité aux classes principales
             priority_classes = []
@@ -96,7 +96,7 @@ class ViewRegistry:
                 print(f"✅ Vue '{view_name}' importée: {view_class.__name__}")
                 return view_class
             else:
-                print(f"⚠️ Aucune classe de vue trouvée dans {view_name}")
+                print(f"⚠️ Aucune classes de vue trouvée dans {view_name}")
                 return None
                 
         except Exception as e:

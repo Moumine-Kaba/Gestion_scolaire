@@ -3,8 +3,11 @@ Vue de la Messagerie Interne
 Système de communication entre professeurs, élèves et administration
 """
 
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import customtkinter as ctk
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
 from datetime import datetime
 from tkinter import messagebox
 
@@ -12,9 +15,9 @@ from tkinter import messagebox
 from resources.themes.theme import *
 
 class MessagerieView(ctk.CTkFrame):
-    def __init__(self, parent, utilisateur):
+    def __init__(self, parent, utilisateurs):
         super().__init__(parent, fg_color="transparent")
-        self.utilisateur = utilisateur
+        self.utilisateurs = utilisateurs
         self.current_conversation = None
         
         # Créer la table des messages si elle n'existe pas
@@ -26,7 +29,7 @@ class MessagerieView(ctk.CTkFrame):
     def _init_database(self):
         """Initialise la base de données pour les messages"""
         try:
-            conn = sqlite3.connect("database/edumanager.db")
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Table des conversations
@@ -47,7 +50,7 @@ class MessagerieView(ctk.CTkFrame):
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     conversation_id INTEGER,
                     user_id INTEGER,
-                    role TEXT,
+                    roles TEXT,
                     date_ajout DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (conversation_id) REFERENCES conversations (id)
                 )
@@ -212,17 +215,17 @@ class MessagerieView(ctk.CTkFrame):
             widget.destroy()
         
         try:
-            conn = sqlite3.connect("database/edumanager.db")
+            conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Récupérer les conversations où l'utilisateur est participant
+            # Récupérer les conversations où l'utilisateurs est participant
             cursor.execute("""
                 SELECT DISTINCT c.id, c.sujet, c.derniere_activite, c.type_conversation
                 FROM conversations c
                 JOIN conversation_participants cp ON c.id = cp.conversation_id
                 WHERE cp.user_id = ? AND c.is_active = 1
                 ORDER BY c.derniere_activite DESC
-            """, (self.utilisateur.get('id', 1),))
+            """, (self.utilisateurs.get('id', 1),))
             
             conversations = cursor.fetchall()
             conn.close()
@@ -299,7 +302,7 @@ class MessagerieView(ctk.CTkFrame):
             widget.destroy()
         
         try:
-            conn = sqlite3.connect("database/edumanager.db")
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Récupérer les messages
@@ -336,7 +339,7 @@ class MessagerieView(ctk.CTkFrame):
         msg_id, sender_id, contenu, date_envoi, is_lu = msg
         
         # Déterminer si c'est notre message
-        is_own_message = sender_id == self.utilisateur.get('id', 1)
+        is_own_message = sender_id == self.utilisateurs.get('id', 1)
         
         # Conteneur du message
         msg_container = ctk.CTkFrame(
@@ -396,7 +399,7 @@ class MessagerieView(ctk.CTkFrame):
             widget.destroy()
         
         try:
-            conn = sqlite3.connect("database/edumanager.db")
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Récupérer les infos de la conversation
@@ -445,14 +448,14 @@ class MessagerieView(ctk.CTkFrame):
             return
         
         try:
-            conn = sqlite3.connect("database/edumanager.db")
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Insérer le message
             cursor.execute("""
                 INSERT INTO messages (conversation_id, sender_id, contenu)
                 VALUES (?, ?, ?)
-            """, (self.current_conversation, self.utilisateur.get('id', 1), message_text))
+            """, (self.current_conversation, self.utilisateurs.get('id', 1), message_text))
             
             # Mettre à jour la dernière activité
             cursor.execute("""
@@ -554,7 +557,7 @@ class MessagerieView(ctk.CTkFrame):
                 return
             
             try:
-                conn = sqlite3.connect("database/edumanager.db")
+                conn = get_db_connection()
                 cursor = conn.cursor()
                 
                 # Créer la conversation
@@ -565,11 +568,11 @@ class MessagerieView(ctk.CTkFrame):
                 
                 conv_id = cursor.lastrowid
                 
-                # Ajouter l'utilisateur comme participant
+                # Ajouter l'utilisateurs comme participant
                 cursor.execute("""
-                    INSERT INTO conversation_participants (conversation_id, user_id, role)
+                    INSERT INTO conversation_participants (conversation_id, user_id, roles)
                     VALUES (?, ?, ?)
-                """, (conv_id, self.utilisateur.get('id', 1), self.utilisateur.get('role', 'Utilisateur')))
+                """, (conv_id, self.utilisateurs.get('id', 1), self.utilisateurs.get('roles', 'Utilisateur')))
                 
                 conn.commit()
                 conn.close()

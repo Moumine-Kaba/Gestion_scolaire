@@ -1,8 +1,11 @@
-import sqlite3
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+# Remplacé par SQL Server  # Remplacé par SQL Server
 DB_PATH = "database/edumanager.db"
 
 def get_all_notifications():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM notifications ORDER BY date DESC")
     rows = cur.fetchall()
@@ -10,7 +13,7 @@ def get_all_notifications():
     return rows
 
 def add_notification(contenu, date, utilisateur_id, lu=0):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO notifications (contenu, date, utilisateur_id, lu)
@@ -20,7 +23,7 @@ def add_notification(contenu, date, utilisateur_id, lu=0):
     conn.close()
 
 def update_notification(notification_id, contenu, date, utilisateur_id, lu):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         UPDATE notifications SET contenu=?, date=?, utilisateur_id=?, lu=?
@@ -30,7 +33,7 @@ def update_notification(notification_id, contenu, date, utilisateur_id, lu):
     conn.close()
 
 def delete_notification(notification_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM notifications WHERE id=?", (notification_id,))
     conn.commit()

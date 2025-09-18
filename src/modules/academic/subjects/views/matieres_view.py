@@ -28,8 +28,8 @@ except ImportError as e:
     ERROR_RED = "#DC2626"
     WARNING_YELLOW = "#D97706"
 
-    def load_ctk_icon(icon_name, size=(22, 22)):
-    """Charge une icône depuis le pack utilisateur"""
+def load_ctk_icon(icon_name, size=(22, 22)):
+    """Charge une icône depuis le pack utilisateurs"""
     try:
         # Chemin absolu vers les icônes depuis la racine du projet
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -43,7 +43,7 @@ except ImportError as e:
             return icon
     except Exception as e:
         print(f"⚠️ Erreur chargement icône {icon_name}: {e}")
-            return None
+        return None
 
 class MatieresView(ctk.CTkFrame):
     """Vue des matières avec design EduManager+ magnifique"""
@@ -149,7 +149,6 @@ class MatieresView(ctk.CTkFrame):
                                 corner_radius=12, height=45, width=45,
                                 border_width=2, border_color=BORDER_COLOR)
         clear_btn.pack(side="right")
-        
 
     def _build_stats_section(self):
         """Section statistiques magnifique avec boutons d'action"""
@@ -312,7 +311,7 @@ class MatieresView(ctk.CTkFrame):
                                border_width=2, border_color=BORDER_COLOR)
         add_btn.pack(pady=(0, MARGIN_HERO))
 
-    def _create_matiere_card(self, matiere):
+    def _create_matiere_card(self, matieres):
         """Crée une carte de matière magnifique avec design amélioré"""
         # Carte principale avec design moderne amélioré
         card = ctk.CTkFrame(self.cards_area, fg_color=CARD_BG, corner_radius=24,
@@ -340,7 +339,7 @@ class MatieresView(ctk.CTkFrame):
             ctk.CTkLabel(icon_frame, text="", image=matiere_icon, fg_color="transparent").pack(expand=True)
         
         # Nom de la matière avec style amélioré
-        nom_matiere = matiere.get("nom_matiere", "Sans nom")
+        nom_matiere = matieres.get("nom_matiere", "Sans nom")
         title_label = ctk.CTkLabel(header_frame, text=nom_matiere,
                                  font=FONT_CARD_TITLE, text_color=TEXT_PRIMARY)
         title_label.pack(side="left", fill="x", expand=True)
@@ -362,7 +361,7 @@ class MatieresView(ctk.CTkFrame):
         if code_icon:
             ctk.CTkLabel(code_frame, text="", image=code_icon).pack(side="left", padx=(0, MARGIN_SMALL))
         
-        code_matiere = matiere.get("code_matiere", "") or "Aucun code"
+        code_matiere = matieres.get("code_matiere", "") or "Aucun code"
         code_label = ctk.CTkLabel(code_frame, text=f"Code: {code_matiere}",
                                  font=FONT_SECONDARY, text_color=TEXT_SECONDARY)
         code_label.pack(side="left")
@@ -375,7 +374,7 @@ class MatieresView(ctk.CTkFrame):
         edit_icon = load_ctk_icon("edit.png", (20, 20))
         edit_btn = ctk.CTkButton(actions_frame, text="", image=edit_icon,
                                 fg_color="transparent", text_color=TEXT_PRIMARY,
-                                hover_color=HOVER_WARNING, command=lambda m=matiere: self.modifier_matiere(m),
+                                hover_color=HOVER_WARNING, command=lambda m=matieres: self.modifier_matiere(m),
                                 corner_radius=12, height=40, width=40,
                                 border_width=2, border_color=BORDER_COLOR)
         edit_btn.pack(side="left", padx=(0, MARGIN_MEDIUM))
@@ -384,7 +383,7 @@ class MatieresView(ctk.CTkFrame):
         delete_icon = load_ctk_icon("delete.png", (20, 20))
         delete_btn = ctk.CTkButton(actions_frame, text="", image=delete_icon,
                                   fg_color="transparent", text_color=TEXT_PRIMARY,
-                                  hover_color=HOVER_ERROR, command=lambda mid=matiere.get("id_matiere"): self.supprimer_matiere(mid),
+                                  hover_color=HOVER_ERROR, command=lambda mid=matieres.get("id_matiere"): self.supprimer_matiere(mid),
                                   corner_radius=12, height=40, width=40,
                                   border_width=2, border_color=BORDER_COLOR)
         delete_btn.pack(side="left")

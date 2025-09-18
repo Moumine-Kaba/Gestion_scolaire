@@ -77,7 +77,7 @@ def load_ctk_icon(icon_name, size=(20, 20)):
 ICON_MAP = {
     "add": "add.png", "edit": "edit.png", "delete": "delete.png",
     "refresh": "refresh.png", "search": "search.png", "close": "close.png",
-    "student": "person.png", "subject": "book.png", "note": "assignment.png",
+    "student": "person.png", "subject": "book.png", "notes": "assignment.png",
     "date": "calendar.png", "export": "csv.png", "stats": "analytics.png",
     "grade": "grade.png", "class": "classroom.png", "sort": "sort.png"
 }
@@ -340,8 +340,8 @@ class NotesView(ctk.CTkFrame):
                           font=(FONT, FONT_SIZE_TEXT, "italic"),
                           text_color=TEXT_SECONDARY).pack(pady=15)
         
-        for eleve in filtered_eleves:
-            eleve_name = f"{eleve['nom']} {eleve['prenom']}"
+        for eleves in filtered_eleves:
+            eleve_name = f"{eleves['nom']} {eleves['prenom']}"
             
             # Créer un frame pour chaque élève avec icône
             eleve_frame = ctk.CTkFrame(self.eleve_list_frame, fg_color=BG_CARD, corner_radius=8)
@@ -359,9 +359,9 @@ class NotesView(ctk.CTkFrame):
             name_label.pack(side="left", fill="x", expand=True, padx=(0, 10), pady=8)
             
             # Rendre le frame cliquable
-            eleve_frame.bind("<Button-1>", lambda e, eleve=eleve: self.display_eleve_notes(eleve))
-            icon_label.bind("<Button-1>", lambda e, eleve=eleve: self.display_eleve_notes(eleve))
-            name_label.bind("<Button-1>", lambda e, eleve=eleve: self.display_eleve_notes(eleve))
+            eleve_frame.bind("<Button-1>", lambda e, eleves=eleves: self.display_eleve_notes(eleves))
+            icon_label.bind("<Button-1>", lambda e, eleves=eleves: self.display_eleve_notes(eleves))
+            name_label.bind("<Button-1>", lambda e, eleves=eleves: self.display_eleve_notes(eleves))
             
             # Effet de survol
             def on_enter(event, frame=eleve_frame):
@@ -473,14 +473,14 @@ class NotesView(ctk.CTkFrame):
             return
 
         df = pd.DataFrame(notes)
-        df.dropna(subset=['note', 'coefficient'], inplace=True)
+        df.dropna(subset=['notes', 'coefficient'], inplace=True)
 
         if not df.empty:
-            total_points = (df['note'] * df['coefficient']).sum()
+            total_points = (df['notes'] * df['coefficient']).sum()
             total_coeff = df['coefficient'].sum()
             moyenne_generale = total_points / total_coeff if total_coeff > 0 else 0
-            meilleure_note = df['note'].max()
-            pire_note = df['note'].min()
+            meilleure_note = df['notes'].max()
+            pire_note = df['notes'].min()
             nombre_notes = len(df)
         else:
             moyenne_generale = meilleure_note = pire_note = nombre_notes = 0
@@ -515,7 +515,7 @@ class NotesView(ctk.CTkFrame):
         df = pd.DataFrame(notes)
         df['date'] = pd.to_datetime(df['date_evaluation'], errors='coerce')
         df.sort_values(by='date', inplace=True)
-        df.dropna(subset=['date', 'note', 'coefficient'], inplace=True)
+        df.dropna(subset=['date', 'notes', 'coefficient'], inplace=True)
         
         fig, ax = plt.subplots(figsize=(6, 4), facecolor=BG_CARD)
         fig.patch.set_facecolor(BG_CARD)
@@ -524,11 +524,11 @@ class NotesView(ctk.CTkFrame):
             colors = plt.cm.viridis(np.linspace(0, 1, len(df['id_matiere'].unique())))
             for i, (matiere_id, group) in enumerate(df.groupby('id_matiere')):
                 matiere_nom = self.matieres.get(matiere_id, {}).get("nom", "Inconnue")
-                ax.plot(group['date'], group['note'], marker='o', linestyle='-', label=matiere_nom, color=colors[i])
+                ax.plot(group['date'], group['notes'], marker='o', linestyle='-', label=matiere_nom, color=colors[i])
             
             # Ajout de la moyenne mobile
             window_size = 3
-            df['rolling_avg'] = df['note'].rolling(window=window_size).mean()
+            df['rolling_avg'] = df['notes'].rolling(window=window_size).mean()
             ax.plot(df['date'], df['rolling_avg'], color='red', linestyle='--', label=f'Moyenne mobile ({window_size})', linewidth=2)
 
         ax.set_title("Évolution des notes", color=TEXT_PRIMARY, font=FONT, fontsize=FONT_SIZE_HEADER)
@@ -563,14 +563,14 @@ class NotesView(ctk.CTkFrame):
         data = [headers]
         
         # Ajouter les notes existantes
-        for note in notes:
-            matiere_nom = self.matieres.get(note.get("id_matiere"), {}).get("nom", "Inconnue")
+        for notes in notes:
+            matiere_nom = self.matieres.get(notes.get("id_matiere"), {}).get("nom", "Inconnue")
             data.append([
                 matiere_nom,
-                note.get("note"),
-                note.get("coefficient"),
-                note.get("date_evaluation"),
-                note.get("commentaire", "Aucun")
+                notes.get("notes"),
+                notes.get("coefficient"),
+                notes.get("date_evaluation"),
+                notes.get("commentaire", "Aucun")
             ])
         
         # Compléter avec des lignes vides pour avoir toujours 10 lignes de données
@@ -603,21 +603,21 @@ class NotesView(ctk.CTkFrame):
 
     def ajouter(self):
         if not self.selected_eleve_data:
-            messagebox.showwarning("Ajouter", "Sélectionnez d'abord un élève pour lui ajouter une note.")
+            messagebox.showwarning("Ajouter", "Sélectionnez d'abord un élève pour lui ajouter une notes.")
             return
         self.open_note_form("Ajouter")
 
     def modifier(self):
         if not self.selected_note_id:
-            messagebox.showwarning("Modifier", "Sélectionnez une note à modifier.")
+            messagebox.showwarning("Modifier", "Sélectionnez une notes à modifier.")
             return
         self.open_note_form("Modifier", self.selected_item_data)
 
     def supprimer(self):
         if not self.selected_note_id:
-            messagebox.showwarning("Supprimer", "Sélectionnez une note à supprimer.")
+            messagebox.showwarning("Supprimer", "Sélectionnez une notes à supprimer.")
             return
-        if messagebox.askyesno("Confirmer la suppression", f"Êtes-vous sûr de vouloir supprimer cette note ?"):
+        if messagebox.askyesno("Confirmer la suppression", f"Êtes-vous sûr de vouloir supprimer cette notes ?"):
             if delete_note(self.selected_note_id):
                 messagebox.showinfo("Succès", "Note supprimée avec succès.")
                 self.rafraichir_liste()
@@ -682,7 +682,7 @@ class NotesView(ctk.CTkFrame):
             if data.get("id_matiere") is not None and data["id_matiere"] in self.matieres:
                 matiere_info = self.matieres[data["id_matiere"]]
                 matiere_combo.set(f"{matiere_info['id']} - {matiere_info['nom']}")
-            note_entry.insert(0, str(data.get("note", "")))
+            note_entry.insert(0, str(data.get("notes", "")))
             coeff_entry.insert(0, str(data.get("coefficient", "1")))
             date_entry.insert(0, data.get("date_evaluation", ""))
             commentaire_text = data.get("commentaire", "")
@@ -705,7 +705,7 @@ class NotesView(ctk.CTkFrame):
                 note_data = {
                     "id_eleve": self.selected_eleve_data['id'],
                     "id_matiere": matiere_id,
-                    "note": note_value,
+                    "notes": note_value,
                     "coefficient": coefficient,
                     "date_evaluation": date_note,
                     "commentaire": commentaire
@@ -723,7 +723,7 @@ class NotesView(ctk.CTkFrame):
                 popup.destroy()
 
             except ValueError:
-                messagebox.showerror("Erreur", "La note et le coefficient doivent être des nombres.", parent=popup)
+                messagebox.showerror("Erreur", "La notes et le coefficient doivent être des nombres.", parent=popup)
             except Exception as e:
                 messagebox.showerror("Erreur", f"Une erreur s'est produite : {e}", parent=popup)
 
@@ -745,7 +745,7 @@ class NotesView(ctk.CTkFrame):
         eleve_id = self.selected_eleve_data.get("id")
         notes = get_notes_by_eleve(eleve_id)
         if not notes:
-            messagebox.showwarning("Exporter", "Aucune note à exporter pour cet élève.")
+            messagebox.showwarning("Exporter", "Aucune notes à exporter pour cet élève.")
             return
 
         file_path = filedialog.asksaveasfilename(
@@ -760,17 +760,17 @@ class NotesView(ctk.CTkFrame):
             with open(file_path, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
                 writer.writerow(["ID", "Élève", "Matière", "Note", "Coefficient", "Date", "Commentaire"])
-                for note in notes:
-                    eleve_name = f"{self.eleves.get(note['id_eleve'], {}).get('nom', 'Inconnu')} {self.eleves.get(note['id_eleve'], {}).get('prenom', '')}"
-                    matiere_name = self.matieres.get(note["id_matiere"], {}).get("nom", "Inconnue")
+                for notes in notes:
+                    eleve_name = f"{self.eleves.get(notes['id_eleve'], {}).get('nom', 'Inconnu')} {self.eleves.get(notes['id_eleve'], {}).get('prenom', '')}"
+                    matiere_name = self.matieres.get(notes["id_matiere"], {}).get("nom", "Inconnue")
                     writer.writerow([
-                        note.get("id_note"),
+                        notes.get("id_note"),
                         eleve_name,
                         matiere_name,
-                        note.get("note"),
-                        note.get("coefficient", 1),
-                        note.get("date_evaluation"),
-                        note.get("commentaire")
+                        notes.get("notes"),
+                        notes.get("coefficient", 1),
+                        notes.get("date_evaluation"),
+                        notes.get("commentaire")
                     ])
             messagebox.showinfo("Exporter", f"Les notes de l'élève ont été exportées avec succès dans {file_path}")
         except Exception as e:

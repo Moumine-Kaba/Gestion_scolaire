@@ -37,8 +37,8 @@ def test_rbac_system():
     expected_roles = ["Directeur", "Comptable", "Secrétaire", "Surveillant"]
     
     for role_name in expected_roles:
-        role = rbac.get_role_by_name(role_name)
-        if role:
+        roles = rbac.get_role_by_name(role_name)
+        if roles:
             print(f"  ✅ Rôle '{role_name}' trouvé")
         else:
             print(f"  ❌ Rôle '{role_name}' manquant")
@@ -98,20 +98,20 @@ def test_view_manager(rbac):
     
     # Créer des utilisateurs de test
     test_users = [
-        {"id": 1001, "role": "Directeur"},
-        {"id": 1002, "role": "Comptable"},
-        {"id": 1003, "role": "Secrétaire"},
-        {"id": 1004, "role": "Surveillant"}
+        {"id": 1001, "roles": "Directeur"},
+        {"id": 1002, "roles": "Comptable"},
+        {"id": 1003, "roles": "Secrétaire"},
+        {"id": 1004, "roles": "Surveillant"}
     ]
     
     for user in test_users:
         # Attribuer le rôle
-        rbac.assign_role_to_user(user["id"], user["role"])
+        rbac.assign_role_to_user(user["id"], user["roles"])
         
         # Tester l'accès aux vues
         view_manager.set_current_user(user["id"])
         
-        print(f"\n  👤 Utilisateur {user['id']} ({user['role']}):")
+        print(f"\n  👤 Utilisateur {user['id']} ({user['roles']}):")
         
         # Vues à tester
         test_views = ["dashboard", "eleves", "paiements", "utilisateurs", "presences"]
@@ -129,17 +129,17 @@ def test_navigation_filtering(view_manager):
     print("\n4️⃣ Test du filtrage de la navigation:")
     
     test_users = [
-        {"id": 1001, "role": "Directeur"},
-        {"id": 1002, "role": "Comptable"},
-        {"id": 1003, "role": "Secrétaire"},
-        {"id": 1004, "role": "Surveillant"}
+        {"id": 1001, "roles": "Directeur"},
+        {"id": 1002, "roles": "Comptable"},
+        {"id": 1003, "roles": "Secrétaire"},
+        {"id": 1004, "roles": "Surveillant"}
     ]
     
     for user in test_users:
         view_manager.set_current_user(user["id"])
         filtered_nav = view_manager.get_filtered_navigation()
         
-        print(f"\n  👤 {user['role']}:")
+        print(f"\n  👤 {user['roles']}:")
         print(f"    Vues accessibles: {view_manager.get_accessible_views_count()}")
         
         for section, views in filtered_nav.items():
@@ -152,7 +152,7 @@ def test_access_control(rbac, view_manager):
     
     print("\n5️⃣ Test du contrôle d'accès:")
     
-    # Test avec un utilisateur sans rôle
+    # Test avec un utilisateurs sans rôle
     view_manager.set_current_user(9999)  # Utilisateur inexistant
     
     test_views = ["dashboard", "eleves", "paiements"]
@@ -160,7 +160,7 @@ def test_access_control(rbac, view_manager):
         can_access = view_manager.can_access_view(view)
         print(f"  Utilisateur sans rôle - {view}: {'❌' if not can_access else '⚠️'} (devrait être ❌)")
     
-    # Test avec un utilisateur avec rôle
+    # Test avec un utilisateurs avec rôle
     view_manager.set_current_user(1002)  # Comptable
     
     # Test accès autorisé
@@ -227,11 +227,11 @@ def test_role_management(rbac):
             print(f"    Description: {test_role.description}")
             print(f"    Permissions: {len(test_role.permissions)}")
             
-            # Attribuer à un utilisateur
+            # Attribuer à un utilisateurs
             rbac.assign_role_to_user(1005, "Testeur")
             user_role = rbac.get_user_role(1005)
             if user_role and user_role.name == "Testeur":
-                print("  ✅ Rôle attribué à l'utilisateur")
+                print("  ✅ Rôle attribué à l'utilisateurs")
             else:
                 print("  ❌ Échec attribution du rôle")
         

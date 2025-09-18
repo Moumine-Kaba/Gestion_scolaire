@@ -3,7 +3,7 @@ class Notification:
         self.id = id
         self.contenu = contenu
         self.date = date
-        self.utilisateur_id = utilisateur_id  # FK utilisateur optionnel
+        self.utilisateur_id = utilisateur_id  # FK utilisateurs optionnel
         self.lu = lu  # Booléen pour savoir si la notif a été lue
 
     def to_tuple(self):

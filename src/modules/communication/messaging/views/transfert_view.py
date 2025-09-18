@@ -1,9 +1,8 @@
+from database.connection import get_db_connection
 import tkinter as tk
 from tkinter import ttk, messagebox
-import sqlite3
 from datetime import datetime
 
-DB_PATH = "database/edumanager.db"
 FONT = "Segoe UI"
 BG_MAIN = "#0f172a"
 FG_MAIN = "#f1f5f9"
@@ -33,8 +32,8 @@ class TransfertEleveView(tk.Frame):
         self.classe_actuelle_lbl = tk.Label(frame, text="—", font=(FONT, 12), bg=BG_MAIN, fg=NEON_BLUE)
         self.classe_actuelle_lbl.grid(row=1, column=1, sticky="w", padx=10)
 
-        # Nouvelle classe
-        tk.Label(frame, text="Nouvelle classe :", font=(FONT, 12), bg=BG_MAIN, fg=FG_MAIN).grid(row=2, column=0, padx=10, pady=10, sticky="e")
+        # Nouvelle classes
+        tk.Label(frame, text="Nouvelle classes :", font=(FONT, 12), bg=BG_MAIN, fg=FG_MAIN).grid(row=2, column=0, padx=10, pady=10, sticky="e")
         self.nouvelle_cb = ttk.Combobox(frame, width=40, state="readonly")
         self.nouvelle_cb.grid(row=2, column=1, padx=10, pady=10)
 
@@ -51,21 +50,21 @@ class TransfertEleveView(tk.Frame):
         self.charger_classes()
 
     def charger_eleves(self):
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
-            SELECT e.id, e.nom || ' ' || e.prenom, c.nom
+            SELECT e.id, CONCAT(e.nom, ' ', e.prenom), c.nom
             FROM eleves e
-            LEFT JOIN classe c ON e.classe_id = c.id
+            LEFT JOIN classes c ON e.classe_id = c.id
         """)
         self.eleves = cur.fetchall()
         self.eleves_cb["values"] = [f"{e[1]} (Classe: {e[2]})" for e in self.eleves]
         conn.close()
 
     def charger_classes(self):
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT id, nom FROM classe")
+        cur.execute("SELECT id, nom FROM classes")
         self.classes = cur.fetchall()
         self.nouvelle_cb["values"] = [c[1] for c in self.classes]
         conn.close()
@@ -73,8 +72,8 @@ class TransfertEleveView(tk.Frame):
     def maj_classe_actuelle(self, event):
         idx = self.eleves_cb.current()
         if idx >= 0:
-            classe = self.eleves[idx][2] or "—"
-            self.classe_actuelle_lbl.config(text=classe)
+            classes = self.eleves[idx][2] or "—"
+            self.classe_actuelle_lbl.config(text=classes)
 
     def transférer(self):
         idx_eleve = self.eleves_cb.current()
@@ -82,7 +81,7 @@ class TransfertEleveView(tk.Frame):
         motif = self.motif_entry.get()
 
         if idx_eleve == -1 or idx_nouvelle == -1:
-            messagebox.showwarning("Champs manquants", "Veuillez sélectionner l'élève et la nouvelle classe.")
+            messagebox.showwarning("Champs manquants", "Veuillez sélectionner l'élève et la nouvelle classes.")
             return
 
         eleve_id = self.eleves[idx_eleve][0]
@@ -90,10 +89,10 @@ class TransfertEleveView(tk.Frame):
         nouvelle_classe_id = self.classes[idx_nouvelle][0]
 
         if ancienne_classe_id == nouvelle_classe_id:
-            messagebox.showinfo("Aucun changement", "L’élève est déjà dans cette classe.")
+            messagebox.showinfo("Aucun changement", "L’élève est déjà dans cette classes.")
             return
 
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO transferts (eleve_id, ancienne_classe_id, nouvelle_classe_id, date_transfert, motif)
@@ -115,3 +114,6 @@ class TransfertEleveView(tk.Frame):
             if c[1] == nom_classe:
                 return c[0]
         return None
+# Alias pour compatibilité
+TransfertView = TransfertEleveView
+

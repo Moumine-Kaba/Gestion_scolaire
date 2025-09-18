@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Démonstration du taux de réussite par classe
+Démonstration du taux de réussite par classes
 Script de test pour le graphique des taux de réussite
 """
 
@@ -55,7 +55,7 @@ def create_demo_data():
     return list(classes_data.keys()), list(classes_data.values())
 
 def demo_taux_reussite():
-    """Démonstration du taux de réussite par classe"""
+    """Démonstration du taux de réussite par classes"""
     print("🚀 Démonstration du Taux de Réussite par Classe")
     print("=" * 50)
     
@@ -91,7 +91,7 @@ def demo_taux_reussite():
         "🟡" if x >= 70 else 
         "🟠" if x >= 60 else "🔴")
     
-    print("\n📋 Résumé par classe:")
+    print("\n📋 Résumé par classes:")
     print("-" * 30)
     for _, row in df.iterrows():
         print(f"{row['Matiere']:>8}: {row['Moyenne']:>5.1f}% {row['Emoji']} ({row['Niveau']})")
@@ -204,7 +204,7 @@ def main():
         # Sous-titre
         subtitle_label = ctk.CTkLabel(
             root,
-            text="Performance académique par classe avec taux de réussite global",
+            text="Performance académique par classes avec taux de réussite global",
             font=("Segoe UI", 14),
             text_color=MUTED
         )

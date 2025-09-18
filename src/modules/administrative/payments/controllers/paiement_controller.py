@@ -1,8 +1,11 @@
-import sqlite3
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+# Remplacé par SQL Server  # Remplacé par SQL Server
 DB_PATH = "database/edumanager.db"
 
 def get_all_paiements(eleve_id=None):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     if eleve_id:
         cur.execute("""
@@ -17,7 +20,7 @@ def get_all_paiements(eleve_id=None):
     return rows
 
 def add_paiement(eleve_id, montant, date, mode_paiement, description):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO paiements (eleve_id, montant, date, mode_paiement, description)
@@ -27,7 +30,7 @@ def add_paiement(eleve_id, montant, date, mode_paiement, description):
     conn.close()
 
 def update_paiement(paiement_id, eleve_id, montant, date, mode_paiement, description):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         UPDATE paiements SET eleve_id=?, montant=?, date=?, mode_paiement=?, description=?
@@ -37,7 +40,7 @@ def update_paiement(paiement_id, eleve_id, montant, date, mode_paiement, descrip
     conn.close()
 
 def delete_paiement(paiement_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM paiements WHERE id=?", (paiement_id,))
     conn.commit()

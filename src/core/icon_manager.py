@@ -28,7 +28,7 @@ class IconManager:
         self.icon_mapping = {
             # Navigation principale
             "dashboard": "home.png",
-            "eleves": "eleve.png", 
+            "eleves": "eleves.png", 
             "profs": "person.png",
             "classes": "class.png",
             "salles": "classroom.png",

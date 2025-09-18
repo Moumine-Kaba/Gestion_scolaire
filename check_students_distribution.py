@@ -37,7 +37,7 @@ def check_students_distribution():
         for niveau, count in par_niveau:
             print(f"   {niveau}: {count} élèves")
         
-        # Par classe
+        # Par classes
         cursor.execute("""
             SELECT c.nom_classe, c.niveau, COUNT(e.id_eleve) as nb_eleves
             FROM classes c 
@@ -47,7 +47,7 @@ def check_students_distribution():
         """)
         par_classe = cursor.fetchall()
         
-        print(f"\n🏫 Répartition par classe:")
+        print(f"\n🏫 Répartition par classes:")
         for nom, niveau, count in par_classe:
             print(f"   {nom} ({niveau}): {count} élèves")
         

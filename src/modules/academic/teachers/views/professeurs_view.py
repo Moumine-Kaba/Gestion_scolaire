@@ -1,9 +1,13 @@
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import customtkinter as ctk
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from tkinter import messagebox, filedialog
 import os, sys
 import csv
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
 
 # ============== Compat Pillow LANCZOS (Pillow ≥ 10) ==============
 try:
@@ -96,17 +100,17 @@ except ImportError:
     def is_email(s): return isinstance(s, str) and "@" in s
     def is_date(s): return isinstance(s, str) and len(s) == 10 and s[4] == '-' and s[7] == '-'
     
-    def get_db_connection():
+    def get_db_connection_direct():
         try:
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
+            conn = get_db_connection_direct()
+            # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
             return conn
-        except sqlite3.Error as e:
+        except Exception as e:
             print(f"Erreur de connexion à la base de données: {e}")
             return None
 
     def get_all_professeurs():
-        conn = get_db_connection()
+        conn = get_db_connection_direct()
         if not conn: return []
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM professeurs")
@@ -122,7 +126,7 @@ except ImportError:
                 'matricule': prof_dict.get('matricule', ''),
                 'nom': prof_dict.get('nom', ''),
                 'prenom': prof_dict.get('prenom', ''),
-                'sexe': prof_dict.get('genre', ''),
+                'sexe': prof_dict.get('sexe', ''),
                 'telephone': prof_dict.get('telephone', ''),
                 'email': prof_dict.get('email', ''),
                 'specialite': prof_dict.get('specialite', ''),
@@ -136,21 +140,20 @@ except ImportError:
         return converted_profs
 
     def add_professeur(data):
-        """Ajoute un nouveau professeur à la base de données"""
-        conn = get_db_connection()
+        """Ajoute un nouveau professeurs à la base de données"""
+        conn = get_db_connection_direct()
         if not conn: return False
         try:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO professeurs (matricule, nom, prenom, date_naissance, genre, 
+                INSERT INTO professeurs (matricule, nom, prenom, date_naissance, 
                                        adresse, telephone, email, specialite, date_embauche, statut)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data.get('matricule', ''),
                 data.get('nom', ''),
                 data.get('prenom', ''),
                 data.get('date_naissance', ''),
-                data.get('sexe', ''),
                 data.get('adresse', ''),
                 data.get('telephone', ''),
                 data.get('email', ''),
@@ -167,14 +170,14 @@ except ImportError:
             conn.close()
 
     def update_professeur(prof_id, data):
-        """Met à jour un professeur existant"""
-        conn = get_db_connection()
+        """Met à jour un professeurs existant"""
+        conn = get_db_connection_direct()
         if not conn: return False
         try:
             cursor = conn.cursor()
             cursor.execute("""
                 UPDATE professeurs SET 
-                    matricule=?, nom=?, prenom=?, date_naissance=?, genre=?,
+                    matricule=?, nom=?, prenom=?, date_naissance=?,
                     adresse=?, telephone=?, email=?, specialite=?, date_embauche=?, statut=?
                 WHERE id_professeur=?
             """, (
@@ -182,7 +185,6 @@ except ImportError:
                 data.get('nom', ''),
                 data.get('prenom', ''),
                 data.get('date_naissance', ''),
-                data.get('sexe', ''),
                 data.get('adresse', ''),
                 data.get('telephone', ''),
                 data.get('email', ''),
@@ -200,8 +202,8 @@ except ImportError:
             conn.close()
 
     def delete_professeur(prof_id):
-        """Supprime un professeur de la base de données"""
-        conn = get_db_connection()
+        """Supprime un professeurs de la base de données"""
+        conn = get_db_connection_direct()
         if not conn: return False
         try:
             cursor = conn.cursor()
@@ -215,7 +217,7 @@ except ImportError:
             conn.close()
 
     def get_professeur(prof_id):
-        conn = get_db_connection()
+        conn = get_db_connection_direct()
         if not conn: return None
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM professeurs WHERE id_professeur=?", (prof_id,))
@@ -229,7 +231,7 @@ except ImportError:
                 'matricule': prof_dict.get('matricule', ''),
                 'nom': prof_dict.get('nom', ''),
                 'prenom': prof_dict.get('prenom', ''),
-                'sexe': prof_dict.get('genre', ''),
+                'sexe': prof_dict.get('sexe', ''),
                 'telephone': prof_dict.get('telephone', ''),
                 'email': prof_dict.get('email', ''),
                 'specialite': prof_dict.get('specialite', ''),
@@ -292,7 +294,6 @@ def square_photo(path, size=(130, 130)):
     except Exception as e:
         print(f"Erreur de chargement de la photo {path}: {e}")
         return ctk.CTkImage(Image.new("RGB", size, THEME["header_bg"]), size=size)
-
 
 # ==================================================================== #
 #                          VUE DASHBOARD PROFESSEURS                   #
@@ -414,24 +415,24 @@ class ProfessorsDashboard(ctk.CTkFrame):
         self.table_view.filter_table(term)
 
     def add_professor(self):
-        """Ouvre le formulaire pour ajouter un nouveau professeur."""
+        """Ouvre le formulaire pour ajouter un nouveau professeurs."""
         TeacherForm(self.parent, self.update_data, mode="Ajouter")
 
     def edit_professor(self):
-        """Ouvre le formulaire pour modifier le professeur sélectionné."""
+        """Ouvre le formulaire pour modifier le professeurs sélectionné."""
         selected_prof_id = self.table_view.get_selected_professor_id()
         if selected_prof_id:
             prof_data = get_professeur(selected_prof_id)
             if prof_data:
                 TeacherForm(self.parent, self.update_data, mode="Modifier", data=prof_data)
         else:
-            messagebox.showinfo("Modifier", "Sélectionnez un professeur à modifier.")
+            messagebox.showinfo("Modifier", "Sélectionnez un professeurs à modifier.")
 
     def delete_professor(self):
-        """Supprime le professeur sélectionné après confirmation."""
+        """Supprime le professeurs sélectionné après confirmation."""
         selected_prof_id = self.table_view.get_selected_professor_id()
         if not selected_prof_id:
-            messagebox.showinfo("Supprimer", "Sélectionnez un professeur à supprimer.")
+            messagebox.showinfo("Supprimer", "Sélectionnez un professeurs à supprimer.")
             return
         prof_data = get_professeur(selected_prof_id)
         if prof_data:
@@ -444,10 +445,10 @@ class ProfessorsDashboard(ctk.CTkFrame):
             messagebox.showerror("Erreur", "Professeur non trouvé.")
 
     def show_details(self):
-        """Affiche la carte détaillée du professeur sélectionné."""
+        """Affiche la carte détaillée du professeurs sélectionné."""
         selected_prof_id = self.table_view.get_selected_professor_id()
         if not selected_prof_id:
-            messagebox.showinfo("Détails", "Sélectionnez un professeur pour voir les détails.")
+            messagebox.showinfo("Détails", "Sélectionnez un professeurs pour voir les détails.")
             return
         prof_data = get_professeur(selected_prof_id)
         if prof_data:
@@ -603,14 +604,14 @@ class TeacherTable(ctk.CTkFrame):
             ctk.CTkLabel(no_results_frame, text="🔍", font=(FONT, 48), 
                          text_color=THEME["secondary_text"], fg_color="transparent").pack(pady=(0, 10))
             
-            ctk.CTkLabel(no_results_frame, text="Aucun professeur trouvé", font=(FONT, 16, "bold"), 
+            ctk.CTkLabel(no_results_frame, text="Aucun professeurs trouvé", font=(FONT, 16, "bold"), 
                          text_color=THEME["secondary_text"], fg_color="transparent").pack(pady=(0, 5))
             
             ctk.CTkLabel(no_results_frame, text="Essayez de modifier votre recherche", font=(FONT, 12), 
                          text_color=THEME["secondary_text"], fg_color="transparent").pack()
 
     def get_selected_professor_id(self):
-        """Retourne l'ID du professeur sélectionné."""
+        """Retourne l'ID du professeurs sélectionné."""
         return self.selected_row_id
 
 # ==================================================================== #
@@ -713,7 +714,7 @@ class TeacherForm(ctk.CTkToplevel):
         self.data_updater = data_updater
         self.data = data or {}
         self.mode = mode
-        self.title(f"{mode} un professeur")
+        self.title(f"{mode} un professeurs")
         self.geometry("700x480")
         self.minsize(600, 400)
         self.configure(fg_color=THEME["bg_main"])
@@ -786,7 +787,7 @@ class TeacherForm(ctk.CTkToplevel):
             self.build_section(section_key)
 
         # Bouton d'action
-        save_btn_text = "Enregistrer les modifications" if self.mode == "Modifier" else "Ajouter le professeur"
+        save_btn_text = "Enregistrer les modifications" if self.mode == "Modifier" else "Ajouter le professeurs"
         ctk.CTkButton(right, text=save_btn_text, font=(FONT, 12, "bold"),
                       fg_color=THEME["accent_blue"], text_color=THEME["bg_main"], hover_color="#9FE8FF",
                       corner_radius=8, command=self.save_professor).pack(fill="x", padx=10, pady=(10, 10))

@@ -53,7 +53,7 @@ class AnnoncesView(tk.Frame):
     def modifier_annonce(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("Modification", "Veuillez sélectionner une annonce.")
+            messagebox.showwarning("Modification", "Veuillez sélectionner une annonces.")
             return
         data = self.tree.item(selected[0])["values"]
         self._ouvrir_formulaire("Modifier", data)
@@ -61,10 +61,10 @@ class AnnoncesView(tk.Frame):
     def supprimer_annonce(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("Suppression", "Veuillez sélectionner une annonce.")
+            messagebox.showwarning("Suppression", "Veuillez sélectionner une annonces.")
             return
         ann_id = self.tree.item(selected[0])["values"][0]
-        if messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer cette annonce ?"):
+        if messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer cette annonces ?"):
             delete_annonce(ann_id)
             self.charger_annonces()
 

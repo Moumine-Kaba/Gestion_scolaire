@@ -72,7 +72,7 @@ def generate_student_data():
         # Date d'inscription
         date_inscription = datetime.now() - timedelta(days=random.randint(1, 365))
         
-        eleve = {
+        eleves = {
             "prenom": prenom,
             "nom": nom,
             "date_naissance": date_naissance.strftime("%Y-%m-%d"),
@@ -84,7 +84,7 @@ def generate_student_data():
             "date_inscription": date_inscription.strftime("%Y-%m-%d %H:%M:%S")
         }
         
-        eleves.append(eleve)
+        eleves.append(eleves)
     
     return eleves
 
@@ -100,9 +100,9 @@ def get_classes_distribution():
     conn.close()
     
     # Répartition des 500 élèves par niveau
-    # PRIMAIRE: 150 élèves (6 classes = 25 élèves/classe)
-    # COLLÈGE: 120 élèves (4 classes = 30 élèves/classe)  
-    # LYCÉE: 230 élèves (9 classes = 25-26 élèves/classe)
+    # PRIMAIRE: 150 élèves (6 classes = 25 élèves/classes)
+    # COLLÈGE: 120 élèves (4 classes = 30 élèves/classes)  
+    # LYCÉE: 230 élèves (9 classes = 25-26 élèves/classes)
     
     distribution = {}
     eleve_id = 1
@@ -137,7 +137,7 @@ def add_students_to_database():
         eleves = generate_student_data()
         print(f"✅ {len(eleves)} élèves générés")
         
-        # Obtenir la répartition par classe
+        # Obtenir la répartition par classes
         distribution = get_classes_distribution()
         
         # Ajouter les élèves
@@ -149,7 +149,7 @@ def add_students_to_database():
             
             for i in range(nb_eleves_classe):
                 if eleve_index < len(eleves):
-                    eleve = eleves[eleve_index]
+                    eleves = eleves[eleve_index]
                     
                     cursor.execute("""
                         INSERT INTO eleves (
@@ -157,15 +157,15 @@ def add_students_to_database():
                             adresse, statut, date_inscription, id_classe
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
-                        eleve["prenom"],
-                        eleve["nom"], 
-                        eleve["date_naissance"],
-                        eleve["genre"],
-                        eleve["email"],
-                        eleve["telephone"],
-                        eleve["adresse"],
-                        eleve["statut"],
-                        eleve["date_inscription"],
+                        eleves["prenom"],
+                        eleves["nom"], 
+                        eleves["date_naissance"],
+                        eleves["genre"],
+                        eleves["email"],
+                        eleves["telephone"],
+                        eleves["adresse"],
+                        eleves["statut"],
+                        eleves["date_inscription"],
                         id_classe
                     ))
                     

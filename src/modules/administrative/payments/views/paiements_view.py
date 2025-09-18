@@ -18,7 +18,7 @@ class PaiementsView(tk.Frame):
         tk.Label(self, text="Gestion des Paiements", font=("Segoe UI", 22, "bold"),
                  fg=ACCENT, bg=BG).pack(pady=22)
 
-        colonnes = ("ID", "Élève", "Montant", "Date", "Mode de paiement", "Description")
+        colonnes = ("ID", "Élève", "Montant", "Date", "Mode de paiements", "Description")
         style = ttk.Style()
         style.theme_use("default")
         style.configure("Treeview", background=BG, foreground=BTN_TEXT, fieldbackground=BG, font=("Segoe UI", 10), rowheight=29)
@@ -55,7 +55,7 @@ class PaiementsView(tk.Frame):
     def modifier_paiement(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("Modification", "Veuillez sélectionner un paiement.")
+            messagebox.showwarning("Modification", "Veuillez sélectionner un paiements.")
             return
         data = self.tree.item(selected[0])["values"]
         self._ouvrir_formulaire("Modifier", data)
@@ -63,10 +63,10 @@ class PaiementsView(tk.Frame):
     def supprimer_paiement(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("Suppression", "Veuillez sélectionner un paiement.")
+            messagebox.showwarning("Suppression", "Veuillez sélectionner un paiements.")
             return
         paiement_id = self.tree.item(selected[0])["values"][0]
-        if messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer ce paiement ?"):
+        if messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer ce paiements ?"):
             delete_paiement(paiement_id)
             self.charger_paiements()
 
@@ -96,7 +96,7 @@ class PaiementsView(tk.Frame):
         date_entry.place(x=180, y=y, width=220)
         y += 48
 
-        tk.Label(form, text="Mode de paiement :", bg=BG, fg=ACCENT, font=FONT).place(x=38, y=y)
+        tk.Label(form, text="Mode de paiements :", bg=BG, fg=ACCENT, font=FONT).place(x=38, y=y)
         mode_cb = ttk.Combobox(form, values=["Espèces", "Chèque", "Mobile Money", "Carte Bancaire"], state="readonly", font=("Segoe UI", 10))
         mode_cb.place(x=180, y=y, width=220)
         y += 48

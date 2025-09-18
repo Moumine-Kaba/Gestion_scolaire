@@ -7,12 +7,15 @@ Gestionnaire de Permissions pour EduManager+
 Gère les permissions des utilisateurs selon leurs rôles
 """
 
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import os
 from typing import Dict, List, Optional, Set
 
 class PermissionManager:
-    """Gestionnaire centralisé des permissions utilisateur"""
+    """Gestionnaire centralisé des permissions utilisateurs"""
     
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -22,27 +25,27 @@ class PermissionManager:
     def _init_permissions_table(self):
         """Initialise la table des permissions"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Table des rôles
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS roles (
-                    id_role INTEGER PRIMARY KEY AUTOINCREMENT,
-                    nom_role TEXT UNIQUE NOT NULL,
-                    description TEXT,
+                CREATE TABLE roles (
+                    id_role INT IDENTITY(1,1) PRIMARY KEY,
+                    nom_role NVARCHAR(255) UNIQUE NOT NULL,
+                    description NVARCHAR(255),
                     niveau_acces INTEGER DEFAULT 1,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at DATETIME DEFAULT GETDATE()
                 )
             ''')
             
             # Table des permissions par rôle
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS role_permissions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                CREATE TABLE role_permissions (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
                     role_id INTEGER NOT NULL,
-                    vue_nom TEXT NOT NULL,
-                    permission_type TEXT DEFAULT 'read',
+                    vue_nom NVARCHAR(255) NOT NULL,
+                    permission_type NVARCHAR(255) DEFAULT 'read',
                     granted BOOLEAN DEFAULT 1,
                     FOREIGN KEY (role_id) REFERENCES roles (id_role),
                     UNIQUE(role_id, vue_nom)
@@ -51,11 +54,11 @@ class PermissionManager:
             
             # Table des utilisateurs et leurs rôles
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS user_roles (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                CREATE TABLE user_roles (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
                     user_id INTEGER NOT NULL,
                     role_id INTEGER NOT NULL,
-                    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    assigned_at DATETIME DEFAULT GETDATE(),
                     FOREIGN KEY (user_id) REFERENCES utilisateurs (id_utilisateur),
                     FOREIGN KEY (role_id) REFERENCES roles (id_role),
                     UNIQUE(user_id, role_id)
@@ -64,42 +67,42 @@ class PermissionManager:
             
             # Table des logs d'audit pour la sécurité
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS access_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                CREATE TABLE access_logs (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
                     user_id INTEGER NOT NULL,
-                    view_name TEXT NOT NULL,
-                    action TEXT NOT NULL,
+                    view_name NVARCHAR(255) NOT NULL,
+                    action NVARCHAR(255) NOT NULL,
                     success BOOLEAN DEFAULT 1,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    ip_address TEXT,
-                    user_agent TEXT,
+                    timestamp DATETIME DEFAULT GETDATE(),
+                    ip_address NVARCHAR(255),
+                    user_agent NVARCHAR(255),
                     FOREIGN KEY (user_id) REFERENCES utilisateurs (id_utilisateur)
                 )
             ''')
             
-            # Table des sessions utilisateur pour la sécurité
+            # Table des sessions utilisateurs pour la sécurité
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS user_sessions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                CREATE TABLE user_sessions (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
                     user_id INTEGER NOT NULL,
-                    session_token TEXT UNIQUE NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    session_token NVARCHAR(255) UNIQUE NOT NULL,
+                    created_at DATETIME DEFAULT GETDATE(),
                     expires_at TIMESTAMP NOT NULL,
                     is_active BOOLEAN DEFAULT 1,
-                    ip_address TEXT,
-                    user_agent TEXT,
+                    ip_address NVARCHAR(255),
+                    user_agent NVARCHAR(255),
                     FOREIGN KEY (user_id) REFERENCES utilisateurs (id_utilisateur)
                 )
             ''')
             
             # Table des tentatives de connexion échouées
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS failed_login_attempts (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT NOT NULL,
-                    ip_address TEXT,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    user_agent TEXT
+                CREATE TABLE failed_login_attempts (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
+                    username NVARCHAR(255) NOT NULL,
+                    ip_address NVARCHAR(255),
+                    timestamp DATETIME DEFAULT GETDATE(),
+                    user_agent NVARCHAR(255)
                 )
             ''')
             
@@ -117,7 +120,7 @@ class PermissionManager:
     def _insert_default_roles(self):
         """Insère les rôles par défaut avec leurs permissions"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Rôles par défaut
@@ -205,9 +208,9 @@ class PermissionManager:
             print(f"❌ Erreur création rôles par défaut: {e}")
     
     def get_user_role(self, user_id: int) -> Optional[str]:
-        """Récupère le rôle principal d'un utilisateur"""
+        """Récupère le rôle principal d'un utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -225,16 +228,16 @@ class PermissionManager:
             return result[0] if result else "Utilisateur"
             
         except Exception as e:
-            print(f"❌ Erreur récupération rôle utilisateur: {e}")
+            print(f"❌ Erreur récupération rôle utilisateurs: {e}")
             return "Utilisateur"
     
     def can_access_view(self, user_id: int, view_name: str) -> bool:
-        """Vérifie si un utilisateur peut accéder à une vue spécifique"""
+        """Vérifie si un utilisateurs peut accéder à une vue spécifique"""
         try:
             if not user_id:
                 return False
             
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -254,12 +257,12 @@ class PermissionManager:
             return False
     
     def get_user_permissions(self, user_id: int) -> Set[str]:
-        """Récupère toutes les permissions d'un utilisateur"""
+        """Récupère toutes les permissions d'un utilisateurs"""
         try:
             if not user_id:
                 return set()
             
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -275,7 +278,7 @@ class PermissionManager:
             return permissions
             
         except Exception as e:
-            print(f"❌ Erreur récupération permissions utilisateur: {e}")
+            print(f"❌ Erreur récupération permissions utilisateurs: {e}")
             return set()
     
     def get_navigation_sections(self, user_id: int) -> Dict[str, List[str]]:
@@ -307,9 +310,9 @@ class PermissionManager:
             return {}
     
     def assign_role_to_user(self, user_id: int, role_name: str) -> bool:
-        """Assigne un rôle à un utilisateur"""
+        """Assigne un rôle à un utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Récupérer l'ID du rôle
@@ -332,7 +335,7 @@ class PermissionManager:
             conn.commit()
             conn.close()
             
-            print(f"✅ Rôle '{role_name}' assigné à l'utilisateur {user_id}")
+            print(f"✅ Rôle '{role_name}' assigné à l'utilisateurs {user_id}")
             return True
             
         except Exception as e:
@@ -340,7 +343,7 @@ class PermissionManager:
             return False
     
     def create_default_admin_user(self, user_id: int):
-        """Crée un utilisateur administrateur par défaut"""
+        """Crée un utilisateurs administrateur par défaut"""
         try:
             # Assigner le rôle administrateur
             success = self.assign_role_to_user(user_id, "Administrateur")
@@ -352,12 +355,12 @@ class PermissionManager:
             return False
     
     def get_user_permission_level(self, user_id: int, view_name: str) -> str:
-        """Récupère le niveau de permission d'un utilisateur pour une vue spécifique"""
+        """Récupère le niveau de permissions d'un utilisateurs pour une vue spécifique"""
         try:
             if not user_id:
                 return "none"
             
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -375,15 +378,15 @@ class PermissionManager:
             return result[0] if result else "none"
             
         except Exception as e:
-            print(f"❌ Erreur récupération niveau permission {view_name}: {e}")
+            print(f"❌ Erreur récupération niveau permissions {view_name}: {e}")
             return "none"
     
     def can_perform_action(self, user_id: int, view_name: str, action: str) -> bool:
-        """Vérifie si un utilisateur peut effectuer une action spécifique"""
+        """Vérifie si un utilisateurs peut effectuer une action spécifique"""
         try:
             permission_level = self.get_user_permission_level(user_id, view_name)
             
-            # Définir les actions autorisées selon le niveau de permission
+            # Définir les actions autorisées selon le niveau de permissions
             action_permissions = {
                 "none": [],
                 "read": ["view", "list", "search"],
@@ -398,7 +401,7 @@ class PermissionManager:
             return False
     
     def get_restricted_views(self, user_id: int) -> Dict[str, List[str]]:
-        """Récupère les vues avec restrictions selon le rôle de l'utilisateur"""
+        """Récupère les vues avec restrictions selon le rôle de l'utilisateurs"""
         try:
             user_role = self.get_user_role(user_id)
             role_level = self._get_role_level(user_role)
@@ -465,7 +468,7 @@ class PermissionManager:
                 "Élève": {
                     "eleves": ["view_own"],            # Voir seulement ses propres infos
                     "profs": ["view"],                 # Voir seulement les profs
-                    "classes": ["view_own"],           # Voir seulement sa classe
+                    "classes": ["view_own"],           # Voir seulement sa classes
                     "paiements": ["view_own"],         # Voir seulement ses paiements
                     "utilisateurs": ["none"],          # Pas d'accès aux utilisateurs
                     "settings": ["none"]               # Pas d'accès aux paramètres
@@ -473,7 +476,7 @@ class PermissionManager:
                 "Parent": {
                     "eleves": ["view_own_children"],   # Voir seulement ses enfants
                     "profs": ["view"],                 # Voir seulement les profs
-                    "classes": ["view_own_children"],  # Voir seulement la classe de ses enfants
+                    "classes": ["view_own_children"],  # Voir seulement la classes de ses enfants
                     "paiements": ["view_own_children"], # Voir seulement les paiements de ses enfants
                     "utilisateurs": ["none"],          # Pas d'accès aux utilisateurs
                     "settings": ["none"]               # Pas d'accès aux paramètres
@@ -498,7 +501,7 @@ class PermissionManager:
     def _get_role_level(self, role_name: str) -> int:
         """Récupère le niveau d'accès d'un rôle"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute("SELECT niveau_acces FROM roles WHERE nom_role = ?", (role_name,))
@@ -536,7 +539,7 @@ class PermissionManager:
             return False
     
     def _can_access_own_data(self, user_id: int, view_name: str, data_id: int = None) -> bool:
-        """Vérifie si l'utilisateur peut accéder à ses propres données"""
+        """Vérifie si l'utilisateurs peut accéder à ses propres données"""
         try:
             # Cette méthode devrait être implémentée selon la logique métier
             # Pour l'instant, on retourne True (à adapter selon vos besoins)
@@ -548,7 +551,7 @@ class PermissionManager:
     def log_access_attempt(self, user_id: int, view_name: str, action: str, success: bool):
         """Enregistre les tentatives d'accès pour audit"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -563,9 +566,9 @@ class PermissionManager:
             print(f"❌ Erreur enregistrement log accès: {e}")
     
     def get_user_audit_logs(self, user_id: int, limit: int = 100) -> List[Dict]:
-        """Récupère les logs d'audit d'un utilisateur"""
+        """Récupère les logs d'audit d'un utilisateurs"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             cursor.execute('''

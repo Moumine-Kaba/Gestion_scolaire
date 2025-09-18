@@ -1,4 +1,7 @@
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server  # Remplacé par SQL Server  # Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import os
 
 # Le chemin de la base de données
@@ -6,8 +9,8 @@ DB_PATH = r"database/edumanager.db"
 
 def connect_db():
     """Crée et retourne une connexion à la base de données."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_db_connection()
+    # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
     return conn
 
 def create_table_notes():
@@ -20,7 +23,7 @@ def create_table_notes():
             id_eleve INTEGER NOT NULL,
             id_matiere INTEGER NOT NULL,
             id_professeur INTEGER,
-            note REAL NOT NULL,
+            notes REAL NOT NULL,
             coefficient REAL DEFAULT 1,
             type_evaluation TEXT,
             date_evaluation DATE,
@@ -35,18 +38,18 @@ def create_table_notes():
 
 def add_note(data):
     """
-    Ajoute une note pour un élève et une matière.
-    data : dict avec ('id_eleve', 'id_matiere', 'note', 'coefficient', 'date_evaluation', 'commentaire')
+    Ajoute une notes pour un élève et une matière.
+    data : dict avec ('id_eleve', 'id_matiere', 'notes', 'coefficient', 'date_evaluation', 'commentaire')
     """
     conn = connect_db()
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO notes (id_eleve, id_matiere, note, coefficient, date_evaluation, commentaire)
+        INSERT INTO notes (id_eleve, id_matiere, notes, coefficient, date_evaluation, commentaire)
         VALUES (?, ?, ?, ?, ?, ?)
     """, (
         data.get('id_eleve') or data.get('eleve_id'),
         data.get('id_matiere') or data.get('matiere_id'),
-        data.get('note'),
+        data.get('notes'),
         data.get('coefficient'),
         data.get('date_evaluation') or data.get('date'),
         data.get('commentaire')
@@ -56,19 +59,19 @@ def add_note(data):
 
 def update_note(data):
     """
-    Met à jour une note existante.
-    data : dict avec ('id_note', 'id_eleve', 'id_matiere', 'note', 'coefficient', 'date_evaluation', 'commentaire')
+    Met à jour une notes existante.
+    data : dict avec ('id_note', 'id_eleve', 'id_matiere', 'notes', 'coefficient', 'date_evaluation', 'commentaire')
     """
     conn = connect_db()
     cur = conn.cursor()
     cur.execute("""
         UPDATE notes
-        SET id_eleve=?, id_matiere=?, note=?, coefficient=?, date_evaluation=?, commentaire=?
+        SET id_eleve=?, id_matiere=?, notes=?, coefficient=?, date_evaluation=?, commentaire=?
         WHERE id_note=?
     """, (
         data.get('id_eleve') or data.get('eleve_id'),
         data.get('id_matiere') or data.get('matiere_id'),
-        data.get('note'),
+        data.get('notes'),
         data.get('coefficient'),
         data.get('date_evaluation') or data.get('date'),
         data.get('commentaire'),
@@ -78,7 +81,7 @@ def update_note(data):
     conn.close()
 
 def delete_note(note_id):
-    """Supprime une note selon son ID."""
+    """Supprime une notes selon son ID."""
     conn = connect_db()
     cur = conn.cursor()
     cur.execute("DELETE FROM notes WHERE id_note=?", (note_id,))
@@ -114,12 +117,12 @@ def get_notes_by_eleve(eleve_id):
 
 def get_notes_by_classe_and_matiere(classe_id, matiere_id):
     """
-    Retourne les notes d'une matière pour une classe donnée, sous forme de liste de dictionnaires.
+    Retourne les notes d'une matière pour une classes donnée, sous forme de liste de dictionnaires.
     """
     conn = connect_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT n.id_note, n.id_eleve, n.id_matiere, n.note, n.date_evaluation, n.coefficient, n.commentaire
+        SELECT n.id_note, n.id_eleve, n.id_matiere, n.notes, n.date_evaluation, n.coefficient, n.commentaire
         FROM notes n
         JOIN eleves e ON n.id_eleve = e.id_eleve
         WHERE e.id_classe = ? AND n.id_matiere = ?
@@ -132,7 +135,7 @@ def get_notes_by_classe_and_matiere(classe_id, matiere_id):
     return [dict(row) for row in rows]
 
 def get_note(note_id):
-    """Retourne une note précise (par son id) sous forme de dictionnaire, ou None si pas trouvée."""
+    """Retourne une notes précise (par son id) sous forme de dictionnaire, ou None si pas trouvée."""
     conn = connect_db()
     cur = conn.cursor()
     cur.execute("SELECT * FROM notes WHERE id_note = ?", (note_id,))

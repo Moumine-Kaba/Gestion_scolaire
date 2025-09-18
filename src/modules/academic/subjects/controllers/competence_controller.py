@@ -1,8 +1,11 @@
-import sqlite3
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+# Remplacé par SQL Server  # Remplacé par SQL Server
 DB_PATH = "database/edumanager.db"
 
 def get_all_competences():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT id, titre, description, niveau, utilisateur_id FROM competences ORDER BY titre")
     rows = cur.fetchall()
@@ -10,7 +13,7 @@ def get_all_competences():
     return rows
 
 def add_competence(titre, description, niveau, utilisateur_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO competences (titre, description, niveau, utilisateur_id)
@@ -20,7 +23,7 @@ def add_competence(titre, description, niveau, utilisateur_id):
     conn.close()
 
 def update_competence(comp_id, titre, description, niveau, utilisateur_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         UPDATE competences 
@@ -31,7 +34,7 @@ def update_competence(comp_id, titre, description, niveau, utilisateur_id):
     conn.close()
 
 def delete_competence(comp_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM competences WHERE id=?", (comp_id,))
     conn.commit()

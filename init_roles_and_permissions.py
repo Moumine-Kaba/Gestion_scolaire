@@ -56,8 +56,8 @@ def init_roles_and_permissions():
             )
         ''')
         
-        # 2. Créer la table des rôles utilisateur si elle n'existe pas
-        print("2️⃣ Création de la table des rôles utilisateur...")
+        # 2. Créer la table des rôles utilisateurs si elle n'existe pas
+        print("2️⃣ Création de la table des rôles utilisateurs...")
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS user_roles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,10 +100,10 @@ def init_roles_and_permissions():
                 ''', (role_id, nom, description, permissions))
                 print(f"  ✅ Rôle '{nom}' créé/actualisé (sans niveau)")
         
-        # 4. Assigner le rôle Super Administrateur à l'utilisateur admin
-        print("4️⃣ Attribution du rôle Super Administrateur à l'utilisateur admin...")
+        # 4. Assigner le rôle Super Administrateur à l'utilisateurs admin
+        print("4️⃣ Attribution du rôle Super Administrateur à l'utilisateurs admin...")
         
-        # Vérifier si l'utilisateur admin existe
+        # Vérifier si l'utilisateurs admin existe
         cursor.execute('SELECT id_utilisateur FROM utilisateurs WHERE username = ?', ('admin',))
         admin_user = cursor.fetchone()
         
@@ -121,9 +121,9 @@ def init_roles_and_permissions():
                     INSERT INTO user_roles (user_id, role_id, assigned_by)
                     VALUES (?, 1, ?)
                 ''', (admin_id, admin_id))
-                print(f"  ✅ Rôle Super Administrateur assigné à l'utilisateur admin (ID: {admin_id})")
+                print(f"  ✅ Rôle Super Administrateur assigné à l'utilisateurs admin (ID: {admin_id})")
             else:
-                print(f"  ℹ️ Rôle Super Administrateur déjà assigné à l'utilisateur admin")
+                print(f"  ℹ️ Rôle Super Administrateur déjà assigné à l'utilisateurs admin")
         else:
             print("  ⚠️ Utilisateur admin non trouvé")
         
@@ -132,18 +132,18 @@ def init_roles_and_permissions():
         
         test_users = [
             ("directeur", "directeur123", "Directeur", "Test", "Directeur"),
-            ("professeur", "prof123", "Professeur", "Test", "Professeur"),
+            ("professeurs", "prof123", "Professeur", "Test", "Professeur"),
             ("secretaire", "sec123", "Secrétaire", "Test", "Secrétaire"),
-            ("eleve", "eleve123", "Élève", "Test", "Élève")
+            ("eleves", "eleve123", "Élève", "Test", "Élève")
         ]
         
         for username, password, nom, prenom, role_name in test_users:
-            # Vérifier si l'utilisateur existe déjà
+            # Vérifier si l'utilisateurs existe déjà
             cursor.execute('SELECT id_utilisateur FROM utilisateurs WHERE username = ?', (username,))
             existing_user = cursor.fetchone()
             
             if not existing_user:
-                # Créer l'utilisateur
+                # Créer l'utilisateurs
                 cursor.execute('''
                     INSERT INTO utilisateurs (username, password_hash, salt, nom, prenom, statut)
                     VALUES (?, ?, ?, ?, ?, 'actif')
@@ -167,7 +167,7 @@ def init_roles_and_permissions():
                     ''', (user_id, role_id, admin_id if admin_user else 1))
                     print(f"  ✅ Utilisateur '{username}' créé avec le rôle '{role_name}'")
                 else:
-                    print(f"  ⚠️ Rôle '{role_name}' non trouvé pour l'utilisateur '{username}'")
+                    print(f"  ⚠️ Rôle '{role_name}' non trouvé pour l'utilisateurs '{username}'")
             else:
                 print(f"  ℹ️ Utilisateur '{username}' existe déjà")
         
@@ -250,9 +250,9 @@ def init_roles_and_permissions():
         print("  • Tables de permissions initialisées")
         print("\n🔑 Comptes de test:")
         print("  • directeur / directeur123 (rôle Directeur)")
-        print("  • professeur / prof123 (rôle Professeur)")
+        print("  • professeurs / prof123 (rôle Professeur)")
         print("  • secretaire / sec123 (rôle Secrétaire)")
-        print("  • eleve / eleve123 (rôle Élève)")
+        print("  • eleves / eleve123 (rôle Élève)")
         
         return True
         

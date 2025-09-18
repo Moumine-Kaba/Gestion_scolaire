@@ -120,11 +120,11 @@ def create_default_users_if_needed():
         
         # Créer les utilisateurs par défaut
         users_data = [
-            {"username": "directeur", "password": "directeur123", "email": "directeur@ecole.com", "nom": "Dupont", "prenom": "Jean", "role": "Directeur"},
-            {"username": "comptable", "password": "comptable123", "email": "comptable@ecole.com", "nom": "Martin", "prenom": "Marie", "role": "Comptable"},
-            {"username": "secretaire", "password": "secretaire123", "email": "secretaire@ecole.com", "nom": "Bernard", "prenom": "Sophie", "role": "Secrétaire"},
-            {"username": "surveillant", "password": "surveillant123", "email": "surveillant@ecole.com", "nom": "Petit", "prenom": "Pierre", "role": "Surveillant"},
-            {"username": "admin", "password": "admin123", "email": "admin@ecole.com", "nom": "Administrateur", "prenom": "Système", "role": "Directeur"}
+            {"username": "directeur", "password": "directeur123", "email": "directeur@ecole.com", "nom": "Dupont", "prenom": "Jean", "roles": "Directeur"},
+            {"username": "comptable", "password": "comptable123", "email": "comptable@ecole.com", "nom": "Martin", "prenom": "Marie", "roles": "Comptable"},
+            {"username": "secretaire", "password": "secretaire123", "email": "secretaire@ecole.com", "nom": "Bernard", "prenom": "Sophie", "roles": "Secrétaire"},
+            {"username": "surveillant", "password": "surveillant123", "email": "surveillant@ecole.com", "nom": "Petit", "prenom": "Pierre", "roles": "Surveillant"},
+            {"username": "admin", "password": "admin123", "email": "admin@ecole.com", "nom": "Administrateur", "prenom": "Système", "roles": "Directeur"}
         ]
         
         created_count = 0
@@ -140,13 +140,13 @@ def create_default_users_if_needed():
                 conn.commit()
                 conn.close()
                 
-                if rbac.assign_role_to_user(user_id, user_data["role"]):
-                    print(f"✅ {user_data['username']} ({user_data['nom']} {user_data['prenom']}) → {user_data['role']}")
+                if rbac.assign_role_to_user(user_id, user_data["roles"]):
+                    print(f"✅ {user_data['username']} ({user_data['nom']} {user_data['prenom']}) → {user_data['roles']}")
                     created_count += 1
                 else:
                     print(f"❌ Échec attribution rôle pour {user_data['username']}")
             except Exception as e:
-                print(f"❌ Erreur création utilisateur {user_data['username']}: {e}")
+                print(f"❌ Erreur création utilisateurs {user_data['username']}: {e}")
         
         print(f"✅ {created_count} utilisateurs créés avec leurs rôles")
         return created_count > 0
@@ -195,7 +195,7 @@ def launch_simple_login():
             self.username_var = ctk.StringVar()
             self.password_var = ctk.StringVar()
             
-            ctk.CTkEntry(self, textvariable=self.username_var, placeholder_text="Nom d'utilisateur").pack(pady=10, padx=20)
+            ctk.CTkEntry(self, textvariable=self.username_var, placeholder_text="Nom d'utilisateurs").pack(pady=10, padx=20)
             ctk.CTkEntry(self, textvariable=self.password_var, placeholder_text="Mot de passe", show="*").pack(pady=10, padx=20)
             
             # Bouton de connexion
@@ -250,7 +250,7 @@ Utilisateurs disponibles:
                         "id": user_id,
                         "username": username,
                         "full_name": f"{nom} {prenom}" if nom and prenom else username,
-                        "role": user_role.name if user_role else "Utilisateur",
+                        "roles": user_role.name if user_role else "Utilisateur",
                         "rbac_role": user_role,
                         "rbac_system": rbac,
                         "email": email

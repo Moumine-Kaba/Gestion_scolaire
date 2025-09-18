@@ -25,7 +25,6 @@ if str(project_root) not in sys.path:
 from src.core.config import get_config, Config
 from src.core.exceptions import EduManagerException, ConfigurationError, DatabaseError
 
-
 class SimpleEduManagerApp:
     """Application principale EduManager+ - Version simplifiée"""
     
@@ -69,7 +68,7 @@ class SimpleEduManagerApp:
         return logger
     
     def _setup_ui(self):
-        """Configure l'interface utilisateur"""
+        """Configure l'interface utilisateurs"""
         try:
             # Configuration de CustomTkinter
             ctk.set_appearance_mode(self.config.ui.theme)
@@ -79,11 +78,11 @@ class SimpleEduManagerApp:
             ctk.set_window_scaling(1.0)
             ctk.set_widget_scaling(1.0)
             
-            self.logger.info("Interface utilisateur configurée")
+            self.logger.info("Interface utilisateurs configurée")
             
         except Exception as e:
             self.logger.error(f"Erreur lors de la configuration de l'UI: {e}")
-            raise ConfigurationError("Configuration de l'interface utilisateur", details={"error": str(e)})
+            raise ConfigurationError("Configuration de l'interface utilisateurs", details={"error": str(e)})
     
     def _check_dependencies(self) -> bool:
         """Vérifie que toutes les dépendances sont installées"""
@@ -254,7 +253,6 @@ class SimpleEduManagerApp:
         except Exception as e:
             self.logger.error(f"❌ Erreur lors de l'arrêt: {e}")
 
-
 def main():
     """Point d'entrée principal de l'application"""
     app = None
@@ -272,7 +270,7 @@ def main():
             app.main_window.mainloop()
             
     except KeyboardInterrupt:
-        print("\n🛑 Arrêt demandé par l'utilisateur")
+        print("\n🛑 Arrêt demandé par l'utilisateurs")
         if app:
             app.stop()
         sys.exit(0)
@@ -287,7 +285,6 @@ def main():
         # Nettoyage final
         if app:
             app.stop()
-
 
 if __name__ == "__main__":
     main()

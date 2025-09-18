@@ -4,7 +4,7 @@ class Annonce:
         self.titre = titre
         self.contenu = contenu
         self.date = date
-        self.auteur_id = auteur_id  # FK utilisateur optionnel
+        self.auteur_id = auteur_id  # FK utilisateurs optionnel
 
     def to_tuple(self):
         return (self.id, self.titre, self.contenu, self.date, self.auteur_id)

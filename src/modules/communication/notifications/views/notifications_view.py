@@ -53,7 +53,7 @@ class NotificationsView(tk.Frame):
     def modifier_notification(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("Modification", "Veuillez sélectionner une notification.")
+            messagebox.showwarning("Modification", "Veuillez sélectionner une notifications.")
             return
         data = self.tree.item(selected[0])["values"]
         self._ouvrir_formulaire("Modifier", data)
@@ -61,10 +61,10 @@ class NotificationsView(tk.Frame):
     def supprimer_notification(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("Suppression", "Veuillez sélectionner une notification.")
+            messagebox.showwarning("Suppression", "Veuillez sélectionner une notifications.")
             return
         notif_id = self.tree.item(selected[0])["values"][0]
-        if messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer cette notification ?"):
+        if messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer cette notifications ?"):
             delete_notification(notif_id)
             self.charger_notifications()
 
@@ -104,16 +104,16 @@ class NotificationsView(tk.Frame):
         def enregistrer():
             contenu = contenu_entry.get().strip()
             date = date_entry.get().strip()
-            utilisateur = utilisateur_entry.get().strip()
+            utilisateurs = utilisateur_entry.get().strip()
             lu = lu_entry.get().strip()
-            if not all([contenu, date, utilisateur, lu]):
+            if not all([contenu, date, utilisateurs, lu]):
                 messagebox.showerror("Erreur", "Champs obligatoires manquants.", parent=form)
                 return
             if mode == "Ajouter":
-                add_notification(contenu, date, utilisateur, lu)
+                add_notification(contenu, date, utilisateurs, lu)
                 messagebox.showinfo("Succès", "Notification ajoutée avec succès.", parent=form)
             else:
-                update_notification(data[0], contenu, date, utilisateur, lu)
+                update_notification(data[0], contenu, date, utilisateurs, lu)
                 messagebox.showinfo("Succès", "Notification modifiée.", parent=form)
             self.charger_notifications()
             form.destroy()

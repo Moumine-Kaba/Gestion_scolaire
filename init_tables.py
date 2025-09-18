@@ -43,7 +43,7 @@ def init_missing_tables():
                     id_eleve INTEGER NOT NULL,
                     id_matiere INTEGER NOT NULL,
                     id_professeur INTEGER NOT NULL,
-                    note REAL NOT NULL,
+                    notes REAL NOT NULL,
                     coefficient REAL DEFAULT 1.0,
                     type_evaluation TEXT DEFAULT 'Contrôle',
                     date_evaluation DATE NOT NULL,
@@ -171,7 +171,7 @@ def init_missing_tables():
                     id_salle INTEGER PRIMARY KEY AUTOINCREMENT,
                     nom_salle TEXT NOT NULL,
                     capacite INTEGER DEFAULT 30,
-                    type_salle TEXT DEFAULT 'Salle de classe',
+                    type_salle TEXT DEFAULT 'Salle de classes',
                     equipements TEXT,
                     statut TEXT DEFAULT 'Disponible',
                     date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -179,7 +179,7 @@ def init_missing_tables():
             ''')
             print("✅ Table salles créée")
             
-            # Table des enseignements (liaison prof-matiere-classe)
+            # Table des enseignements (liaison prof-matieres-classes)
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS enseignements (
                     id_enseignement INTEGER PRIMARY KEY AUTOINCREMENT,

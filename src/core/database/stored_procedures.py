@@ -15,7 +15,10 @@ Basé sur l'analyse de votre architecture :
 SOLUTION : Procédures stockées avec cache intelligent et préchargement
 """
 
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import threading
 import time
 from typing import Dict, List, Any, Optional, Tuple
@@ -62,15 +65,12 @@ class StoredProcedureManager:
     
     def _connect(self):
         """Connexion optimisée à la base de données"""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = get_db_connection()
+        # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
         
         # Optimisations SQLite
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        conn.execute("PRAGMA temp_store=MEMORY")
-        conn.execute("PRAGMA cache_size=-50000")  # 50MB cache
-        conn.execute("PRAGMA mmap_size=268435456")  # 256MB mmap
+        # 50MB cache
+        # 256MB mmap
         
         return conn
     
@@ -201,7 +201,7 @@ class StoredProcedureManager:
                     c.nom_classe as classe_nom,
                     c.niveau as classe_niveau,
                     COUNT(n.id_note) as nb_notes,
-                    COALESCE(AVG(n.note), 0) as moyenne_generale
+                    COALESCE(AVG(n.notes), 0) as moyenne_generale
                 FROM eleves e
                 LEFT JOIN classes c ON e.id_classe = c.id_classe
                 LEFT JOIN notes n ON e.id_eleve = n.id_eleve
@@ -213,7 +213,7 @@ class StoredProcedureManager:
             return [dict(row) for row in cursor.fetchall()]
     
     def _sp_get_eleves_by_classe(self, classe_id: int) -> List[Dict[str, Any]]:
-        """Récupère les élèves d'une classe spécifique"""
+        """Récupère les élèves d'une classes spécifique"""
         with self._connect() as conn:
             cursor = conn.execute("""
                 SELECT 
@@ -224,7 +224,7 @@ class StoredProcedureManager:
                     e.date_naissance,
                     e.statut,
                     COUNT(n.id_note) as nb_notes,
-                    COALESCE(AVG(n.note), 0) as moyenne_generale
+                    COALESCE(AVG(n.notes), 0) as moyenne_generale
                 FROM eleves e
                 LEFT JOIN notes n ON e.id_eleve = n.id_eleve
                 WHERE e.id_classe = ?
@@ -281,7 +281,7 @@ class StoredProcedureManager:
                     COUNT(e.id_eleve) as effectif_reel,
                     COUNT(CASE WHEN e.statut = 'actif' THEN 1 END) as eleves_actifs,
                     COUNT(CASE WHEN e.statut = 'inactif' THEN 1 END) as eleves_inactifs,
-                    COALESCE(AVG(n.note), 0) as moyenne_generale
+                    COALESCE(AVG(n.notes), 0) as moyenne_generale
                 FROM classes c
                 LEFT JOIN eleves e ON c.id_classe = e.id_classe
                 LEFT JOIN notes n ON e.id_eleve = n.id_eleve
@@ -340,7 +340,7 @@ class StoredProcedureManager:
             return [dict(row) for row in cursor.fetchall()]
     
     def _sp_get_matieres_by_classe(self, classe_id: int) -> List[Dict[str, Any]]:
-        """Récupère les matières d'une classe"""
+        """Récupère les matières d'une classes"""
         with self._connect() as conn:
             cursor = conn.execute("""
                 SELECT 
@@ -360,7 +360,7 @@ class StoredProcedureManager:
             cursor = conn.execute("""
                 SELECT 
                     n.id_note,
-                    n.note,
+                    n.notes,
                     n.coefficient,
                     n.type_evaluation,
                     n.date_evaluation,
@@ -383,9 +383,9 @@ class StoredProcedureManager:
             cursor = conn.execute("""
                 SELECT 
                     COUNT(*) as total_notes,
-                    AVG(note) as moyenne_generale,
-                    MIN(note) as note_min,
-                    MAX(note) as note_max,
+                    AVG(notes) as moyenne_generale,
+                    MIN(notes) as note_min,
+                    MAX(notes) as note_max,
                     COUNT(DISTINCT id_eleve) as eleves_avec_notes,
                     COUNT(DISTINCT id_matiere) as matieres_evaluees
                 FROM notes
@@ -393,16 +393,16 @@ class StoredProcedureManager:
             return dict(cursor.fetchone())
     
     def _sp_get_moyennes_by_classe(self, classe_id: int) -> List[Dict[str, Any]]:
-        """Récupère les moyennes par matière pour une classe"""
+        """Récupère les moyennes par matière pour une classes"""
         with self._connect() as conn:
             cursor = conn.execute("""
                 SELECT 
                     m.id_matiere,
                     m.nom as matiere_nom,
                     COUNT(n.id_note) as nb_notes,
-                    AVG(n.note) as moyenne_classe,
-                    MIN(n.note) as note_min,
-                    MAX(n.note) as note_max
+                    AVG(n.notes) as moyenne_classe,
+                    MIN(n.notes) as note_min,
+                    MAX(n.notes) as note_max
                 FROM matieres m
                 LEFT JOIN notes n ON m.id_matiere = n.id_matiere
                 LEFT JOIN eleves e ON n.id_eleve = e.id_eleve
@@ -439,7 +439,7 @@ class StoredProcedureManager:
             return [dict(row) for row in cursor.fetchall()]
     
     def _sp_get_cours_by_classe(self, classe_id: int) -> List[Dict[str, Any]]:
-        """Récupère les cours d'une classe"""
+        """Récupère les cours d'une classes"""
         with self._connect() as conn:
             cursor = conn.execute("""
                 SELECT 
@@ -534,7 +534,7 @@ class StoredProcedureManager:
             notes_stats = conn.execute("""
                 SELECT 
                     COUNT(*) as total_notes,
-                    AVG(note) as moyenne_generale
+                    AVG(notes) as moyenne_generale
                 FROM notes
             """).fetchone()
             
@@ -562,12 +562,11 @@ class StoredProcedureManager:
                     (SELECT COUNT(*) FROM classes WHERE statut = 'actif') as classes_actives,
                     (SELECT COUNT(*) FROM professeurs WHERE statut = 'actif') as professeurs_actifs,
                     (SELECT COUNT(*) FROM notes) as total_notes,
-                    (SELECT AVG(note) FROM notes) as moyenne_generale,
+                    (SELECT AVG(notes) FROM notes) as moyenne_generale,
                     (SELECT COUNT(*) FROM cours WHERE statut = 'termine') as cours_termines,
                     (SELECT COUNT(DISTINCT matiere_id) FROM matieres) as matieres_uniques
             """)
             return dict(cursor.fetchone())
-
 
 # ===== FONCTIONS D'ACCÈS RAPIDE =====
 
@@ -592,12 +591,6 @@ def get_performance_stats() -> Dict[str, Any]:
 
 # ===== PROCÉDURES D'OPTIMISATION SPÉCIALISÉES =====
 
-def preload_critical_data():
-    """Précharge les données critiques au démarrage"""
-    manager = get_sp_manager()
-    
-    print("🚀 Préchargement des données critiques...")
-    
     # Précharger les données les plus utilisées
     critical_procedures = [
         'sp_get_all_eleves',
@@ -654,7 +647,7 @@ if __name__ == "__main__":
     optimize_database()
     
     # Précharger les données critiques
-    preload_critical_data()
+    # preload_critical_data()  # Supprimé - système de cache supprimé
     
     # Tester quelques procédures
     try:

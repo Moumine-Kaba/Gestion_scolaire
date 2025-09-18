@@ -14,6 +14,9 @@ Composants intégrés :
 - Monitoring des performances
 """
 
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import time
 import threading
 from typing import Dict, List, Any, Optional
@@ -75,7 +78,7 @@ class EduManagerOptimizer:
             self._optimize_database()
             
             # 5. Précharger les données critiques
-            self._preload_critical_data()
+            # self._preload_critical_data()  # Supprimé - système de cache supprimé
             
             self.is_initialized = True
             self.stats['startup_time'] = time.time() - start_time
@@ -115,10 +118,10 @@ class EduManagerOptimizer:
     def _initialize_intelligent_preloader(self):
         """Initialise le système de préchargement intelligent"""
         try:
-            from src.core.preloader.intelligent_preloader import get_preloader, preload_critical_data
+            # from src.core.preloader.intelligent_preloader import get_preloader, preload_critical_data
             
-            self.components['intelligent_preloader'] = get_preloader()
-            preload_critical_data()
+            # self.components['intelligent_preloader'] = get_preloader()
+            # preload_critical_data()  # Supprimé - système de cache supprimé
             
             print("✅ Système de préchargement intelligent initialisé")
             
@@ -128,42 +131,38 @@ class EduManagerOptimizer:
     def _optimize_database(self):
         """Optimise la base de données"""
         try:
-            import sqlite3
+            # Remplacé par SQL Server  # Remplacé par SQL Server
             
             db_path = "database/edumanager.db"
-            conn = sqlite3.connect(db_path)
+            conn = get_db_connection()
             
             # Optimisations SQLite avancées
+            # Optimisations SQL Server (pas de PRAGMA)
             optimizations = [
-                "PRAGMA journal_mode=WAL",
-                "PRAGMA synchronous=NORMAL", 
-                "PRAGMA temp_store=MEMORY",
-                "PRAGMA cache_size=-100000",  # 100MB cache
-                "PRAGMA mmap_size=536870912",  # 512MB mmap
-                "PRAGMA page_size=4096",
-                "PRAGMA auto_vacuum=INCREMENTAL"
+                # SQL Server n'utilise pas PRAGMA, les optimisations sont gérées automatiquement
             ]
             
             for optimization in optimizations:
-                conn.execute(optimization)
+                if optimization.strip():  # Ne pas exécuter les chaînes vides
+                    conn.execute(optimization)
             
-            # Créer des index pour les requêtes fréquentes
+            # Créer des index pour les requêtes fréquentes (avec gestion d'erreur)
             indexes = [
-                "CREATE INDEX IF NOT EXISTS idx_eleves_classe_statut ON eleves(id_classe, statut)",
-                "CREATE INDEX IF NOT EXISTS idx_eleves_nom_prenom ON eleves(nom, prenom)",
-                "CREATE INDEX IF NOT EXISTS idx_eleves_statut ON eleves(statut)",
-                "CREATE INDEX IF NOT EXISTS idx_notes_eleve_date ON notes(id_eleve, date_evaluation)",
-                "CREATE INDEX IF NOT EXISTS idx_notes_matiere ON notes(id_matiere)",
-                "CREATE INDEX IF NOT EXISTS idx_notes_note ON notes(note)",
-                "CREATE INDEX IF NOT EXISTS idx_cours_classe_date ON cours(classe_id, date)",
-                "CREATE INDEX IF NOT EXISTS idx_cours_professeur ON cours(professeur_id)",
-                "CREATE INDEX IF NOT EXISTS idx_cours_statut ON cours(statut)",
-                "CREATE INDEX IF NOT EXISTS idx_matieres_classe ON matieres(classe_id)",
-                "CREATE INDEX IF NOT EXISTS idx_matieres_nom ON matieres(nom)",
-                "CREATE INDEX IF NOT EXISTS idx_classes_niveau ON classes(niveau)",
-                "CREATE INDEX IF NOT EXISTS idx_classes_statut ON classes(statut)",
-                "CREATE INDEX IF NOT EXISTS idx_professeurs_statut ON professeurs(statut)",
-                "CREATE INDEX IF NOT EXISTS idx_professeurs_nom ON professeurs(nom)"
+                "CREATE INDEX idx_eleves_classe_statut ON eleves(id_classe, statut)",
+                "CREATE INDEX idx_eleves_nom_prenom ON eleves(nom, prenom)",
+                "CREATE INDEX idx_eleves_statut ON eleves(statut)",
+                "CREATE INDEX idx_notes_eleve_date ON notes(id_eleve, date_evaluation)",
+                "CREATE INDEX idx_notes_matiere ON notes(id_matiere)",
+                "CREATE INDEX idx_notes_note ON notes(note)",
+                "CREATE INDEX idx_cours_classe_date ON cours(classe_id, date)",
+                "CREATE INDEX idx_cours_professeur ON cours(professeur_id)",
+                "CREATE INDEX idx_cours_statut ON cours(statut)",
+                "CREATE INDEX idx_matieres_classe ON matieres(id_matiere)",
+                "CREATE INDEX idx_matieres_nom ON matieres(nom_matiere)",
+                "CREATE INDEX idx_classes_niveau ON classes(niveau)",
+                "CREATE INDEX idx_classes_statut ON classes(statut)",
+                "CREATE INDEX idx_professeurs_statut ON professeurs(statut)",
+                "CREATE INDEX idx_professeurs_nom ON professeurs(nom)"
             ]
             
             for index_sql in indexes:
@@ -181,29 +180,9 @@ class EduManagerOptimizer:
             print(f"⚠️ Erreur optimisation base de données: {e}")
     
     def _preload_critical_data(self):
-        """Précharge les données critiques"""
-        try:
-            # Précharger les données les plus utilisées
-            critical_data = [
-                'eleves_all',
-                'classes_all', 
-                'matieres_all',
-                'professeurs_all',
-                'dashboard_stats'
-            ]
-            
-            for data_name in critical_data:
-                try:
-                    if 'stored_procedures' in self.components:
-                        self.components['stored_procedures'].execute(f'sp_get_{data_name}')
-                    print(f"✅ {data_name} préchargé")
-                except Exception as e:
-                    print(f"⚠️ Erreur préchargement {data_name}: {e}")
-            
-            print("✅ Données critiques préchargées")
-            
-        except Exception as e:
-            print(f"⚠️ Erreur préchargement données critiques: {e}")
+        """Précharge les données critiques (supprimé - système de cache supprimé)"""
+        # Cette fonction a été supprimée car le système de cache a été supprimé
+        pass
     
     def get_optimized_data(self, data_type: str, *args, **kwargs) -> Any:
         """Récupère les données optimisées"""

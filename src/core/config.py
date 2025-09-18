@@ -13,17 +13,18 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from dataclasses import dataclass, field
 
-
 @dataclass
 class DatabaseConfig:
     """Configuration de la base de données"""
-    type: str = "sqlite"
-    host: str = "localhost"
-    port: int = 5432
-    name: str = "edumanager"
+    type: str = "sqlserver"
+    host: str = "."  # Instance locale SQL Server
+    port: int = 1433  # Port par défaut SQL Server
+    name: str = "EduManager"  # Nom de la base de données SQL Server
     username: str = ""
     password: str = ""
-    path: str = "database/edumanager.db"
+    path: str = "database/edumanager.db"  # Gardé pour compatibilité
+    driver: str = "ODBC Driver 17 for SQL Server"
+    trusted_connection: bool = True  # Authentification Windows
     
     def get_connection_string(self) -> str:
         """Retourne la chaîne de connexion"""
@@ -31,9 +32,13 @@ class DatabaseConfig:
             return f"sqlite:///{self.path}"
         elif self.type == "postgresql":
             return f"postgresql://{self.username}:{self.password}@{self.host}:{self.port}/{self.name}"
+        elif self.type == "sqlserver":
+            if self.trusted_connection:
+                return f"mssql+pyodbc://{self.host}/{self.name}?driver={self.driver.replace(' ', '+')}&trusted_connection=yes"
+            else:
+                return f"mssql+pyodbc://{self.username}:{self.password}@{self.host}:{self.port}/{self.name}?driver={self.driver.replace(' ', '+')}"
         else:
             raise ValueError(f"Type de base de données non supporté: {self.type}")
-
 
 @dataclass
 class LoggingConfig:
@@ -43,7 +48,6 @@ class LoggingConfig:
     file: str = "logs/edumanager.log"
     max_size: int = 10 * 1024 * 1024  # 10 MB
     backup_count: int = 5
-
 
 @dataclass
 class SecurityConfig:
@@ -55,17 +59,15 @@ class SecurityConfig:
     password_min_length: int = 8
     require_special_chars: bool = True
 
-
 @dataclass
 class UIConfig:
-    """Configuration de l'interface utilisateur"""
+    """Configuration de l'interface utilisateurs"""
     theme: str = "dark"
     language: str = "fr"
     window_width: int = 1200
     window_height: int = 800
     enable_animations: bool = True
     show_tooltips: bool = True
-
 
 @dataclass
 class Config:
@@ -186,7 +188,6 @@ class Config:
                     setattr(config.ui, key, value)
         
         return config
-
 
 # Instance globale de configuration
 config = Config()

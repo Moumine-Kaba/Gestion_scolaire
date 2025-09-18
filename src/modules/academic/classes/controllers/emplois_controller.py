@@ -1,4 +1,7 @@
-import sqlite3
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+# Remplacé par SQL Server  # Remplacé par SQL Server
 # Le chemin de la base de données
 DB_PATH = r"database/edumanager.db"
 
@@ -7,7 +10,7 @@ def get_all_emplois():
     Récupère tous les emplois du temps avec les noms
     des matières, professeurs et salles associés.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         SELECT e.id, e.jour, e.heure, m.nom, p.nom, s.nom
@@ -23,10 +26,10 @@ def get_all_emplois():
 
 def get_edt_by_classe(classe_id):
     """
-    Récupère les emplois du temps pour une classe spécifique.
+    Récupère les emplois du temps pour une classes spécifique.
     (Non utilisée directement dans la vue, mais utile pour d'autres fonctionnalités)
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
         SELECT e.id, e.jour, e.heure, m.nom, p.nom, s.nom
@@ -41,19 +44,19 @@ def get_edt_by_classe(classe_id):
     conn.close()
     return rows
 
-def add_emploi(jour, heure, matiere, prof, salle):
+def add_emploi(jour, heure, matieres, prof, salles):
     """
     Ajoute un nouvel emploi du temps à la base de données.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     
     # Récupérer les IDs à partir des noms
-    cur.execute("SELECT id FROM matieres WHERE nom=?", (matiere,))
+    cur.execute("SELECT id FROM matieres WHERE nom=?", (matieres,))
     matiere_id = cur.fetchone()[0]
     cur.execute("SELECT id FROM professeurs WHERE nom=?", (prof,))
     prof_id = cur.fetchone()[0]
-    cur.execute("SELECT id FROM salles WHERE nom=?", (salle,))
+    cur.execute("SELECT id FROM salles WHERE nom=?", (salles,))
     salle_id = cur.fetchone()[0]
 
     cur.execute("""
@@ -63,19 +66,19 @@ def add_emploi(jour, heure, matiere, prof, salle):
     conn.commit()
     conn.close()
 
-def update_emploi(emploi_id, jour, heure, matiere, prof, salle):
+def update_emploi(emploi_id, jour, heure, matieres, prof, salles):
     """
     Met à jour un emploi du temps existant.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
 
     # Récupérer les IDs à partir des noms
-    cur.execute("SELECT id FROM matieres WHERE nom=?", (matiere,))
+    cur.execute("SELECT id FROM matieres WHERE nom=?", (matieres,))
     matiere_id = cur.fetchone()[0]
     cur.execute("SELECT id FROM professeurs WHERE nom=?", (prof,))
     prof_id = cur.fetchone()[0]
-    cur.execute("SELECT id FROM salles WHERE nom=?", (salle,))
+    cur.execute("SELECT id FROM salles WHERE nom=?", (salles,))
     salle_id = cur.fetchone()[0]
 
     cur.execute("""
@@ -90,7 +93,7 @@ def delete_emploi(emploi_id):
     """
     Supprime un emploi du temps.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM emplois_du_temps WHERE id=?", (emploi_id,))
     conn.commit()

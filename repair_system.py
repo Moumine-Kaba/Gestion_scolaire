@@ -141,8 +141,8 @@ class SystemRepair:
             permission_count = cursor.fetchone()[0]
             
             if permission_count == 0:
-                self.log("❌ Aucune permission configurée", "ERROR")
-                self.errors_found.append("Aucune permission configurée")
+                self.log("❌ Aucune permissions configurée", "ERROR")
+                self.errors_found.append("Aucune permissions configurée")
                 return False
             else:
                 self.log(f"✅ {permission_count} permissions configurées", "SUCCESS")

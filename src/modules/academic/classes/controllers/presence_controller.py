@@ -1,7 +1,10 @@
+from database.connection import get_db_connection
+from database.connection import get_db_connection
+from database.connection import get_db_connection
 import customtkinter as ctk
 from tkinter import messagebox
 from datetime import datetime
-import sqlite3
+# Remplacé par SQL Server  # Remplacé par SQL Server
 
 # Le chemin de la base de données
 DB_PATH = r"database/edumanager.db"
@@ -10,57 +13,94 @@ DB_PATH = r"database/edumanager.db"
 
 def _connect():
     """Crée et retourne une connexion à la base de données."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_db_connection()
+    # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
     return conn
 
 def get_all_classes():
     """Récupère toutes les classes."""
-    with _connect() as conn:
+    conn = _connect()
+
+    if not conn:
+
+        print("❌ Impossible de se connecter à la base de données")
+
+        return
+
         cur = conn.cursor()
         cur.execute("SELECT id_classe, nom_classe FROM classes ORDER BY nom_classe")
         rows = cur.fetchall()
         return [dict(row) for row in rows]
 
 def get_all_eleves(classe_id):
-    """Récupère tous les élèves d'une classe spécifique."""
-    with _connect() as conn:
+    """Récupère tous les élèves d'une classes spécifique."""
+    conn = _connect()
+
+    if not conn:
+
+        print("❌ Impossible de se connecter à la base de données")
+
+        return
+
         cur = conn.cursor()
-        cur.execute("SELECT id, nom, prenom FROM eleves WHERE classe_id=? ORDER BY nom", (classe_id,))
+        cur.execute("SELECT id_eleve, nom, prenom FROM eleves WHERE id_classe=? ORDER BY nom", (classe_id,))
         rows = cur.fetchall()
         return [dict(row) for row in rows]
 
 def get_presence_for_date_and_class(classe_id, date):
-    """Récupère les présences existantes pour une classe et une date données."""
-    with _connect() as conn:
+    """Récupère les présences existantes pour une classes et une date données."""
+    conn = _connect()
+
+    if not conn:
+
+        print("❌ Impossible de se connecter à la base de données")
+
+        return
+
         cur = conn.cursor()
         cur.execute("""
-            SELECT eleve_id, statut, commentaire FROM presence
+            SELECT eleve_id, statut, commentaire FROM presences
             WHERE classe_id=? AND date=?
         """, (classe_id, date))
         return {row['eleve_id']: dict(row) for row in cur.fetchall()}
 
-# Fonction corrigée pour ne plus accepter l'ID du professeur
+# Fonction corrigée pour ne plus accepter l'ID du professeurs
 def add_presence(eleve_id, classe_id, date, statut, commentaire):
     """Ajoute une nouvelle entrée de présence."""
-    with _connect() as conn:
+    conn = _connect()
+
+    if not conn:
+
+        print("❌ Impossible de se connecter à la base de données")
+
+        return
+
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO presence (eleve_id, classe_id, date, statut, commentaire)
+            INSERT INTO presences (eleve_id, classe_id, date, statut, commentaire)
             VALUES (?, ?, ?, ?, ?)
         """, (eleve_id, classe_id, date, statut, commentaire))
         conn.commit()
+            conn.close()
 
 def update_presence(eleve_id, classe_id, date, statut, commentaire):
     """Met à jour une entrée de présence existante."""
-    with _connect() as conn:
+    conn = _connect()
+
+    if not conn:
+
+        print("❌ Impossible de se connecter à la base de données")
+
+        return
+
         cur = conn.cursor()
         cur.execute("""
-            UPDATE presence
+            UPDATE presences
             SET statut=?, commentaire=?
             WHERE eleve_id=? AND classe_id=? AND date=?
         """, (statut, commentaire, eleve_id, classe_id, date))
         conn.commit()
+            conn.close()
 
 # --- VUE DE PRÉSENCE RAPIDE ---
 
@@ -78,7 +118,7 @@ FONT_TEXT = (FONT_FAMILY, 12)
 
 STATUTS = ["Présent", "Absent", "Retard", "Justifié"]
 
-# La classe est renommée 'PresenceView'
+# La classes est renommée 'PresenceView'
 class PresenceView(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -100,7 +140,7 @@ class PresenceView(ctk.CTkToplevel):
         self._build_ui()
 
     def _build_ui(self):
-        # Section de sélection de la classe et de la date
+        # Section de sélection de la classes et de la date
         top_frame = ctk.CTkFrame(self, fg_color=THEME["card_bg"])
         top_frame.pack(fill="x", padx=20, pady=10)
         
@@ -109,7 +149,7 @@ class PresenceView(ctk.CTkToplevel):
             top_frame, values=self._classe_names, command=self.charger_eleves,
             fg_color=THEME["header_bg"], text_color=THEME["primary_text"], font=FONT_TEXT
         )
-        self.classe_cb.set("Sélectionnez une classe")
+        self.classe_cb.set("Sélectionnez une classes")
         self.classe_cb.pack(side="left", padx=10, pady=10)
 
         ctk.CTkLabel(top_frame, text="Date :", text_color=THEME["primary_text"]).pack(side="left", padx=10, pady=10)
@@ -140,7 +180,7 @@ class PresenceView(ctk.CTkToplevel):
 
     def charger_eleves(self, *args):
         classe_nom = self.classe_cb.get()
-        if classe_nom == "Sélectionnez une classe":
+        if classe_nom == "Sélectionnez une classes":
             return
             
         self.selected_classe_id = self._classe_name_to_id.get(classe_nom)
@@ -155,7 +195,7 @@ class PresenceView(ctk.CTkToplevel):
         self.eleves = get_all_eleves(self.selected_classe_id)
         self.presence_vars = {}
         
-        # Récupérer les présences déjà enregistrées pour cette classe/date
+        # Récupérer les présences déjà enregistrées pour cette classes/date
         date_str = self.date_entry.get().strip()
         if date_str:
             presences_existantes = get_presence_for_date_and_class(self.selected_classe_id, date_str)
@@ -163,12 +203,12 @@ class PresenceView(ctk.CTkToplevel):
             presences_existantes = {}
 
         # Générer l'interface pour chaque élève
-        for eleve in self.eleves:
-            eleve_id = eleve['id']
+        for eleves in self.eleves:
+            eleve_id = eleves['id']
             row_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=THEME["card_bg"])
             row_frame.pack(fill="x", pady=5, padx=5)
 
-            ctk.CTkLabel(row_frame, text=f"{eleve['prenom']} {eleve['nom']}", font=FONT_TEXT, width=200, anchor="w",
+            ctk.CTkLabel(row_frame, text=f"{eleves['prenom']} {eleves['nom']}", font=FONT_TEXT, width=200, anchor="w",
                          text_color=THEME["primary_text"]).pack(side="left", padx=(15, 10))
             
             # Variables de statut et commentaire
@@ -201,7 +241,7 @@ class PresenceView(ctk.CTkToplevel):
 
     def enregistrer_presences(self):
         if not self.selected_classe_id or not self.eleves:
-            messagebox.showwarning("Avertissement", "Veuillez d'abord sélectionner une classe et charger les élèves.")
+            messagebox.showwarning("Avertissement", "Veuillez d'abord sélectionner une classes et charger les élèves.")
             return
 
         date_str = self.date_entry.get().strip()
@@ -212,8 +252,8 @@ class PresenceView(ctk.CTkToplevel):
         try:
             datetime.strptime(date_str, "%Y-%m-%d")
             
-            for eleve in self.eleves:
-                eleve_id = eleve['id']
+            for eleves in self.eleves:
+                eleve_id = eleves['id']
                 vars = self.presence_vars.get(eleve_id)
                 statut = vars['statut'].get()
                 commentaire = vars['commentaire'].get()
