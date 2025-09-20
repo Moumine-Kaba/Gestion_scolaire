@@ -1,6 +1,4 @@
 from database.connection import get_db_connection
-from database.connection import get_db_connection
-from database.connection import get_db_connection
 import os
 import sys
 
@@ -8,12 +6,6 @@ import sys
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
-
-# Utiliser le gestionnaire de base de données unifié
-from database.connection import get_db_connection
-
-# Chemin relatif vers la base de données
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..', 'database', 'edumanager.db')
 
 def _init_salles_table():
     """Initialise la table salles si elle n'existe pas."""
@@ -71,33 +63,57 @@ def preload_salles():
         print(f"⚠️ Préchargement salles ignoré: {e}")
 
 def get_all_salles():
-    """Liste toutes les salles en tant que dictionnaires."""
+    """Liste toutes les salles depuis SQL Server."""
     try:
-        # Initialiser la table si nécessaire
-        _init_salles_table()
-        
-        if None is not None:
-            return _CACHE["salles_all"]
         conn = _connect()
-
         if not conn:
-
             print("❌ Impossible de se connecter à la base de données")
-
-            return
-
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT id_salle, nom_salle, capacite, type_salle, equipements, statut, date_creation
-                FROM salles
-                ORDER BY nom_salle
-            """)
-            rows = cur.fetchall()
-            data = [dict(row) for row in rows]
-            
-            return data
+            return []
+        
+        cursor = conn.cursor()
+        
+        # Vérifier si la table salles existe
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_NAME = 'salles'
+        """)
+        
+        table_exists = cursor.fetchone()[0] > 0
+        
+        if not table_exists:
+            print("⚠️ Table 'salles' n'existe pas dans SQL Server")
+            return []
+        
+        # Récupérer toutes les salles
+        cursor.execute("""
+            SELECT id_salle, nom_salle, capacite, type_salle, equipements, statut, date_creation
+            FROM salles
+            ORDER BY nom_salle
+        """)
+        
+        rows = cursor.fetchall()
+        
+        # Convertir les résultats en dictionnaires
+        salles = []
+        for row in rows:
+            salle_dict = {
+                'id': row[0],  # id_salle
+                'nom': row[1],  # nom_salle
+                'capacite': row[2],  # capacite
+                'type': row[3],  # type_salle
+                'equipements': row[4],  # equipements
+                'statut': row[5],  # statut
+                'date_creation': row[6]  # date_creation
+            }
+            salles.append(salle_dict)
+        
+        conn.close()
+        print(f"✅ {len(salles)} salles récupérées depuis SQL Server")
+        return salles
+        
     except Exception as e:
-        print(f"[Salle] Erreur get_all_salles: {e}")
+        print(f"❌ Erreur get_all_salles: {e}")
         return []
 
 def add_salle(nom_salle, capacite, type_salle, equipements="", statut="Disponible"):
@@ -152,7 +168,6 @@ class SalleController:
     """Contrôleur pour la gestion des salles."""
     
     def __init__(self):
-        self.db_path = DB_PATH
         self.conn = None
         self._connect()
     

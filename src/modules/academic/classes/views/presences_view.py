@@ -29,31 +29,41 @@ ICON_MAP = {
     "transfert": "upload.png"
 }
 
-# New Color Theme
-THEME = {
-    "bg_main": "#0A192F",
-    "header_bg": "#172A45",
-    "card_bg": "#0B2039",
-    "border_color": "#334155",
-    "accent_blue": "#64FFDA",
-    "primary_text": "#CCD6F6",
-    "secondary_text": "#8892B0",
-    "error_red": "#FF6363",
-    "success_green": "#A0E7E5",
-    "warning_yellow": "#FFD700",
-    "info_orange": "#F97316",
-    "select_highlight": "#2A456C"
-}
+# Import du thème global EduManager+
+try:
+    import sys
+    import os
+    root_path = os.path.join(os.path.dirname(__file__), '../../../../..')
+    sys.path.insert(0, root_path)
+    from resources.themes.theme import *
+    print("✅ Thème global EduManager+ importé pour les présences")
+except ImportError as e:
+    print(f"⚠️ Erreur import thème: {e}")
+    # Fallback avec constantes locales
+    BG_MAIN = "#0A192F"
+    BG_SIDEBAR = "#172A45"
+    BG_CARD = "#0B2039"
+    BORDER_COLOR = "#334155"
+    ACCENT_BLUE = "#64FFDA"
+    TEXT_PRIMARY = "#CCD6F6"
+    TEXT_SECONDARY = "#8892B0"
+    ERROR_RED = "#FF6363"
+    SUCCESS_GREEN = "#A0E7E5"
+    WARNING_YELLOW = "#FFD700"
+    INFO_ORANGE = "#F97316"
+    HOVER_SUCCESS = "#8cd5d3"
+    HOVER_ERROR = "#e55252"
+    HOVER_PRIMARY = "#2A456C"
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("green") # Use the default theme, but we'll override colors manually
 
-FONT = "Poppins"
-F_TITLE = (FONT, 24, "bold")
+FONT = "Segoe UI"
+F_TITLE = (FONT, 20, "bold")
 F_SUB = (FONT, 14, "bold")
-F_TXT = (FONT, 13)
-F_SMALL = (FONT, 11)
-F_BOLD = (FONT, 13, "bold")
+F_TXT = (FONT, 12)
+F_SMALL = (FONT, 10)
+F_BOLD = (FONT, 12, "bold")
 
 STATUTS = ["Présent", "Absent", "Retard", "Justifié"]
 
@@ -66,7 +76,7 @@ def _connect():
 def get_all_classes():
     with _connect() as c:
         r = c.execute("SELECT id_classe, nom_classe FROM classes ORDER BY nom_classe").fetchall()
-        return [dict(x) for x in r]
+        return [{"id_classe": x[0], "nom_classe": x[1]} for x in r]
 
 def get_all_eleves(classe_id, search_term="", statut_filter=None, date=None):
     with _connect() as c:
@@ -77,10 +87,10 @@ def get_all_eleves(classe_id, search_term="", statut_filter=None, date=None):
             q += " AND (e.nom LIKE ? OR e.prenom LIKE ?)"
             p += [pat, pat]
         if statut_filter and statut_filter != "Tous" and date:
-            q += " AND e.id IN (SELECT eleve_id FROM presences WHERE classe_id=? AND statut=? AND date=?)"
+            q += " AND e.id_eleve IN (SELECT eleve_id FROM presences WHERE classe_id=? AND statut=? AND date=?)"
             p += [classe_id, statut_filter, date]
         q += " ORDER BY e.nom, e.prenom"
-        return [dict(r) for r in c.execute(q, p).fetchall()]
+        return [{"id_eleve": r[0], "nom": r[1], "prenom": r[2], "email": r[3]} for r in c.execute(q, p).fetchall()]
 
 def get_presence_for_date_and_class(classe_id, date):
     with _connect() as c:
@@ -89,7 +99,7 @@ def get_presence_for_date_and_class(classe_id, date):
             FROM presences
             WHERE classe_id=? AND date=?
         """, (classe_id, date)).fetchall()
-        return {row["eleve_id"]: dict(row) for row in r}
+        return {row[0]: {"eleve_id": row[0], "statut": row[1], "commentaire": row[2]} for row in r}
 
 def add_presence(eleve_id, classe_id, date, statut, commentaire, justificatif_path=None):
     with _connect() as c:
@@ -109,19 +119,74 @@ def update_presence(eleve_id, classe_id, date, statut, commentaire, justificatif
         c.commit()
 
 def get_student_history(eleve_id):
+    """Récupère l'historique complet des présences d'un élève"""
     with _connect() as c:
         return c.execute("""
-            SELECT p.date, p.statut, p.commentaire, e.prenom, e.nom
-            FROM presences p JOIN eleves e ON p.eleve_id=e.id
-            WHERE p.eleve_id=? ORDER BY p.date DESC
+            SELECT p.date, p.statut, p.commentaire, e.prenom, e.nom, c.nom_classe
+            FROM presences p 
+            JOIN eleves e ON p.eleve_id=e.id_eleve
+            JOIN classes c ON p.classe_id=c.id_classe
+            WHERE p.eleve_id=? 
+            ORDER BY p.date DESC
         """, (eleve_id,)).fetchall()
+
+def get_class_attendance_summary(classe_id, start_date=None, end_date=None):
+    """Récupère un résumé des présences d'une classe sur une période"""
+    with _connect() as c:
+        query = """
+            SELECT 
+                p.date,
+                COUNT(*) as total_eleves,
+                SUM(CASE WHEN p.statut = 'Présent' THEN 1 ELSE 0 END) as presents,
+                SUM(CASE WHEN p.statut = 'Absent' THEN 1 ELSE 0 END) as absents,
+                SUM(CASE WHEN p.statut = 'Retard' THEN 1 ELSE 0 END) as retards,
+                SUM(CASE WHEN p.statut = 'Justifié' THEN 1 ELSE 0 END) as justifies
+            FROM presences p
+            WHERE p.classe_id=?
+        """
+        params = [classe_id]
+        
+        if start_date:
+            query += " AND p.date >= ?"
+            params.append(start_date)
+        if end_date:
+            query += " AND p.date <= ?"
+            params.append(end_date)
+            
+        query += " GROUP BY p.date ORDER BY p.date DESC"
+        
+        return c.execute(query, params).fetchall()
+
+def get_student_attendance_stats(eleve_id, start_date=None, end_date=None):
+    """Récupère les statistiques de présence d'un élève"""
+    with _connect() as c:
+        query = """
+            SELECT 
+                COUNT(*) as total_jours,
+                SUM(CASE WHEN statut = 'Présent' THEN 1 ELSE 0 END) as presents,
+                SUM(CASE WHEN statut = 'Absent' THEN 1 ELSE 0 END) as absents,
+                SUM(CASE WHEN statut = 'Retard' THEN 1 ELSE 0 END) as retards,
+                SUM(CASE WHEN statut = 'Justifié' THEN 1 ELSE 0 END) as justifies
+            FROM presences
+            WHERE eleve_id=?
+        """
+        params = [eleve_id]
+        
+        if start_date:
+            query += " AND date >= ?"
+            params.append(start_date)
+        if end_date:
+            query += " AND date <= ?"
+            params.append(end_date)
+            
+        return c.execute(query, params).fetchone()
 
 def get_monthly_attendance_data(classe_id, year, month):
     with _connect() as c:
         return c.execute("""
             SELECT e.prenom, e.nom, p.statut, p.date, p.commentaire
-            FROM presences p JOIN eleves e ON p.eleve_id=e.id
-            WHERE p.classe_id=? AND strftime('%Y',p.date)=? AND strftime('%m',p.date)=?
+            FROM presences p JOIN eleves e ON p.eleve_id=e.id_eleve
+            WHERE p.classe_id=? AND YEAR(p.date)=? AND MONTH(p.date)=?
             ORDER BY e.nom, e.prenom, p.date
         """, (classe_id, year, month)).fetchall()
 
@@ -130,15 +195,14 @@ def get_monthly_status_counts(classe_id, year, month):
         rows = c.execute("""
             SELECT statut, COUNT(*) c
             FROM presences
-            WHERE classe_id=? AND strftime('%Y',date)=? AND strftime('%m',date)=?
+            WHERE classe_id=? AND YEAR(date)=? AND MONTH(date)=?
             GROUP BY statut
         """, (classe_id, year, month)).fetchall()
         return {r["statut"]: r["c"] for r in rows}
 
 def get_absence_threshold():
-    with _connect() as c:
-        r = c.execute("SELECT valeur FROM configuration WHERE cle='seuil_absence_injustifiee'").fetchone()
-        return int(r["valeur"]) if r else 3
+    """Retourne le seuil d'absence injustifiée (valeur par défaut pour SQL Server)"""
+    return 3  # Valeur par défaut
 
 def get_unjustified_absences_count(eleve_id):
     with _connect() as c:
@@ -152,19 +216,65 @@ def get_unjustified_absences_count(eleve_id):
 def send_absent_notification(parent_email, student_name, classe_name, date_str):
     print(f"[EMAIL] Notification d'absence envoyée à {parent_email} pour {student_name} en {classe_name} le {date_str}.")
 
+def validate_all_presences(classe_id, date_str, statut="Présent", commentaire=""):
+    """Valide toutes les présences d'une classe pour une date donnée"""
+    try:
+        conn = _connect()
+        if not conn:
+            return False
+        
+        cursor = conn.cursor()
+        
+        # Récupérer tous les élèves de la classe
+        eleves = get_all_eleves(classe_id)
+        
+        # Valider chaque élève
+        for eleve in eleves:
+            eleve_id = eleve["id_eleve"]
+            
+            # Vérifier si la présence existe déjà
+            cursor.execute("""
+                SELECT COUNT(*) FROM presences 
+                WHERE eleve_id=? AND classe_id=? AND date=?
+            """, (eleve_id, classe_id, date_str))
+            
+            exists = cursor.fetchone()[0] > 0
+            
+            if exists:
+                # Mettre à jour
+                cursor.execute("""
+                    UPDATE presences 
+                    SET statut=?, commentaire=?
+                    WHERE eleve_id=? AND classe_id=? AND date=?
+                """, (statut, commentaire, eleve_id, classe_id, date_str))
+            else:
+                # Insérer
+                cursor.execute("""
+                    INSERT INTO presences (eleve_id, classe_id, date, statut, commentaire)
+                    VALUES (?,?,?,?,?)
+                """, (eleve_id, classe_id, date_str, statut, commentaire))
+        
+        conn.commit()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erreur validation en masse: {e}")
+        return False
+
 # Main Application Class
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("EduManager+ — Dashboard")
         self.geometry("1280x820")
-        self.configure(fg_color=THEME["bg_main"])
+        self.configure(fg_color=BG_MAIN)
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.icons = {}
         self._load_icons()
         self._build_sidebar()
-        self.main_content = ctk.CTkFrame(self, fg_color=THEME["bg_main"])
+        self.main_content = ctk.CTkFrame(self, fg_color=BG_MAIN)
         self.main_content.grid(row=0, column=1, sticky="nsew", padx=16, pady=16)
         self.presence_view = PresenceView(self.main_content, self.icons)
         self.presence_view.pack(fill="both", expand=True)
@@ -182,20 +292,20 @@ class App(ctk.CTk):
                 self.icons[key] = None
 
     def _build_sidebar(self):
-        sidebar = ctk.CTkFrame(self, fg_color=THEME["header_bg"], corner_radius=0)
+        sidebar = ctk.CTkFrame(self, fg_color=BG_SIDEBAR, corner_radius=0)
         sidebar.grid(row=0, column=0, sticky="nsew")
         sidebar.grid_rowconfigure(6, weight=1)
         
         logo_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
         logo_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 10))
-        ctk.CTkLabel(logo_frame, text="EduManager+", font=F_TITLE, text_color=THEME["accent_blue"]).pack(side="left")
+        ctk.CTkLabel(logo_frame, text="EduManager+", font=F_TITLE, text_color=ACCENT_BLUE).pack(side="left")
         
         def add_button(text, icon_key, row, command=None, is_active=False):
             btn = ctk.CTkButton(sidebar, text=text, image=self.icons.get(icon_key), compound="left",
                                  font=F_SUB,
-                                 fg_color=THEME["select_highlight"] if is_active else "transparent",
-                                 hover_color=THEME["select_highlight"],
-                                 text_color=THEME["primary_text"] if is_active else THEME["secondary_text"],
+                                 fg_color=HOVER_PRIMARY if is_active else "transparent",
+                                 hover_color=HOVER_PRIMARY,
+                                 text_color=TEXT_PRIMARY if is_active else TEXT_SECONDARY,
                                  corner_radius=8,
                                  anchor="w", command=command)
             btn.grid(row=row, column=0, sticky="ew", padx=10, pady=5)
@@ -216,11 +326,11 @@ class App(ctk.CTk):
 # Presence Management View
 class PresenceView(ctk.CTkFrame):
     def __init__(self, parent, icons):
-        super().__init__(parent, fg_color=THEME["bg_main"])
+        super().__init__(parent, fg_color=BG_MAIN)
         self.icons = icons
         self.ic = lambda k: self.icons.get(k)
         self._classes = get_all_classes()
-        self._classe_name_to_id = {c["nom"]: c["id"] for c in self._classes}
+        self._classe_name_to_id = {c["nom_classe"]: c["id_classe"] for c in self._classes}
         self.selected_classe_id = None
         self.pres_map = {}
         self.eleves = []
@@ -235,20 +345,20 @@ class PresenceView(ctk.CTkFrame):
         self._build_main_layout()
 
         if self._classes:
-            self.cb_class.set(self._classes[0]["nom"])
+            self.cb_class.set(self._classes[0]["nom_classe"])
         self.ent_date.insert(0, datetime.now().strftime("%Y-%m-%d"))
         self._reload()
 
     def _build_main_layout(self):
         # Left Panel (Master)
-        master_panel = ctk.CTkFrame(self, fg_color=THEME["card_bg"], corner_radius=12)
+        master_panel = ctk.CTkFrame(self, fg_color=BG_CARD, corner_radius=12)
         master_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         master_panel.grid_rowconfigure(3, weight=1)
         
         # Header for the master panel
         header_frame = ctk.CTkFrame(master_panel, fg_color="transparent")
         header_frame.pack(fill="x", padx=20, pady=(20, 10))
-        ctk.CTkLabel(header_frame, text="Sélectionner une classes et une date", font=F_SUB, text_color=THEME["primary_text"]).pack(anchor="w")
+        ctk.CTkLabel(header_frame, text="Sélectionner une classes et une date", font=F_SUB, text_color=TEXT_PRIMARY).pack(anchor="w")
 
         # Controls
         controls_frame = ctk.CTkFrame(master_panel, fg_color="transparent")
@@ -256,37 +366,67 @@ class PresenceView(ctk.CTkFrame):
         controls_frame.grid_columnconfigure(0, weight=1)
         controls_frame.grid_columnconfigure(1, weight=1)
 
-        self.cb_class = ctk.CTkComboBox(controls_frame, values=[c["nom"] for c in self._classes], command=lambda *_: self._reload(),
-                                             fg_color=THEME["header_bg"], border_color=THEME["border_color"], text_color=THEME["primary_text"])
+        self.cb_class = ctk.CTkComboBox(controls_frame, values=[c["nom_classe"] for c in self._classes], command=lambda *_: self._reload(),
+                                             fg_color=BG_SIDEBAR, border_color=BORDER_COLOR, text_color=TEXT_PRIMARY)
         self.cb_class.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         
-        date_frame = ctk.CTkFrame(controls_frame, fg_color=THEME["header_bg"], border_color=THEME["border_color"], border_width=1)
+        date_frame = ctk.CTkFrame(controls_frame, fg_color=BG_SIDEBAR, border_color=BORDER_COLOR, border_width=1)
         date_frame.grid(row=0, column=1, sticky="ew", padx=(5, 0))
         date_frame.grid_columnconfigure(0, weight=1)
         self.ent_date = ctk.CTkEntry(date_frame, placeholder_text="AAAA-MM-JJ", border_width=0, fg_color="transparent", font=F_TXT)
         self.ent_date.grid(row=0, column=0, sticky="ew", padx=(8, 0))
         ctk.CTkButton(date_frame, text="", image=self.ic("calendriers"), width=30, fg_color="transparent",
-                      hover_color=THEME["card_bg"], command=self._pick_date).grid(row=0, column=1, padx=4, pady=4)
+                      hover_color=BG_CARD, command=self._pick_date).grid(row=0, column=1, padx=4, pady=4)
 
         # Search and Filter
         search_filter_frame = ctk.CTkFrame(master_panel, fg_color="transparent")
         search_filter_frame.pack(fill="x", padx=20, pady=(0, 10))
         search_filter_frame.grid_columnconfigure(0, weight=1)
         search_box = ctk.CTkEntry(search_filter_frame, textvariable=self.search_var, placeholder_text="Rechercher un élève...",
-                                     fg_color=THEME["header_bg"], border_color=THEME["border_color"])
+                                     fg_color=BG_SIDEBAR, border_color=BORDER_COLOR)
         search_box.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         search_box.bind("<Return>", lambda _e: self._reload())
         
         self.filter_cb = ctk.CTkComboBox(search_filter_frame, values=["Tous"]+STATUTS, variable=self.filter_var,
-                                             fg_color=THEME["header_bg"], border_color=THEME["border_color"],
+                                             fg_color=BG_SIDEBAR, border_color=BORDER_COLOR,
                                              command=lambda *_: self._reload())
         self.filter_cb.grid(row=0, column=1, sticky="ew", padx=(5, 0))
         
-        self.list_wrap = ctk.CTkScrollableFrame(master_panel, fg_color=THEME["bg_main"], corner_radius=0)
+        # Actions en masse
+        bulk_actions_frame = ctk.CTkFrame(master_panel, fg_color="transparent")
+        bulk_actions_frame.pack(fill="x", padx=20, pady=(0, 10))
+        
+        # Titre des actions
+        ctk.CTkLabel(bulk_actions_frame, text="Actions en masse", font=F_SUB, text_color=TEXT_PRIMARY).pack(anchor="w", pady=(0, 8))
+        
+        # Boutons d'action
+        buttons_frame = ctk.CTkFrame(bulk_actions_frame, fg_color="transparent")
+        buttons_frame.pack(fill="x")
+        buttons_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        
+        # Bouton Valider tout comme Présent
+        validate_all_btn = ctk.CTkButton(buttons_frame, text="✅ Valider tout Présent", 
+                                        fg_color=SUCCESS_GREEN, text_color=BG_MAIN, hover_color=HOVER_SUCCESS,
+                                        font=F_BOLD, command=self._validate_all_present)
+        validate_all_btn.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        
+        # Bouton Marquer tout Absent
+        mark_absent_btn = ctk.CTkButton(buttons_frame, text="❌ Marquer tout Absent", 
+                                      fg_color=ERROR_RED, text_color="white", hover_color=HOVER_ERROR,
+                                      font=F_BOLD, command=self._mark_all_absent)
+        mark_absent_btn.grid(row=0, column=1, sticky="ew", padx=5)
+        
+        # Bouton Réinitialiser
+        reset_btn = ctk.CTkButton(buttons_frame, text="🔄 Réinitialiser", 
+                                 fg_color=WARNING_YELLOW, text_color=BG_MAIN, hover_color="#FFA500",
+                                 font=F_BOLD, command=self._reset_all)
+        reset_btn.grid(row=0, column=2, sticky="ew", padx=(5, 0))
+        
+        self.list_wrap = ctk.CTkScrollableFrame(master_panel, fg_color=BG_MAIN, corner_radius=0)
         self.list_wrap.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
         # Right Panel (Detail)
-        self.detail_panel = ctk.CTkFrame(self, fg_color=THEME["card_bg"], corner_radius=12)
+        self.detail_panel = ctk.CTkFrame(self, fg_color=BG_CARD, corner_radius=12)
         self.detail_panel.grid(row=0, column=1, sticky="nsew")
         self._build_detail_panel()
         
@@ -296,7 +436,7 @@ class PresenceView(ctk.CTkFrame):
         
         self.detail_panel.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(self.detail_panel, text="Sélectionnez un élève pour voir les détails",
-                      font=F_SUB, text_color=THEME["secondary_text"]).pack(pady=40, padx=20)
+                      font=F_SUB, text_color=TEXT_SECONDARY).pack(pady=40, padx=20)
         
     def _render_detail_for(self, eleve_id):
         for w in self.detail_panel.winfo_children():
@@ -305,7 +445,7 @@ class PresenceView(ctk.CTkFrame):
         self.detail_panel.grid_columnconfigure(0, weight=1)
         self.detail_panel.grid_rowconfigure(2, weight=1)
         
-        e = next((x for x in self.eleves if x["id"] == eleve_id), None)
+        e = next((x for x in self.eleves if x["id_eleve"] == eleve_id), None)
         if not e:
             self._build_detail_panel()
             return
@@ -319,40 +459,40 @@ class PresenceView(ctk.CTkFrame):
         header_frame = ctk.CTkFrame(self.detail_panel, fg_color="transparent")
         header_frame.pack(fill="x", padx=20, pady=(20, 10))
         
-        ctk.CTkLabel(header_frame, text=f"{e['prenom']} {e['nom']}", font=F_TITLE, text_color=THEME["primary_text"]).pack(side="left")
+        ctk.CTkLabel(header_frame, text=f"{e['prenom']} {e['nom']}", font=F_TITLE, text_color=TEXT_PRIMARY).pack(side="left")
         ctk.CTkButton(header_frame, text="Historique", image=self.ic("documents"),
-                      fg_color=THEME["accent_blue"], text_color=THEME["bg_main"], hover_color=THEME["accent_blue"],
+                      fg_color=ACCENT_BLUE, text_color=BG_MAIN, hover_color=ACCENT_BLUE,
                       command=lambda: self._history(eleve_id)).pack(side="right")
         
         content_frame = ctk.CTkFrame(self.detail_panel, fg_color="transparent")
         content_frame.pack(fill="both", expand=True, padx=20, pady=10)
         
-        ctk.CTkLabel(content_frame, text="Statut du jour", font=F_TXT, text_color=THEME["secondary_text"]).pack(anchor="w", pady=(0, 5))
+        ctk.CTkLabel(content_frame, text="Statut du jour", font=F_TXT, text_color=TEXT_SECONDARY).pack(anchor="w", pady=(0, 5))
         v_statut = ctk.StringVar(value=statut)
         seg = ctk.CTkSegmentedButton(content_frame, values=STATUTS, variable=v_statut,
-                                         selected_color=THEME["accent_blue"], selected_hover_color=THEME["accent_blue"],
-                                         unselected_color=THEME["header_bg"], unselected_hover_color=THEME["card_bg"],
+                                         selected_color=ACCENT_BLUE, selected_hover_color=ACCENT_BLUE,
+                                         unselected_color=BG_SIDEBAR, unselected_hover_color=BG_CARD,
                                          font=F_TXT,
-                                         text_color=THEME["bg_main"], text_color_disabled=THEME["secondary_text"])
+                                         text_color=BG_MAIN, text_color_disabled=TEXT_SECONDARY)
         seg.pack(fill="x", pady=(0, 15))
         
-        ctk.CTkLabel(content_frame, text="Commentaire", font=F_TXT, text_color=THEME["secondary_text"]).pack(anchor="w", pady=(0, 5))
-        txt = ctk.CTkTextbox(content_frame, height=120, fg_color=THEME["header_bg"], border_color=THEME["border_color"], font=F_TXT, text_color=THEME["primary_text"])
+        ctk.CTkLabel(content_frame, text="Commentaire", font=F_TXT, text_color=TEXT_SECONDARY).pack(anchor="w", pady=(0, 5))
+        txt = ctk.CTkTextbox(content_frame, height=120, fg_color=BG_SIDEBAR, border_color=BORDER_COLOR, font=F_TXT, text_color=TEXT_PRIMARY)
         txt.pack(fill="x", pady=(0, 15))
         if commentaire:
             txt.insert("1.0", commentaire)
             
-        ctk.CTkLabel(content_frame, text="Justificatif", font=F_TXT, text_color=THEME["secondary_text"]).pack(anchor="w", pady=(0, 5))
-        wrap = ctk.CTkFrame(content_frame, fg_color=THEME["header_bg"], border_color=THEME["border_color"], border_width=1, corner_radius=6)
+        ctk.CTkLabel(content_frame, text="Justificatif", font=F_TXT, text_color=TEXT_SECONDARY).pack(anchor="w", pady=(0, 5))
+        wrap = ctk.CTkFrame(content_frame, fg_color=BG_SIDEBAR, border_color=BORDER_COLOR, border_width=1, corner_radius=6)
         wrap.pack(fill="x", pady=(0, 20))
         
         path_v = ctk.StringVar(value=justificatif)
         ent = ctk.CTkEntry(wrap, textvariable=path_v, placeholder_text="Chemin vers le fichier (PDF/JPG/PNG)…",
-                             border_width=0, fg_color="transparent", font=F_TXT, text_color=THEME["primary_text"])
+                             border_width=0, fg_color="transparent", font=F_TXT, text_color=TEXT_PRIMARY)
         ent.pack(side="left", fill="x", expand=True, padx=8)
         
         ctk.CTkButton(wrap, text="", image=self.ic("documents"), width=40,
-                      fg_color=THEME["card_bg"], hover_color=THEME["bg_main"],
+                      fg_color=BG_CARD, hover_color=BG_MAIN,
                       command=lambda: self._pick_file(path_v)).pack(side="left", padx=4, pady=4)
         
         btns_frame = ctk.CTkFrame(self.detail_panel, fg_color="transparent")
@@ -362,10 +502,10 @@ class PresenceView(ctk.CTkFrame):
             self._apply_one(eleve_id, v_statut.get(), txt.get("1.0", "end-1c").strip(), path_v.get().strip())
         
         ctk.CTkButton(btns_frame, text="Appliquer", image=self.ic("taches"), font=F_BOLD,
-                      fg_color=THEME["success_green"], text_color=THEME["bg_main"], hover_color="#8cd5d3", command=apply_one).pack(side="left", padx=5)
+                      fg_color=SUCCESS_GREEN, text_color=BG_MAIN, hover_color="#8cd5d3", command=apply_one).pack(side="left", padx=5)
         
         ctk.CTkButton(btns_frame, text="Annuler", image=self.ic("logout"), font=F_BOLD,
-                      fg_color=THEME["error_red"], text_color=THEME["bg_main"], hover_color="#e55252", command=lambda: self._render_detail_for(eleve_id)).pack(side="left", padx=5)
+                      fg_color=ERROR_RED, text_color=BG_MAIN, hover_color="#e55252", command=lambda: self._render_detail_for(eleve_id)).pack(side="left", padx=5)
 
     def _reload(self):
         classes = self.cb_class.get()
@@ -386,13 +526,14 @@ class PresenceView(ctk.CTkFrame):
         seuil = get_absence_threshold()
         
         for e in self.eleves:
-            eid = e["id"]
+            eid = e["id_eleve"]
             p = self.pres_map.get(eid, {})
-            statut = p.get("statut", "Présent")
+            # Par défaut, tous les élèves sont présents
+            statut = p.get("statut") if p.get("statut") else "Présent"
             counts[statut] = counts.get(statut, 0) + 1
             
-            item_bg = THEME["select_highlight"] if eid == self.current_student_id else THEME["card_bg"]
-            item_hover = THEME["select_highlight"]
+            item_bg = HOVER_PRIMARY if eid == self.current_student_id else BG_CARD
+            item_hover = HOVER_PRIMARY
             
             item = ctk.CTkFrame(self.list_wrap, fg_color=item_bg, corner_radius=8, cursor="hand2")
             item.pack(fill="x", padx=5, pady=4)
@@ -400,57 +541,87 @@ class PresenceView(ctk.CTkFrame):
             
             ctk.CTkLabel(item, text="", image=self.ic("person")).pack(side="left", padx=(10, 5), pady=8)
             
-            name = ctk.CTkLabel(item, text=f"{e['prenom']} {e['nom']}", font=F_TXT, text_color=THEME["primary_text"])
+            name = ctk.CTkLabel(item, text=f"{e['prenom']} {e['nom']}", font=F_TXT, text_color=TEXT_PRIMARY)
             name.pack(side="left", padx=(0, 10))
             
             color_map = {
-                "Présent": THEME["success_green"],
-                "Absent": THEME["error_red"],
-                "Retard": THEME["warning_yellow"],
-                "Justifié": THEME["info_orange"]
+                "Présent": SUCCESS_GREEN,
+                "Absent": ERROR_RED,
+                "Retard": WARNING_YELLOW,
+                "Justifié": INFO_ORANGE
             }
-            color = color_map.get(statut, THEME["secondary_text"])
+            color = color_map.get(statut, TEXT_SECONDARY)
             
-            tag = ctk.CTkLabel(item, text=statut, text_color=THEME["bg_main"], fg_color=color, corner_radius=999, width=70, font=F_SMALL)
+            tag = ctk.CTkLabel(item, text=statut, text_color=BG_MAIN, fg_color=color, corner_radius=999, width=70, font=F_SMALL)
             tag.pack(side="right", padx=10)
             
             abs_c = get_unjustified_absences_count(eid)
             if abs_c >= seuil:
-                ctk.CTkLabel(item, text=f"({abs_c} abs. injustifiées)", text_color=THEME["error_red"], font=F_SMALL).pack(side="right", padx=5)
+                ctk.CTkLabel(item, text=f"({abs_c} abs. injustifiées)", text_color=ERROR_RED, font=F_SMALL).pack(side="right", padx=5)
 
-        self.master_stats = ctk.CTkFrame(self.list_wrap, fg_color="transparent")
+        # Statistiques améliorées
+        self.master_stats = ctk.CTkFrame(self.list_wrap, fg_color=BG_CARD, corner_radius=12, border_width=1, border_color=BORDER_COLOR)
         self.master_stats.pack(fill="x", pady=10)
-        self.master_stats.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        
+        # Header des statistiques
+        stats_header = ctk.CTkFrame(self.master_stats, fg_color="transparent")
+        stats_header.pack(fill="x", padx=15, pady=(12, 8))
+        
+        classe_name = self.cb_class.get() or "Aucune classe"
+        date_str = self.ent_date.get() or "Aucune date"
+        total_eleves = len(self.eleves)
+        
+        ctk.CTkLabel(stats_header, text=f"📊 Statistiques - {classe_name} ({date_str})", 
+                     font=F_SUB, text_color=TEXT_PRIMARY).pack(side="left")
+        ctk.CTkLabel(stats_header, text=f"Total: {total_eleves} élèves", 
+                     font=F_SMALL, text_color=TEXT_SECONDARY).pack(side="right")
+        
+        # Chips des statistiques
+        chips_frame = ctk.CTkFrame(self.master_stats, fg_color="transparent")
+        chips_frame.pack(fill="x", padx=15, pady=(0, 12))
+        chips_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
-        def add_chip(label, count, color, col):
-            chip_frame = ctk.CTkFrame(self.master_stats, fg_color=THEME["header_bg"], corner_radius=8)
+        def add_chip(label, count, color, col, icon=""):
+            chip_frame = ctk.CTkFrame(chips_frame, fg_color=BG_SIDEBAR, corner_radius=8, border_width=1, border_color=color)
             chip_frame.grid(row=0, column=col, sticky="ew", padx=5)
-            ctk.CTkLabel(chip_frame, text=label, font=F_SMALL, text_color=color).pack(pady=(4, 0))
-            ctk.CTkLabel(chip_frame, text=str(count), font=F_BOLD, text_color=THEME["primary_text"]).pack(pady=(0, 4))
+            
+            # Header du chip
+            chip_header = ctk.CTkFrame(chip_frame, fg_color="transparent")
+            chip_header.pack(fill="x", padx=8, pady=(6, 2))
+            
+            ctk.CTkLabel(chip_header, text=f"{icon} {label}", font=F_SMALL, text_color=color).pack(side="left")
+            
+            # Valeur
+            ctk.CTkLabel(chip_frame, text=str(count), font=("Segoe UI", 16, "bold"), text_color=TEXT_PRIMARY).pack(pady=(0, 6))
+            
+            # Pourcentage si applicable
+            if total_eleves > 0:
+                percentage = (count / total_eleves) * 100
+                ctk.CTkLabel(chip_frame, text=f"{percentage:.1f}%", font=F_SMALL, text_color=TEXT_SECONDARY).pack(pady=(0, 4))
         
-        add_chip("Présents", counts.get("Présent", 0), THEME["success_green"], 0)
-        add_chip("Absents", counts.get("Absent", 0), THEME["error_red"], 1)
-        add_chip("Retards", counts.get("Retard", 0), THEME["warning_yellow"], 2)
-        add_chip("Justifiés", counts.get("Justifié", 0), THEME["info_orange"], 3)
+        add_chip("Présents", counts.get("Présent", 0), SUCCESS_GREEN, 0, "✅")
+        add_chip("Absents", counts.get("Absent", 0), ERROR_RED, 1, "❌")
+        add_chip("Retards", counts.get("Retard", 0), WARNING_YELLOW, 2, "⏰")
+        add_chip("Justifiés", counts.get("Justifié", 0), INFO_ORANGE, 3, "📝")
         
-        if self.current_student_id not in [e["id"] for e in self.eleves]:
+        if self.current_student_id not in [e["id_eleve"] for e in self.eleves]:
             self._build_detail_panel()
             self.current_student_id = None
 
     def _pick_date(self):
         top = ctk.CTkToplevel(self)
         top.title("Choisir une date")
-        top.configure(fg_color=THEME["bg_main"])
+        top.configure(fg_color=BG_MAIN)
         top.grab_set()
         
         cal = Calendar(top, selectmode="day",
-                       background=THEME["card_bg"],
-                       foreground=THEME["primary_text"],
-                       selectbackground=THEME["accent_blue"],
-                       headersbackground=THEME["header_bg"],
-                       normalbackground=THEME["bg_main"],
-                       weekendbackground=THEME["bg_main"],
-                       bordercolor=THEME["border_color"])
+                       background=BG_CARD,
+                       foreground=TEXT_PRIMARY,
+                       selectbackground=ACCENT_BLUE,
+                       headersbackground=BG_SIDEBAR,
+                       normalbackground=BG_MAIN,
+                       weekendbackground=BG_MAIN,
+                       bordercolor=BORDER_COLOR)
         cal.pack(padx=10, pady=10)
         
         def ok():
@@ -459,7 +630,7 @@ class PresenceView(ctk.CTkFrame):
             top.destroy()
             self._reload()
             
-        ctk.CTkButton(top, text="OK", fg_color=THEME["accent_blue"], text_color=THEME["bg_main"], hover_color=THEME["accent_blue"], command=ok).pack(pady=8)
+        ctk.CTkButton(top, text="OK", fg_color=ACCENT_BLUE, text_color=BG_MAIN, hover_color=ACCENT_BLUE, command=ok).pack(pady=8)
 
     def _pick_file(self, var):
         p = filedialog.askopenfilename(title="Sélectionner un justificatif",
@@ -533,33 +704,356 @@ class PresenceView(ctk.CTkFrame):
             messagebox.showinfo("PDF", f"Rapport sauvegardé : {path}")
 
     def _history(self, eid):
+        """Affiche l'historique complet des présences d'un élève"""
         rows = get_student_history(eid)
         if not rows:
             messagebox.showinfo("Historique", "Aucun historique pour cet élève.")
             return
-            
+        
+        # Récupérer les statistiques de l'élève
+        stats = get_student_attendance_stats(eid)
+        
         nom = f"{rows[0]['prenom']} {rows[0]['nom']}"
         win = ctk.CTkToplevel(self)
-        win.title(f"Historique - {nom}")
-        win.geometry("760x560")
-        win.configure(fg_color=THEME["bg_main"])
+        win.title(f"Historique des présences - {nom}")
+        win.geometry("900x700")
+        win.configure(fg_color=BG_MAIN)
         win.grab_set()
         
-        ctk.CTkLabel(win, text=f"Historique de {nom}", font=F_TITLE, text_color=THEME["primary_text"]).pack(pady=10)
-        fr = ctk.CTkScrollableFrame(win, fg_color=THEME["card_bg"])
-        fr.pack(fill="both", expand=True, padx=12, pady=8)
+        # Header avec informations de l'élève
+        header_frame = ctk.CTkFrame(win, fg_color=BG_CARD, corner_radius=12)
+        header_frame.pack(fill="x", padx=15, pady=15)
         
-        for r in rows:
-            line = ctk.CTkFrame(fr, fg_color=THEME["header_bg"], corner_radius=8)
-            line.pack(fill="x", padx=6, pady=4)
-            ctk.CTkLabel(line, text=r["date"], width=110, font=F_TXT, text_color=THEME["secondary_text"]).pack(side="left", padx=10)
-            ctk.CTkLabel(line, text=r["statut"], width=110, font=F_BOLD, text_color=THEME["accent_blue"]).pack(side="left")
-            ctk.CTkLabel(line, text=r["commentaire"] or "-", font=F_TXT, text_color=THEME["primary_text"]).pack(side="left", padx=10)
+        # Nom de l'élève
+        title_label = ctk.CTkLabel(header_frame, text=f"📋 Historique de {nom}", 
+                                  font=("Segoe UI", 18, "bold"), text_color=TEXT_PRIMARY)
+        title_label.pack(pady=(15, 10))
+        
+        # Statistiques globales
+        if stats:
+            stats_frame = ctk.CTkFrame(header_frame, fg_color=BG_SIDEBAR, corner_radius=8)
+            stats_frame.pack(fill="x", padx=15, pady=(0, 15))
             
-            if r["commentaire"]:
-                ctk.CTkButton(line, text="Ouvrir", width=70,
-                              fg_color=THEME["accent_blue"], text_color=THEME["bg_main"],
-                              command=lambda p=r["commentaire"]: print(f"Justificatif: {p}")).pack(side="right", padx=8)
+            stats_inner = ctk.CTkFrame(stats_frame, fg_color="transparent")
+            stats_inner.pack(fill="x", padx=10, pady=10)
+            stats_inner.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+            
+            total_jours = stats[0] or 0
+            presents = stats[1] or 0
+            absents = stats[2] or 0
+            retards = stats[3] or 0
+            justifies = stats[4] or 0
+            
+            def create_stat_item(text, value, color, col):
+                item_frame = ctk.CTkFrame(stats_inner, fg_color="transparent")
+                item_frame.grid(row=0, column=col, sticky="ew", padx=2)
+                ctk.CTkLabel(item_frame, text=text, font=F_SMALL, text_color=TEXT_SECONDARY).pack()
+                ctk.CTkLabel(item_frame, text=str(value), font=F_BOLD, text_color=color).pack()
+            
+            create_stat_item("Total", total_jours, TEXT_PRIMARY, 0)
+            create_stat_item("Présents", presents, SUCCESS_GREEN, 1)
+            create_stat_item("Absents", absents, ERROR_RED, 2)
+            create_stat_item("Retards", retards, WARNING_YELLOW, 3)
+            create_stat_item("Justifiés", justifies, INFO_ORANGE, 4)
+            
+            # Taux de présence
+            if total_jours > 0:
+                taux_presence = (presents / total_jours) * 100
+                taux_label = ctk.CTkLabel(stats_frame, 
+                                        text=f"📊 Taux de présence: {taux_presence:.1f}%", 
+                                        font=F_SUB, text_color=ACCENT_BLUE)
+                taux_label.pack(pady=(0, 10))
+        
+        # Liste des présences avec filtres
+        controls_frame = ctk.CTkFrame(win, fg_color="transparent")
+        controls_frame.pack(fill="x", padx=15, pady=(0, 10))
+        
+        # Filtres
+        filter_frame = ctk.CTkFrame(controls_frame, fg_color=BG_CARD, corner_radius=8)
+        filter_frame.pack(fill="x", padx=5)
+        
+        filter_inner = ctk.CTkFrame(filter_frame, fg_color="transparent")
+        filter_inner.pack(fill="x", padx=10, pady=8)
+        
+        ctk.CTkLabel(filter_inner, text="Filtrer par statut:", font=F_TXT, text_color=TEXT_PRIMARY).pack(side="left", padx=(0, 10))
+        
+        filter_var = ctk.StringVar(value="Tous")
+        filter_combo = ctk.CTkComboBox(filter_inner, values=["Tous"] + STATUTS, variable=filter_var,
+                                      fg_color=BG_SIDEBAR, border_color=BORDER_COLOR, width=120)
+        filter_combo.pack(side="left", padx=(0, 10))
+        
+        # Zone de recherche
+        search_var = ctk.StringVar()
+        search_entry = ctk.CTkEntry(filter_inner, textvariable=search_var, placeholder_text="Rechercher par date...",
+                                   fg_color=BG_SIDEBAR, border_color=BORDER_COLOR, width=200)
+        search_entry.pack(side="left", padx=(0, 10))
+        
+        # Liste scrollable des présences
+        list_frame = ctk.CTkScrollableFrame(win, fg_color=BG_CARD, corner_radius=12)
+        list_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        
+        def update_history_display():
+            """Met à jour l'affichage de l'historique selon les filtres"""
+            # Nettoyer la liste
+            for widget in list_frame.winfo_children():
+                widget.destroy()
+            
+            # Filtrer les données
+            filtered_rows = rows
+            statut_filter = filter_var.get()
+            search_term = search_var.get().lower()
+            
+            if statut_filter != "Tous":
+                filtered_rows = [r for r in filtered_rows if r["statut"] == statut_filter]
+            
+            if search_term:
+                filtered_rows = [r for r in filtered_rows if search_term in str(r["date"]).lower()]
+            
+            # Afficher les résultats
+            if not filtered_rows:
+                no_data_frame = ctk.CTkFrame(list_frame, fg_color="transparent")
+                no_data_frame.pack(fill="x", padx=20, pady=20)
+                ctk.CTkLabel(no_data_frame, text="Aucun résultat trouvé", 
+                            font=F_TXT, text_color=TEXT_SECONDARY).pack()
+                return
+            
+            # Header de la liste
+            header_list = ctk.CTkFrame(list_frame, fg_color=BG_SIDEBAR, corner_radius=8)
+            header_list.pack(fill="x", padx=5, pady=(5, 10))
+            
+            header_inner = ctk.CTkFrame(header_list, fg_color="transparent")
+            header_inner.pack(fill="x", padx=10, pady=8)
+            
+            ctk.CTkLabel(header_inner, text="Date", font=F_BOLD, text_color=TEXT_PRIMARY, width=120).pack(side="left")
+            ctk.CTkLabel(header_inner, text="Statut", font=F_BOLD, text_color=TEXT_PRIMARY, width=100).pack(side="left", padx=10)
+            ctk.CTkLabel(header_inner, text="Classe", font=F_BOLD, text_color=TEXT_PRIMARY, width=120).pack(side="left", padx=10)
+            ctk.CTkLabel(header_inner, text="Commentaire", font=F_BOLD, text_color=TEXT_PRIMARY).pack(side="left", padx=10)
+            
+            # Lignes de données
+            for r in filtered_rows:
+                line = ctk.CTkFrame(list_frame, fg_color=BG_SIDEBAR, corner_radius=8)
+                line.pack(fill="x", padx=5, pady=2)
+                
+                line_inner = ctk.CTkFrame(line, fg_color="transparent")
+                line_inner.pack(fill="x", padx=10, pady=6)
+                
+                # Date
+                date_str = r["date"].strftime("%d/%m/%Y") if hasattr(r["date"], 'strftime') else str(r["date"])
+                ctk.CTkLabel(line_inner, text=date_str, font=F_TXT, text_color=TEXT_PRIMARY, width=120).pack(side="left")
+                
+                # Statut avec couleur
+                statut_color = {
+                    "Présent": SUCCESS_GREEN,
+                    "Absent": ERROR_RED,
+                    "Retard": WARNING_YELLOW,
+                    "Justifié": INFO_ORANGE
+                }.get(r["statut"], TEXT_SECONDARY)
+                
+                statut_label = ctk.CTkLabel(line_inner, text=r["statut"], font=F_TXT, 
+                                           text_color="white", fg_color=statut_color, 
+                                           corner_radius=12, width=100)
+                statut_label.pack(side="left", padx=10)
+                
+                # Classe
+                classe_name = r.get("nom_classe", "N/A")
+                ctk.CTkLabel(line_inner, text=classe_name, font=F_TXT, text_color=TEXT_SECONDARY, width=120).pack(side="left", padx=10)
+                
+                # Commentaire
+                commentaire = r["commentaire"] or "-"
+                ctk.CTkLabel(line_inner, text=commentaire[:50] + "..." if len(commentaire) > 50 else commentaire, 
+                            font=F_TXT, text_color=TEXT_PRIMARY).pack(side="left", padx=10)
+        
+        # Bindings pour les filtres
+        filter_combo.configure(command=lambda *_: update_history_display())
+        search_entry.bind("<KeyRelease>", lambda *_: update_history_display())
+        
+        # Affichage initial
+        update_history_display()
+        
+        # Boutons d'action
+        actions_frame = ctk.CTkFrame(win, fg_color="transparent")
+        actions_frame.pack(fill="x", padx=15, pady=(0, 15))
+        
+        export_btn = ctk.CTkButton(actions_frame, text="📄 Exporter PDF", 
+                                   fg_color=ACCENT_BLUE, text_color="white", hover_color="#4ECDC4",
+                                   font=F_BOLD, command=lambda: self._export_student_history(eid, nom))
+        export_btn.pack(side="left", padx=(0, 10))
+        
+        close_btn = ctk.CTkButton(actions_frame, text="❌ Fermer", 
+                                 fg_color=ERROR_RED, text_color="white", hover_color=HOVER_ERROR,
+                                 font=F_BOLD, command=win.destroy)
+        close_btn.pack(side="right")
+
+    def _export_student_history(self, eleve_id, nom_eleve):
+        """Exporte l'historique d'un élève en PDF"""
+        try:
+            rows = get_student_history(eleve_id)
+            stats = get_student_attendance_stats(eleve_id)
+            
+            if not rows:
+                messagebox.showwarning("Export", "Aucun historique à exporter.")
+                return
+            
+            pdf = FPDF()
+            pdf.add_page()
+            
+            # En-tête
+            pdf.set_font("Arial", 'B', 16)
+            pdf.cell(200, 10, txt=f"Historique des présences - {nom_eleve}", ln=True, align='C')
+            pdf.ln(6)
+            
+            # Statistiques
+            if stats:
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(200, 8, txt="Statistiques globales", ln=True)
+                pdf.set_font("Arial", '', 10)
+                
+                total_jours = stats[0] or 0
+                presents = stats[1] or 0
+                absents = stats[2] or 0
+                retards = stats[3] or 0
+                justifies = stats[4] or 0
+                
+                pdf.cell(100, 6, f"Total des jours: {total_jours}", ln=True)
+                pdf.cell(100, 6, f"Présents: {presents}", ln=True)
+                pdf.cell(100, 6, f"Absents: {absents}", ln=True)
+                pdf.cell(100, 6, f"Retards: {retards}", ln=True)
+                pdf.cell(100, 6, f"Justifiés: {justifies}", ln=True)
+                
+                if total_jours > 0:
+                    taux_presence = (presents / total_jours) * 100
+                    pdf.cell(100, 6, f"Taux de présence: {taux_presence:.1f}%", ln=True)
+                
+                pdf.ln(6)
+            
+            # Tableau des présences
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(40, 8, "Date", 1)
+            pdf.cell(30, 8, "Statut", 1)
+            pdf.cell(50, 8, "Classe", 1)
+            pdf.cell(0, 8, "Commentaire", 1, ln=True)
+            
+            pdf.set_font("Arial", '', 9)
+            for r in rows:
+                date_str = r["date"].strftime("%d/%m/%Y") if hasattr(r["date"], 'strftime') else str(r["date"])
+                pdf.cell(40, 6, date_str, 1)
+                pdf.cell(30, 6, r["statut"], 1)
+                pdf.cell(50, 6, r.get("nom_classe", "N/A"), 1)
+                commentaire = (r["commentaire"] or "")[:60]
+                pdf.cell(0, 6, commentaire, 1, ln=True)
+            
+            # Sauvegarde
+            path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")],
+                                               initialfile=f"Historique_{nom_eleve.replace(' ', '_')}.pdf")
+            if path:
+                pdf.output(path)
+                messagebox.showinfo("Export PDF", f"Historique exporté: {path}")
+                
+        except Exception as e:
+            messagebox.showerror("Erreur Export", f"Erreur lors de l'export: {e}")
+
+    def _validate_all_present(self):
+        """Valide toutes les présences comme Présent"""
+        if not self.selected_classe_id:
+            messagebox.showwarning("Attention", "Sélectionnez une classe.")
+            return
+        
+        date_str = self.ent_date.get().strip()
+        if not date_str:
+            messagebox.showwarning("Attention", "Indiquez la date.")
+            return
+        
+        try:
+            datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            messagebox.showerror("Erreur", "Format date invalide (AAAA-MM-JJ).")
+            return
+        
+        # Confirmation
+        classe_name = self.cb_class.get()
+        if messagebox.askyesno("Confirmation", 
+                              f"Valider toutes les présences comme 'Présent' pour la classe {classe_name} le {date_str} ?"):
+            
+            success = validate_all_presences(self.selected_classe_id, date_str, "Présent", "Validation en masse")
+            
+            if success:
+                messagebox.showinfo("Succès", f"Toutes les présences ont été validées comme 'Présent' pour {len(self.eleves)} élèves.")
+                self._reload()
+            else:
+                messagebox.showerror("Erreur", "Erreur lors de la validation en masse.")
+
+    def _mark_all_absent(self):
+        """Marque toutes les présences comme Absent"""
+        if not self.selected_classe_id:
+            messagebox.showwarning("Attention", "Sélectionnez une classe.")
+            return
+        
+        date_str = self.ent_date.get().strip()
+        if not date_str:
+            messagebox.showwarning("Attention", "Indiquez la date.")
+            return
+        
+        try:
+            datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            messagebox.showerror("Erreur", "Format date invalide (AAAA-MM-JJ).")
+            return
+        
+        # Confirmation
+        classe_name = self.cb_class.get()
+        if messagebox.askyesno("Confirmation", 
+                              f"Marquer toutes les présences comme 'Absent' pour la classe {classe_name} le {date_str} ?"):
+            
+            success = validate_all_presences(self.selected_classe_id, date_str, "Absent", "Marquage en masse")
+            
+            if success:
+                messagebox.showinfo("Succès", f"Toutes les présences ont été marquées comme 'Absent' pour {len(self.eleves)} élèves.")
+                self._reload()
+            else:
+                messagebox.showerror("Erreur", "Erreur lors du marquage en masse.")
+
+    def _reset_all(self):
+        """Réinitialise toutes les présences (supprime les enregistrements)"""
+        if not self.selected_classe_id:
+            messagebox.showwarning("Attention", "Sélectionnez une classe.")
+            return
+        
+        date_str = self.ent_date.get().strip()
+        if not date_str:
+            messagebox.showwarning("Attention", "Indiquez la date.")
+            return
+        
+        try:
+            datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            messagebox.showerror("Erreur", "Format date invalide (AAAA-MM-JJ).")
+            return
+        
+        # Confirmation
+        classe_name = self.cb_class.get()
+        if messagebox.askyesno("Confirmation", 
+                              f"Réinitialiser toutes les présences pour la classe {classe_name} le {date_str} ?\n\nCela supprimera tous les enregistrements de présence pour cette date."):
+            
+            try:
+                conn = _connect()
+                if not conn:
+                    messagebox.showerror("Erreur", "Impossible de se connecter à la base de données.")
+                    return
+                
+                cursor = conn.cursor()
+                cursor.execute("""
+                    DELETE FROM presences 
+                    WHERE classe_id=? AND date=?
+                """, (self.selected_classe_id, date_str))
+                
+                conn.commit()
+                conn.close()
+                
+                messagebox.showinfo("Succès", f"Toutes les présences ont été réinitialisées pour {len(self.eleves)} élèves.")
+                self._reload()
+                
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur lors de la réinitialisation: {e}")
 
 if __name__ == "__main__":
     app = App()

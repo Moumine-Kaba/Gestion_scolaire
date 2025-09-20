@@ -7,7 +7,7 @@ Module utils pour EduManager+
 """
 
 from .db_utils import (
-    get_db_connection,
+    get_db_connection_wrapper as get_db_connection,
     get_connection,
     execute_query,
     execute_update,

@@ -30,3 +30,4 @@ for row in cursor.fetchall():
     print(f'  {row[0]} ({row[1]}): {row[2]} élèves')
 
 conn.close()
+

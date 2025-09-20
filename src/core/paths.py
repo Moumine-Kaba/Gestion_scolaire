@@ -8,7 +8,6 @@ Configuration centralisée des chemins pour EduManager+
 
 import os
 import sys
-from database.connection import get_db_connection
 
 def get_project_root():
     """Retourne le chemin racine du projet"""

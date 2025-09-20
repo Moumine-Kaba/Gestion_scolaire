@@ -18,7 +18,7 @@ try:
         get_notes_by_eleve_fast
     )
     print("✅ Requêtes optimisées importées pour NotesView")
-    USE_OPTIMIZED_QUERIES = True
+    USE_OPTIMIZED_QUERIES = False
 except ImportError as e:
     print(f"⚠️ Requêtes optimisées non disponibles: {e}")
     USE_OPTIMIZED_QUERIES = False
@@ -121,31 +121,8 @@ class NotesView(ctk.CTkFrame):
         
         print("🔄 Chargement des données depuis la base...")
         try:
-            # Utiliser les requêtes optimisées si disponibles
-            if USE_OPTIMIZED_QUERIES:
-                eleves_data = get_all_eleves_fast()
-                classes_data = get_all_classes_fast()
-                matieres_data = get_all_matieres_fast()
-            else:
-                # Fallback vers les requêtes normales
-                eleves_data = get_all_eleves()
-                classes_data = get_all_classes()
-                matieres_data = get_all_matieres()
-            
-            # Conversion en dictionnaires pour un accès rapide
-            self.eleves = {e["id"]: e for e in eleves_data} if eleves_data else {}
-            self.classes = {c["id"]: c for c in classes_data} if classes_data else {}
-            self.matieres = {m["id"]: m for m in matieres_data} if matieres_data else {}
-            
-            # Mise à jour du cache
-            self._data_cache = {
-                'eleves': self.eleves,
-                'classes': self.classes,
-                'matieres': self.matieres
-            }
-            self._cache_timestamp = current_time
-            
-            print(f"✅ Données chargées: {len(self.eleves)} élèves, {len(self.classes)} classes, {len(self.matieres)} matières")
+            # Chargement progressif pour éviter le blocage
+            self._load_data_progressively()
             
         except Exception as e:
             print(f"⚠️ Erreur chargement données: {e}")
@@ -153,6 +130,52 @@ class NotesView(ctk.CTkFrame):
             self.eleves = {}
             self.classes = {}
             self.matieres = {}
+    
+    def _load_data_progressively(self):
+        """Charge les données de manière progressive pour éviter le blocage"""
+        import time
+        
+        # Charger d'abord les matières (plus légères)
+        print("📚 Chargement des matières...")
+        self.matieres = {}
+        try:
+            matieres_data = get_all_matieres()
+            self.matieres = {m.get("id_matiere", m.get("id", 0)): m for m in matieres_data} if matieres_data else {}
+            print(f"✅ {len(self.matieres)} matières guinéennes chargées")
+        except Exception as e:
+            print(f"⚠️ Erreur chargement matières: {e}")
+        
+        # Charger les classes
+        print("🏫 Chargement des classes...")
+        self.classes = {}
+        try:
+            classes_data = get_all_classes()
+            self.classes = {c.get("id", 0): c for c in classes_data} if classes_data else {}
+            print(f"✅ {len(self.classes)} classes chargées")
+        except Exception as e:
+            print(f"⚠️ Erreur chargement classes: {e}")
+        
+        # Charger les élèves par lots (limité à 100 pour éviter le blocage)
+        print("👥 Chargement des élèves (lot limité)...")
+        self.eleves = {}
+        try:
+            eleves_data = get_all_eleves()
+            # Limiter à 100 élèves pour éviter le blocage
+            limited_eleves = eleves_data[:100] if eleves_data else []
+            self.eleves = {e.get("id_eleve", e.get("id", 0)): e for e in limited_eleves}
+            print(f"✅ {len(self.eleves)} élèves chargés (limité à 100)")
+        except Exception as e:
+            print(f"⚠️ Erreur chargement élèves: {e}")
+        
+        # Mise à jour du cache
+        self._data_cache = {
+            'eleves': self.eleves,
+            'classes': self.classes,
+            'matieres': self.matieres
+        }
+        self._cache_timestamp = time.time()
+        
+        print(f"✅ Données chargées: {len(self.eleves)} élèves, {len(self.classes)} classes, {len(self.matieres)} matières guinéennes")
 
     def _refresh_all(self):
         """Rafraîchit toutes les données en invalidant le cache"""
@@ -254,11 +277,11 @@ class NotesView(ctk.CTkFrame):
         self.chart_frame.grid_propagate(False)
         
         self.stats_container = ctk.CTkFrame(top_dashboard, fg_color=BG_CARD, corner_radius=12)
-        self.stats_container.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=(0, 1))
+        self.stats_container.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=(0, 15))
         self.stats_container.grid_propagate(False)
 
         self.table_panel = ctk.CTkFrame(parent_frame, fg_color=BG_CARD, corner_radius=12)
-        self.table_panel.grid(row=1, column=0, sticky="nsew", pady=(1, 0))
+        self.table_panel.grid(row=1, column=0, sticky="nsew", pady=(15, 0))
         self.table_panel.grid_columnconfigure(0, weight=1)
         self.table_panel.grid_rowconfigure(1, weight=1)
         
@@ -307,6 +330,63 @@ class NotesView(ctk.CTkFrame):
     def _on_classe_selected(self, selected_class_name):
         self.selected_eleve_data = None
         self._clear_dashboard()
+        
+        # Recharger les élèves de la classe sélectionnée
+        if selected_class_name != "Classe...":
+            classe_id = next((cid for cid, cdata in self.classes.items() if cdata.get("nom") == selected_class_name), None)
+            if classe_id:
+                print(f"🔄 Chargement des élèves de la classe {selected_class_name} (ID: {classe_id})")
+                try:
+                    # Charger TOUS les élèves de cette classe spécifique
+                    eleves_classe = get_all_eleves(classe_id=classe_id)
+                    
+                    # Filtrer pour ne garder que les élèves qui ont des notes (approche optimisée)
+                    from database.connection import get_db_connection
+                    conn = get_db_connection()
+                    cur = conn.cursor()
+                    
+                    # Requête pour récupérer TOUS les élèves de la classe (avec ou sans notes)
+                    cur.execute("""
+                        SELECT e.id_eleve, e.nom, e.prenom, e.genre, e.date_naissance, e.statut, e.id_classe,
+                               CASE WHEN n.id_note IS NOT NULL THEN 'Avec notes' ELSE 'Sans notes' END as statut_notes
+                        FROM eleves e
+                        LEFT JOIN notes n ON e.id_eleve = n.id_eleve
+                        WHERE e.id_classe = ?
+                        ORDER BY statut_notes DESC, e.nom, e.prenom
+                    """, (classe_id,))
+                    
+                    eleves_avec_notes_data = cur.fetchall()
+                    conn.close()
+                    
+                    # Convertir en dictionnaires
+                    eleves_avec_notes = []
+                    for row in eleves_avec_notes_data:
+                        eleve_dict = {
+                            'id_eleve': row[0],
+                            'nom': row[1],
+                            'prenom': row[2],
+                            'genre': row[3] if row[3] else 'Non spécifié',
+                            'date_naissance': row[4] if row[4] else None,
+                            'statut': row[5] if row[5] else 'Actif',
+                            'id_classe': row[6] if row[6] else None,
+                            'statut_notes': row[7] if len(row) > 7 else 'Sans notes'
+                        }
+                        eleves_avec_notes.append(eleve_dict)
+                    
+                    # Mettre à jour le cache des élèves (avec et sans notes)
+                    self.eleves = {e.get("id_eleve", e.get("id", 0)): e for e in eleves_avec_notes}
+                    
+                    # Compter les élèves avec et sans notes
+                    eleves_avec_notes_count = sum(1 for e in eleves_avec_notes if e.get('statut_notes') == 'Avec notes')
+                    eleves_sans_notes_count = sum(1 for e in eleves_avec_notes if e.get('statut_notes') == 'Sans notes')
+                    
+                    print(f"✅ {len(self.eleves)} élèves chargés pour la classe {selected_class_name}")
+                    print(f"   📝 {eleves_avec_notes_count} élèves avec des notes")
+                    print(f"   📝 {eleves_sans_notes_count} élèves sans notes")
+                        
+                except Exception as e:
+                    print(f"❌ Erreur lors du chargement des élèves de la classe: {e}")
+        
         self._update_eleve_list()
 
     def _filter_eleves(self, event=None):
@@ -314,18 +394,14 @@ class NotesView(ctk.CTkFrame):
 
     def _update_eleve_list(self):
         search_query = self.search_entry.get().lower()
-        selected_classe_name = self.classe_dropdown.get()
         
         for widget in self.eleve_list_frame.winfo_children():
             widget.destroy()
 
+        # Les élèves sont déjà filtrés par classe dans _on_classe_selected
         filtered_eleves = list(self.eleves.values())
         
-        if selected_classe_name != "Classe...":
-            classe_id = next((cid for cid, cdata in self.classes.items() if cdata["nom"] == selected_classe_name), None)
-            if classe_id:
-                filtered_eleves = [e for e in filtered_eleves if e.get("classe_id") == classe_id]
-
+        # Appliquer seulement le filtre de recherche
         if search_query:
             filtered_eleves = [
                 e for e in filtered_eleves
@@ -352,10 +428,20 @@ class NotesView(ctk.CTkFrame):
             icon_label = ctk.CTkLabel(eleve_frame, text="", image=student_icon)
             icon_label.pack(side="left", padx=(10, 8), pady=8)
             
-            # Nom de l'élève
-            name_label = ctk.CTkLabel(eleve_frame, text=eleve_name,
-                                      font=(FONT, FONT_SIZE_TEXT),
-                                      text_color=TEXT_PRIMARY)
+            # Nom de l'élève avec indication du statut des notes
+            statut_notes = eleves.get('statut_notes', 'Sans notes')
+            if statut_notes == 'Sans notes':
+                eleve_name_display = f"{eleve_name} (Sans notes)"
+                text_color = TEXT_SECONDARY
+                font_size = FONT_SIZE_TEXT - 1
+            else:
+                eleve_name_display = eleve_name
+                text_color = TEXT_PRIMARY
+                font_size = FONT_SIZE_TEXT
+                
+            name_label = ctk.CTkLabel(eleve_frame, text=eleve_name_display,
+                                      font=(FONT, font_size),
+                                      text_color=text_color)
             name_label.pack(side="left", fill="x", expand=True, padx=(0, 10), pady=8)
             
             # Rendre le frame cliquable
@@ -377,9 +463,18 @@ class NotesView(ctk.CTkFrame):
             name_label.bind("<Leave>", on_leave)
 
     def display_eleve_notes(self, eleve_data):
+        statut_notes = eleve_data.get('statut_notes', 'Sans notes')
+        print(f"🎯 Sélection de l'élève: {eleve_data.get('prenom', '')} {eleve_data.get('nom', '')} (ID: {eleve_data.get('id_eleve', '')}) - {statut_notes}")
         self.selected_eleve_data = eleve_data
-        self.notes_title.configure(text=f"Notes de : {eleve_data['prenom']} {eleve_data['nom']}")
-        self.rafraichir_liste()
+        
+        if statut_notes == 'Sans notes':
+            self.notes_title.configure(text=f"Notes de : {eleve_data['prenom']} {eleve_data['nom']} (Aucune note)")
+            # Afficher un message pour les élèves sans notes
+            self._clear_dashboard()
+            self._show_no_notes_message()
+        else:
+            self.notes_title.configure(text=f"Notes de : {eleve_data['prenom']} {eleve_data['nom']}")
+            self.rafraichir_liste()
 
     def _clear_dashboard(self):
         for widget in self.stats_container.winfo_children():
@@ -457,7 +552,7 @@ class NotesView(ctk.CTkFrame):
         self.selected_item_data = None
         
         if self.selected_eleve_data:
-            notes = get_notes_by_eleve(self.selected_eleve_data.get("id"))
+            notes = get_notes_by_eleve(self.selected_eleve_data.get("id_eleve"))
             self._update_stats_display(notes)
             self._create_grade_evolution_chart(notes)
             self._update_notes_table(notes)
@@ -465,30 +560,50 @@ class NotesView(ctk.CTkFrame):
             self._clear_dashboard()
 
     def _update_stats_display(self, notes):
+        print(f"🔄 Mise à jour des statistiques avec {len(notes)} notes")
+        
         for widget in self.stats_container.winfo_children():
             widget.destroy()
 
         if not notes:
+            print("⚠️ Aucune note trouvée, affichage des statistiques par défaut")
             self._create_default_stats()
             return
 
-        df = pd.DataFrame(notes)
-        df.dropna(subset=['notes', 'coefficient'], inplace=True)
+        try:
+            # Convertir les données pour pandas
+            notes_for_df = []
+            for note in notes:
+                note_dict = {
+                    'note': float(note.get('note', 0)) if note.get('note') else 0,
+                    'coefficient': float(note.get('coefficient', 1)) if note.get('coefficient') else 1
+                }
+                notes_for_df.append(note_dict)
+            
+            df = pd.DataFrame(notes_for_df)
+            df.dropna(subset=['note', 'coefficient'], inplace=True)
 
-        if not df.empty:
-            total_points = (df['notes'] * df['coefficient']).sum()
-            total_coeff = df['coefficient'].sum()
-            moyenne_generale = total_points / total_coeff if total_coeff > 0 else 0
-            meilleure_note = df['notes'].max()
-            pire_note = df['notes'].min()
-            nombre_notes = len(df)
-        else:
-            moyenne_generale = meilleure_note = pire_note = nombre_notes = 0
+            if not df.empty:
+                total_points = (df['note'] * df['coefficient']).sum()
+                total_coeff = df['coefficient'].sum()
+                moyenne_generale = total_points / total_coeff if total_coeff > 0 else 0
+                meilleure_note = df['note'].max()
+                pire_note = df['note'].min()
+                nombre_notes = len(df)
+                
+                print(f"✅ Statistiques calculées: Moyenne={moyenne_generale:.2f}, Meilleure={meilleure_note}, Pire={pire_note}, Nb={nombre_notes}")
+            else:
+                moyenne_generale = meilleure_note = pire_note = nombre_notes = 0
+                print("⚠️ DataFrame vide après nettoyage")
 
-        self._create_stats_card(self.stats_container, "Moyenne Générale", f"{moyenne_generale:.2f}", TEXT_ACCENT, ICON_MAP.get("grade"))
-        self._create_stats_card(self.stats_container, "Meilleure Note", f"{meilleure_note}", SUCCESS_GREEN, ICON_MAP.get("grade"))
-        self._create_stats_card(self.stats_container, "Pire Note", f"{pire_note}", ERROR_RED, ICON_MAP.get("grade"))
-        self._create_stats_card(self.stats_container, "Nombre de notes", f"{nombre_notes}", WARNING_YELLOW, ICON_MAP.get("subject"))
+            self._create_stats_card(self.stats_container, "Moyenne Générale", f"{moyenne_generale:.2f}", TEXT_ACCENT, ICON_MAP.get("grade"))
+            self._create_stats_card(self.stats_container, "Meilleure Note", f"{meilleure_note}", SUCCESS_GREEN, ICON_MAP.get("grade"))
+            self._create_stats_card(self.stats_container, "Pire Note", f"{pire_note}", ERROR_RED, ICON_MAP.get("grade"))
+            self._create_stats_card(self.stats_container, "Nombre de notes", f"{nombre_notes}", WARNING_YELLOW, ICON_MAP.get("subject"))
+            
+        except Exception as e:
+            print(f"❌ Erreur lors du calcul des statistiques: {e}")
+            self._create_default_stats()
 
     def _create_stats_card(self, parent, title, value, color, icon_name):
         card = ctk.CTkFrame(parent, fg_color=BG_CARD, corner_radius=10, height=60)
@@ -515,7 +630,7 @@ class NotesView(ctk.CTkFrame):
         df = pd.DataFrame(notes)
         df['date'] = pd.to_datetime(df['date_evaluation'], errors='coerce')
         df.sort_values(by='date', inplace=True)
-        df.dropna(subset=['date', 'notes', 'coefficient'], inplace=True)
+        df.dropna(subset=['date', 'note', 'coefficient'], inplace=True)
         
         fig, ax = plt.subplots(figsize=(6, 4), facecolor=BG_CARD)
         fig.patch.set_facecolor(BG_CARD)
@@ -523,12 +638,12 @@ class NotesView(ctk.CTkFrame):
         if not df.empty:
             colors = plt.cm.viridis(np.linspace(0, 1, len(df['id_matiere'].unique())))
             for i, (matiere_id, group) in enumerate(df.groupby('id_matiere')):
-                matiere_nom = self.matieres.get(matiere_id, {}).get("nom", "Inconnue")
-                ax.plot(group['date'], group['notes'], marker='o', linestyle='-', label=matiere_nom, color=colors[i])
+                matiere_nom = self.matieres.get(matiere_id, {}).get("nom_matiere", "Inconnue")
+                ax.plot(group['date'], group['note'], marker='o', linestyle='-', label=matiere_nom, color=colors[i])
             
             # Ajout de la moyenne mobile
             window_size = 3
-            df['rolling_avg'] = df['notes'].rolling(window=window_size).mean()
+            df['rolling_avg'] = df['note'].rolling(window=window_size).mean()
             ax.plot(df['date'], df['rolling_avg'], color='red', linestyle='--', label=f'Moyenne mobile ({window_size})', linewidth=2)
 
         ax.set_title("Évolution des notes", color=TEXT_PRIMARY, font=FONT, fontsize=FONT_SIZE_HEADER)
@@ -552,10 +667,53 @@ class NotesView(ctk.CTkFrame):
         canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
 
     def _update_notes_table(self, notes):
+        print(f"🔄 Mise à jour du tableau avec {len(notes)} notes")
+        
+        for widget in self.table_container.winfo_children():
+            widget.destroy()
+    
+    def _show_no_notes_message(self):
+        """Affiche un message pour les élèves sans notes"""
+        # Message dans les statistiques
+        no_stats_frame = ctk.CTkFrame(self.stats_container, fg_color="transparent")
+        no_stats_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        ctk.CTkLabel(no_stats_frame, text="📝 Aucune note disponible", 
+                     font=(FONT, FONT_SIZE_HEADER), 
+                     text_color=TEXT_SECONDARY).pack(pady=10)
+        
+        ctk.CTkLabel(no_stats_frame, text="Cet élève n'a pas encore de notes", 
+                     font=(FONT, FONT_SIZE_TEXT), 
+                     text_color=TEXT_SECONDARY).pack()
+        
+        # Message dans le graphique
+        no_chart_frame = ctk.CTkFrame(self.chart_frame, fg_color="transparent")
+        no_chart_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        ctk.CTkLabel(no_chart_frame, text="📊 Pas de données à afficher", 
+                     font=(FONT, FONT_SIZE_HEADER), 
+                     text_color=TEXT_SECONDARY).pack(pady=10)
+        
+        # Message dans le tableau
+        no_table_frame = ctk.CTkFrame(self.table_container, fg_color="transparent")
+        no_table_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        ctk.CTkLabel(no_table_frame, text="📋 Tableau vide", 
+                     font=(FONT, FONT_SIZE_HEADER), 
+                     text_color=TEXT_SECONDARY).pack(pady=10)
+        
+        ctk.CTkLabel(no_table_frame, text="Aucune note à afficher pour cet élève", 
+                     font=(FONT, FONT_SIZE_TEXT), 
+                     text_color=TEXT_SECONDARY).pack()
+
+    def _update_notes_table(self, notes):
+        print(f"🔄 Mise à jour du tableau avec {len(notes)} notes")
+        
         for widget in self.table_container.winfo_children():
             widget.destroy()
 
         if not notes:
+            print("⚠️ Aucune note trouvée, création d'un tableau vide")
             self._create_empty_table()
             return
 
@@ -563,15 +721,18 @@ class NotesView(ctk.CTkFrame):
         data = [headers]
         
         # Ajouter les notes existantes
-        for notes in notes:
-            matiere_nom = self.matieres.get(notes.get("id_matiere"), {}).get("nom", "Inconnue")
+        for note in notes:
+            matiere_id = note.get("id_matiere")
+            matiere_nom = self.matieres.get(matiere_id, {}).get("nom_matiere", "Inconnue")
             data.append([
                 matiere_nom,
-                notes.get("notes"),
-                notes.get("coefficient"),
-                notes.get("date_evaluation"),
-                notes.get("commentaire", "Aucun")
+                str(note.get("note", "")),
+                str(note.get("coefficient", "")),
+                str(note.get("date_evaluation", "")),
+                str(note.get("commentaire", "Aucun"))
             ])
+        
+        print(f"✅ Tableau mis à jour avec {len(data)-1} lignes de notes")
         
         # Compléter avec des lignes vides pour avoir toujours 10 lignes de données
         while len(data) < 11:  # 1 header + 10 lignes de données
@@ -671,7 +832,7 @@ class NotesView(ctk.CTkFrame):
         eleve_display_name = f"{self.selected_eleve_data['nom']} {self.selected_eleve_data['prenom']}"
         create_form_entry(inner_form_frame, "Élève:", "entry", 0, default_value=eleve_display_name).configure(state="disabled")
 
-        matiere_options = [""] + [f"{m['id']} - {m['nom']}" for m in self.matieres.values()]
+        matiere_options = [""] + [f"{m['id_matiere']} - {m['nom_matiere']}" for m in self.matieres.values()]
         matiere_combo = create_form_entry(inner_form_frame, "Matière:", "combo", 1, options=matiere_options)
         note_entry = create_form_entry(inner_form_frame, "Note:", "entry", 2)
         coeff_entry = create_form_entry(inner_form_frame, "Coefficient:", "entry", 3)
@@ -681,7 +842,7 @@ class NotesView(ctk.CTkFrame):
         if mode == "Modifier" and data:
             if data.get("id_matiere") is not None and data["id_matiere"] in self.matieres:
                 matiere_info = self.matieres[data["id_matiere"]]
-                matiere_combo.set(f"{matiere_info['id']} - {matiere_info['nom']}")
+                matiere_combo.set(f"{matiere_info['id_matiere']} - {matiere_info['nom_matiere']}")
             note_entry.insert(0, str(data.get("notes", "")))
             coeff_entry.insert(0, str(data.get("coefficient", "1")))
             date_entry.insert(0, data.get("date_evaluation", ""))
@@ -703,7 +864,7 @@ class NotesView(ctk.CTkFrame):
                     return
 
                 note_data = {
-                    "id_eleve": self.selected_eleve_data['id'],
+                    "id_eleve": self.selected_eleve_data['id_eleve'],
                     "id_matiere": matiere_id,
                     "notes": note_value,
                     "coefficient": coefficient,
@@ -742,7 +903,7 @@ class NotesView(ctk.CTkFrame):
             messagebox.showwarning("Exporter", "Sélectionnez un élève pour exporter ses notes.")
             return
 
-        eleve_id = self.selected_eleve_data.get("id")
+        eleve_id = self.selected_eleve_data.get("id_eleve")
         notes = get_notes_by_eleve(eleve_id)
         if not notes:
             messagebox.showwarning("Exporter", "Aucune notes à exporter pour cet élève.")

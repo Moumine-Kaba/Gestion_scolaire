@@ -1,23 +1,76 @@
 from database.connection import get_db_connection
-from database.connection import get_db_connection
-from database.connection import get_db_connection
-# Remplacé par SQL Server  # Remplacé par SQL Server
-DB_PATH = "database/edumanager.db"
 
 def get_all_bulletins(eleve_id=None):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    if eleve_id:
-        cur.execute("""
-            SELECT id, annee_scolaire, trimestre, moyenne, remarque, date_edition FROM bulletins WHERE eleve_id=? ORDER BY date_edition DESC
-        """, (eleve_id,))
-    else:
-        cur.execute("""
-            SELECT id, eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition FROM bulletins ORDER BY date_edition DESC
+    """Récupère tous les bulletins depuis SQL Server avec les noms associés."""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            print("❌ Impossible de se connecter à la base de données")
+            return []
+        
+        cursor = conn.cursor()
+        
+        # Vérifier si la table bulletins existe
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_NAME = 'bulletins'
         """)
-    rows = cur.fetchall()
-    conn.close()
-    return rows
+        
+        table_exists = cursor.fetchone()[0] > 0
+        
+        if not table_exists:
+            print("⚠️ Table 'bulletins' n'existe pas dans SQL Server")
+            return []
+        
+        # Construire la requête selon le paramètre
+        if eleve_id:
+            cursor.execute("""
+                SELECT 
+                    b.id_bulletin, b.id_eleve, b.periode, b.moyenne_generale, 
+                    b.rang, b.appreciation, b.date_creation,
+                    e.nom as eleve_nom, e.prenom as eleve_prenom
+                FROM bulletins b
+                LEFT JOIN eleves e ON b.id_eleve = e.id_eleve
+                WHERE b.id_eleve = ?
+                ORDER BY b.date_creation DESC
+            """, (eleve_id,))
+        else:
+            cursor.execute("""
+                SELECT 
+                    b.id_bulletin, b.id_eleve, b.periode, b.moyenne_generale, 
+                    b.rang, b.appreciation, b.date_creation,
+                    e.nom as eleve_nom, e.prenom as eleve_prenom
+                FROM bulletins b
+                LEFT JOIN eleves e ON b.id_eleve = e.id_eleve
+                ORDER BY b.date_creation DESC
+            """)
+        
+        rows = cursor.fetchall()
+        
+        # Convertir les résultats en dictionnaires
+        bulletins = []
+        for row in rows:
+            bulletin_dict = {
+                'id': row[0],  # id_bulletin
+                'id_eleve': row[1],  # id_eleve
+                'periode': row[2],  # periode
+                'moyenne_generale': float(row[3]) if row[3] else 0.0,  # moyenne_generale
+                'rang': row[4],  # rang
+                'appreciation': row[5],  # appreciation
+                'date_creation': row[6],  # date_creation
+                'eleve_nom': row[7],  # eleve_nom
+                'eleve_prenom': row[8]  # eleve_prenom
+            }
+            bulletins.append(bulletin_dict)
+        
+        conn.close()
+        print(f"✅ {len(bulletins)} bulletins récupérés depuis SQL Server")
+        return bulletins
+        
+    except Exception as e:
+        print(f"❌ Erreur get_all_bulletins: {e}")
+        return []
 
 def add_bulletin(eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition):
     conn = get_db_connection()

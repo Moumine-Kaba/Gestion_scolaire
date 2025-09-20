@@ -6,7 +6,6 @@ Utilitaires de base de données centralisés pour EduManager+
 - Gestion des erreurs
 """
 
-from database.connection import get_db_connection
 import os
 import sys
 from typing import Optional, List, Dict, Any
@@ -21,12 +20,15 @@ from src.core.paths import DATABASE_PATH
 def get_db_connection_wrapper():
     """
     Retourne une connexion à la base de données centralisée
+    Évite l'import circulaire en important dynamiquement
     
     Returns:
         Connection: Connexion à la base de données ou None en cas d'erreur
     """
     try:
-        conn = get_db_connection()
+        # Import dynamique pour éviter l'import circulaire
+        from database.connection import get_db_connection
+        conn = get_db_connection_wrapper()
         return conn
     except Exception as e:
         print(f"⚠️ Erreur connexion DB: {e}")
@@ -169,7 +171,7 @@ def get_table_columns(table_name: str) -> List[str]:
     Returns:
         List[str]: Liste des noms de colonnes
     """
-    conn = get_db_connection()
+    conn = get_db_connection_wrapper()
     if not conn:
         return []
     
@@ -192,7 +194,7 @@ def get_all_tables() -> List[str]:
     Returns:
         List[str]: Liste des noms de tables
     """
-    conn = get_db_connection()
+    conn = get_db_connection_wrapper()
     if not conn:
         return []
     
@@ -369,7 +371,7 @@ if __name__ == "__main__":
     print("🔍 Test des utilitaires de base de données...")
     
     # Test de connexion
-    conn = get_db_connection()
+    conn = get_db_connection_wrapper()
     if conn:
         print("✅ Connexion à la base de données réussie")
         conn.close()

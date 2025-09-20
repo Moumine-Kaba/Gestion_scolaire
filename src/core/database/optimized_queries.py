@@ -199,7 +199,9 @@ class OptimizedQueryManager:
         
         try:
             # Vérifier la structure de la table eleves
-            cursor = eleves_columns = [row[1] for row in cursor.fetchall()]
+            cursor = conn.cursor()
+            cursor.execute("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='eleves'")
+            eleves_columns = [row[0] for row in cursor.fetchall()]
             
             if not eleves_columns:
                 print("⚠️ Table eleves n'existe pas")
@@ -228,8 +230,29 @@ class OptimizedQueryManager:
                 ORDER BY nom, prenom
             """
             
-            cursor = conn.execute(query)
-            eleves = [dict(row) for row in cursor.fetchall()]
+            cursor = conn.cursor()
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            
+            # Convertir les résultats en dictionnaires
+            eleves = []
+            for row in rows:
+                eleve_dict = {
+                    'id_eleve': row[0],
+                    'nom': row[1],
+                    'prenom': row[2]
+                }
+                if len(row) > 3 and row[3] is not None:
+                    eleve_dict['date_naissance'] = row[3]
+                if len(row) > 4 and row[4] is not None:
+                    eleve_dict['statut'] = row[4]
+                if len(row) > 5 and row[5] is not None:
+                    eleve_dict['classe_id'] = row[5]
+                if len(row) > 6 and row[6] is not None:
+                    eleve_dict['classe_nom'] = row[6]
+                if len(row) > 7 and row[7] is not None:
+                    eleve_dict['classe_niveau'] = row[7]
+                eleves.append(eleve_dict)
             
             # Mettre en cache
             with self._cache_lock:
@@ -263,14 +286,16 @@ class OptimizedQueryManager:
         
         try:
             # Vérifier la structure de la table classes
-            cursor = classes_columns = [row[1] for row in cursor.fetchall()]
+            cursor = conn.cursor()
+            cursor.execute("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='classes'")
+            classes_columns = [row[0] for row in cursor.fetchall()]
             
             if not classes_columns:
                 print("⚠️ Table classes n'existe pas")
                 return []
             
             # Construire la requête selon les colonnes disponibles
-            select_fields = ["id_classe", "nom"]
+            select_fields = ["id_classe", "nom_classe"]
             if 'niveau' in classes_columns:
                 select_fields.append("niveau")
             if 'capacite' in classes_columns:
@@ -282,11 +307,27 @@ class OptimizedQueryManager:
             query = f"""
                 SELECT {', '.join(select_fields)}
                 FROM classes
-                ORDER BY nom
+                ORDER BY nom_classe
             """
             
-            cursor = conn.execute(query)
-            classes = [dict(row) for row in cursor.fetchall()]
+            cursor = conn.cursor()
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            
+            # Convertir les résultats en dictionnaires
+            classes = []
+            for row in rows:
+                class_dict = {
+                    'id_classe': row[0],
+                    'nom_classe': row[1]
+                }
+                if len(row) > 2 and row[2] is not None:
+                    class_dict['niveau'] = row[2]
+                if len(row) > 3 and row[3] is not None:
+                    class_dict['capacite'] = row[3]
+                if len(row) > 4 and row[4] is not None:
+                    class_dict['statut'] = row[4]
+                classes.append(class_dict)
             
             # Mettre en cache
             with self._cache_lock:
@@ -320,14 +361,16 @@ class OptimizedQueryManager:
         
         try:
             # Vérifier la structure de la table matieres
-            cursor = matieres_columns = [row[1] for row in cursor.fetchall()]
+            cursor = conn.cursor()
+            cursor.execute("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='matieres'")
+            matieres_columns = [row[0] for row in cursor.fetchall()]
             
             if not matieres_columns:
                 print("⚠️ Table matieres n'existe pas")
                 return []
             
             # Construire la requête selon les colonnes disponibles
-            select_fields = ["id_matiere", "nom"]
+            select_fields = ["id_matiere", "nom_matiere"]
             join_clause = ""
             
             if 'description' in matieres_columns:
@@ -340,17 +383,35 @@ class OptimizedQueryManager:
                 cursor = conn.execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='classes'")
                 if cursor.fetchone():
                     join_clause = "LEFT JOIN classes c ON matieres.classe_id = c.id_classe"
-                    select_fields.append("c.nom as classe_nom")
+                    select_fields.append("c.nom_classe as classe_nom")
             
             query = f"""
                 SELECT {', '.join(select_fields)}
                 FROM matieres
                 {join_clause}
-                ORDER BY nom
+                ORDER BY nom_matiere
             """
             
-            cursor = conn.execute(query)
-            matieres = [dict(row) for row in cursor.fetchall()]
+            cursor = conn.cursor()
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            
+            # Convertir les résultats en dictionnaires
+            matieres = []
+            for row in rows:
+                matiere_dict = {
+                    'id_matiere': row[0],
+                    'nom_matiere': row[1]
+                }
+                if len(row) > 2 and row[2] is not None:
+                    matiere_dict['description'] = row[2]
+                if len(row) > 3 and row[3] is not None:
+                    matiere_dict['coefficient'] = float(row[3])
+                if len(row) > 4 and row[4] is not None:
+                    matiere_dict['classe_id'] = row[4]
+                if len(row) > 5 and row[5] is not None:
+                    matiere_dict['classe_nom'] = row[5]
+                matieres.append(matiere_dict)
             
             # Mettre en cache
             with self._cache_lock:

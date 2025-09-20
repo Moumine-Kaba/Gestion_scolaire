@@ -6,8 +6,6 @@ EduManager+ - Tableau de bord principal (CustomTkinter, thème sombre)
 
 # Import du système centralisé
 from database.connection import get_db_connection
-from database.connection import get_db_connection
-from database.connection import get_db_connection
 import sys
 import os
 
@@ -19,7 +17,7 @@ if root_path not in sys.path:
 # Import du système centralisé
 from src.core.paths import (
     DATABASE_PATH, ICONS_PATH, THEME_PATH, 
-    get_db_connection, get_icon_path, icon_exists,
+    get_icon_path, icon_exists,
     print_paths
 )
 from src.core.view_registry import get_view_registry, register_all_views
@@ -67,7 +65,12 @@ print(">>> Dossier icônes utilisé :", ICONS_DIR)
 # =================== SQLITE HELPERS CENTRALISÉS =====================
 def get_conn():
     """Utilise la connexion centralisée à la base de données"""
-    return get_db_connection()
+    try:
+        from database.connection import get_db_connection
+        return get_db_connection()
+    except ImportError:
+        print("⚠️ Impossible d'importer get_db_connection")
+        return None
 
 def table_exists(conn, name):
     try:
@@ -370,7 +373,6 @@ except ImportError as e:
     ClassesManagerView = None
 # Import de la nouvelle vue unifiée des cours
 from src.modules.academic.classes.views.cours_view import CoursManagerView
-from database.connection import get_db_connection
 EnseignementsView = CoursManagerView  # Alias pour compatibilité
 EmploisView = CoursManagerView  # Alias pour compatibilité
 

@@ -73,9 +73,9 @@ class MatieresView(ctk.CTkFrame):
 
     def _build_header(self):
         """Header magnifique avec design EduManager+"""
-        # Header principal avec gradient
+        # Header principal avec espacement légèrement augmenté
         header_frame = ctk.CTkFrame(self, fg_color=BG_SIDEBAR, corner_radius=20, border_width=1, border_color=BORDER_COLOR)
-        header_frame.pack(fill="x", padx=PADDING_MEDIUM, pady=(PADDING_MEDIUM, PADDING_SMALL))
+        header_frame.pack(fill="x", padx=12, pady=(12, 6))
         
         # Contenu du header
         header_content = ctk.CTkFrame(header_frame, fg_color="transparent")
@@ -89,16 +89,12 @@ class MatieresView(ctk.CTkFrame):
         title_container = ctk.CTkFrame(left_section, fg_color="transparent")
         title_container.pack(anchor="w")
         
-        # Icône principale avec badge (couleur différente)
-        icon_badge = ctk.CTkFrame(title_container, fg_color=SUCCESS_GREEN, corner_radius=999, width=40, height=40)
-        icon_badge.pack_propagate(False)
-        icon_badge.pack(side="left", padx=(0, MARGIN_MEDIUM))
-        
+        # Icône principale sans fond coloré
         main_icon = load_ctk_icon("book.png", (24, 24)) or load_ctk_icon("stacks.png", (24, 24))
         if main_icon:
-            ctk.CTkLabel(icon_badge, text="", image=main_icon, fg_color="transparent").pack(expand=True)
+            ctk.CTkLabel(title_container, text="", image=main_icon, fg_color="transparent").pack(side="left", padx=(0, MARGIN_MEDIUM))
         else:
-            ctk.CTkLabel(icon_badge, text="📚", font=FONT_TITLE, text_color=TEXT_PRIMARY).pack(expand=True)
+            ctk.CTkLabel(title_container, text="📚", font=FONT_TITLE, text_color=TEXT_PRIMARY).pack(side="left", padx=(0, MARGIN_MEDIUM))
         
         # Titre magnifique
         title_text = ctk.CTkLabel(title_container, text="Gestion des Matières",
@@ -122,13 +118,10 @@ class MatieresView(ctk.CTkFrame):
         search_inner = ctk.CTkFrame(search_frame, fg_color="transparent")
         search_inner.pack(fill="both", expand=True, padx=PADDING_MEDIUM, pady=PADDING_MEDIUM)
         
-        # Icône de recherche avec effet
+        # Icône de recherche sans fond coloré
         search_icon = load_ctk_icon("search.png", (20, 20))
         if search_icon:
-            search_icon_frame = ctk.CTkFrame(search_inner, fg_color=SUCCESS_GREEN, corner_radius=999, width=32, height=32)
-            search_icon_frame.pack_propagate(False)
-            search_icon_frame.pack(side="left", padx=(0, MARGIN_MEDIUM))
-            ctk.CTkLabel(search_icon_frame, text="", image=search_icon, fg_color="transparent").pack(expand=True)
+            ctk.CTkLabel(search_inner, text="", image=search_icon, fg_color="transparent").pack(side="left", padx=(0, MARGIN_MEDIUM))
         
         # Champ de recherche amélioré
         self.entry_search = ctk.CTkEntry(search_inner, placeholder_text="Rechercher une matière...",
@@ -153,7 +146,7 @@ class MatieresView(ctk.CTkFrame):
     def _build_stats_section(self):
         """Section statistiques magnifique avec boutons d'action"""
         stats_container = ctk.CTkFrame(self, fg_color="transparent")
-        stats_container.pack(fill="x", padx=PADDING_MEDIUM, pady=(0, PADDING_SMALL))
+        stats_container.pack(fill="x", padx=12, pady=(0, 6))
         
         # Carte statistiques principale
         stats_card = ctk.CTkFrame(stats_container, fg_color=CARD_BG, corner_radius=16,
@@ -168,13 +161,10 @@ class MatieresView(ctk.CTkFrame):
         stats_left = ctk.CTkFrame(stats_content, fg_color="transparent")
         stats_left.pack(side="left", fill="x", expand=True)
         
-        # Icône statistiques (couleur différente)
+        # Icône statistiques sans fond coloré
         stats_icon = load_ctk_icon("stats.png", (24, 24)) or load_ctk_icon("analytics.png", (24, 24))
         if stats_icon:
-            icon_frame = ctk.CTkFrame(stats_left, fg_color=WARNING_YELLOW, corner_radius=999, width=36, height=36)
-            icon_frame.pack_propagate(False)
-            icon_frame.pack(side="left", padx=(0, MARGIN_MEDIUM))
-            ctk.CTkLabel(icon_frame, text="", image=stats_icon, fg_color="transparent").pack(expand=True)
+            ctk.CTkLabel(stats_left, text="", image=stats_icon, fg_color="transparent").pack(side="left", padx=(0, MARGIN_MEDIUM))
         
         # Compteur principal
         self.lbl_count = ctk.CTkLabel(stats_left, text="0 matières",
@@ -220,7 +210,7 @@ class MatieresView(ctk.CTkFrame):
     def _build_cards_area(self):
         """Zone des cartes avec scroll magnifique"""
         self.cards_area = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        self.cards_area.pack(fill="both", expand=True, padx=PADDING_SMALL, pady=(0, PADDING_SMALL))
+        self.cards_area.pack(fill="both", expand=True, padx=8, pady=(0, 8))
         self.cards_area.grid_columnconfigure((0, 1, 2), weight=1, uniform="col")
 
     def charger_matieres(self, q=""):
@@ -277,22 +267,19 @@ class MatieresView(ctk.CTkFrame):
         for i, m in enumerate(matieres):
             r, c = divmod(i, 3)
             card = self._create_matiere_card(m)
-            card.grid(row=r, column=c, sticky="nsew", padx=MARGIN_SMALL, pady=MARGIN_SMALL)
+            card.grid(row=r, column=c, sticky="nsew", padx=4, pady=4)
 
     def _render_empty_state(self):
         """État vide magnifique"""
         empty_frame = ctk.CTkFrame(self.cards_area, fg_color=CARD_BG, corner_radius=20,
                                  border_width=1, border_color=BORDER_COLOR)
-        empty_frame.grid(row=0, column=0, padx=MARGIN_MEDIUM, pady=MARGIN_MEDIUM, 
+        empty_frame.grid(row=0, column=0, padx=12, pady=12, 
                         sticky="nsew", columnspan=3)
         
-        # Icône d'état vide (couleur différente)
+        # Icône d'état vide sans fond coloré
         empty_icon = load_ctk_icon("folder.png", (64, 64)) or load_ctk_icon("book.png", (64, 64))
         if empty_icon:
-            icon_frame = ctk.CTkFrame(empty_frame, fg_color=ERROR_RED, corner_radius=999, width=80, height=80)
-            icon_frame.pack_propagate(False)
-            icon_frame.pack(pady=(MARGIN_HERO, MARGIN_LARGE))
-            ctk.CTkLabel(icon_frame, text="", image=empty_icon, fg_color="transparent").pack(expand=True)
+            ctk.CTkLabel(empty_frame, text="", image=empty_icon, fg_color="transparent").pack(pady=(MARGIN_HERO, MARGIN_LARGE))
         
         # Titre
         ctk.CTkLabel(empty_frame, text="Aucune matière trouvée",
@@ -330,13 +317,10 @@ class MatieresView(ctk.CTkFrame):
         header_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
         header_frame.pack(fill="x", pady=(0, MARGIN_LARGE))
         
-        # Icône matière avec badge coloré
+        # Icône matière sans fond coloré
         matiere_icon = load_ctk_icon("book.png", (28, 28)) or load_ctk_icon("stacks.png", (28, 28))
         if matiere_icon:
-            icon_frame = ctk.CTkFrame(header_frame, fg_color=WARNING_YELLOW, corner_radius=999, width=40, height=40)
-            icon_frame.pack_propagate(False)
-            icon_frame.pack(side="left", padx=(0, MARGIN_LARGE))
-            ctk.CTkLabel(icon_frame, text="", image=matiere_icon, fg_color="transparent").pack(expand=True)
+            ctk.CTkLabel(header_frame, text="", image=matiere_icon, fg_color="transparent").pack(side="left", padx=(0, MARGIN_LARGE))
         
         # Nom de la matière avec style amélioré
         nom_matiere = matieres.get("nom_matiere", "Sans nom")
@@ -444,13 +428,10 @@ class MatieresView(ctk.CTkFrame):
         header_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         header_frame.pack(fill="x", pady=(0, PADDING_LARGE))
         
-        # Icône du formulaire (couleur différente)
+        # Icône du formulaire sans fond coloré
         form_icon = load_ctk_icon("book.png", (32, 32))
         if form_icon:
-            icon_frame = ctk.CTkFrame(header_frame, fg_color=SUCCESS_GREEN, corner_radius=999, width=48, height=48)
-            icon_frame.pack_propagate(False)
-            icon_frame.pack(side="left", padx=(0, MARGIN_MEDIUM))
-            ctk.CTkLabel(icon_frame, text="", image=form_icon, fg_color="transparent").pack(expand=True)
+            ctk.CTkLabel(header_frame, text="", image=form_icon, fg_color="transparent").pack(side="left", padx=(0, MARGIN_MEDIUM))
         
         # Titre du formulaire
         title_label = ctk.CTkLabel(header_frame, text=f"{mode} une Matière",

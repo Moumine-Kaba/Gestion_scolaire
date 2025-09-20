@@ -248,17 +248,17 @@ class SallesView(ctk.CTkFrame):
 
         filtered_salles = [
             salles for salles in all_salles
-            if search_term in salles['nom_salle'].lower() or
+            if search_term in salles['nom'].lower() or
                search_term in str(salles['capacite']).lower() or
-               search_term in salles['type_salle'].lower()
+               search_term in str(salles['type']).lower()
         ]
 
         if sort_by == "nom":
-            filtered_salles.sort(key=lambda s: s['nom_salle'])
+            filtered_salles.sort(key=lambda s: s['nom'])
         elif sort_by == "capacite":
             filtered_salles.sort(key=lambda s: s['capacite'])
         elif sort_by == "type":
-            filtered_salles.sort(key=lambda s: s['type_salle'])
+            filtered_salles.sort(key=lambda s: s['type'])
 
         self.display_salle_list(filtered_salles)
 
@@ -316,7 +316,7 @@ class SallesView(ctk.CTkFrame):
         details_frame.pack(fill="both", expand=True, padx=PADDING_MEDIUM, pady=PADDING_MEDIUM)
 
         # Titre
-        ctk.CTkLabel(details_frame, text=salles['nom_salle'], font=FONT_TITLE, text_color=THEME["primary_text"]).pack(pady=(0, PADDING_MEDIUM))
+        ctk.CTkLabel(details_frame, text=salles['nom'], font=FONT_TITLE, text_color=THEME["primary_text"]).pack(pady=(0, PADDING_MEDIUM))
 
         # Détails de la salles
         details_card = ctk.CTkFrame(details_frame, fg_color=THEME["header_bg"], corner_radius=12)
@@ -329,7 +329,7 @@ class SallesView(ctk.CTkFrame):
             ctk.CTkLabel(frame, text=value, font=FONT_SUBTITLE, text_color=THEME["primary_text"], anchor="w").pack(side="left", padx=PADDING_MEDIUM)
 
         create_detail_row(details_card, "Capacité", str(salles['capacite']))
-        create_detail_row(details_card, "Type de salles", salles['type_salle'])
+        create_detail_row(details_card, "Type de salles", salles['type'])
 
         # Panneau des stats et du graphique
         stats_frame = ctk.CTkFrame(details_frame, fg_color=THEME["header_bg"], corner_radius=12)
@@ -476,9 +476,9 @@ class SallesView(ctk.CTkFrame):
 
     def supprimer_salle(self, salle_data):
         """Supprime une salles après confirmation."""
-        if messagebox.askyesno("Confirmation", f"Voulez-vous vraiment supprimer la salles « {salle_data['nom_salle']} » ?"):
+        if messagebox.askyesno("Confirmation", f"Voulez-vous vraiment supprimer la salles « {salle_data['nom']} » ?"):
             if self.salle_controller.delete_salle(salle_data['id_salle']):
-                messagebox.showinfo("Succès", f"La salles '{salle_data['nom_salle']}' a été supprimée.")
+                messagebox.showinfo("Succès", f"La salles '{salle_data['nom']}' a été supprimée.")
                 self.refresh_salles_view()
 
     def _ouvrir_formulaire(self, mode, data=None):
@@ -503,11 +503,11 @@ class SalleListItem(ctk.CTkFrame):
 
         # Icône selon le type de salles
         try:
-            if salle_data['type_salle'] == "Amphithéâtre":
+            if salle_data['type'] == "Amphithéâtre":
                 icon_name = "stacks.png"
-            elif salle_data['type_salle'] == "Laboratoire":
+            elif salle_data['type'] == "Laboratoire":
                 icon_name = "wrench.png"
-            elif salle_data['type_salle'] == "Salle de conférence":
+            elif salle_data['type'] == "Salle de conférence":
                 icon_name = "megaphone.png"
             else:
                 icon_name = "classroom.png"
@@ -524,7 +524,7 @@ class SalleListItem(ctk.CTkFrame):
         info_frame.pack(side="left", fill="both", expand=True)
 
         # Nom de la salles
-        self.name_label = ctk.CTkLabel(info_frame, text=salle_data['nom_salle'], font=FONT_CARD_TITLE, 
+        self.name_label = ctk.CTkLabel(info_frame, text=salle_data['nom'], font=FONT_CARD_TITLE, 
                                        text_color=THEME["primary_text"], anchor="w")
         self.name_label.pack(side="left", fill="x", expand=True)
 
@@ -638,7 +638,7 @@ class SalleForm(ctk.CTkToplevel):
                                      font=FONT_PRIMARY, height=45, corner_radius=10,
                                      fg_color=THEME["header_bg"], border_color=THEME["border_color"])
         self.nom_entry.pack(fill="x", pady=(0, INTERNAL_PADDING_SMALL))
-        if self.data: self.nom_entry.insert(0, self.data['nom_salle'])
+        if self.data: self.nom_entry.insert(0, self.data['nom'])
 
         # Capacité
         capacite_label = ctk.CTkLabel(fields_frame, text="Capacité", 
@@ -663,8 +663,8 @@ class SalleForm(ctk.CTkToplevel):
                                                 button_hover_color=HOVER_COLOR,
                                                 dropdown_hover_color=HOVER_COLOR)
         self.type_optionmenu.pack(fill="x", pady=(0, INTERNAL_PADDING_SMALL))
-        if self.data and self.data['type_salle'] in salle_types:
-            self.type_optionmenu.set(self.data['type_salle'])
+        if self.data and self.data['type'] in salle_types:
+            self.type_optionmenu.set(self.data['type'])
         else:
             self.type_optionmenu.set(salle_types[0])
 

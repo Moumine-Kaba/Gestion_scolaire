@@ -1,13 +1,9 @@
 from database.connection import get_db_connection
-from database.connection import get_db_connection
-from database.connection import get_db_connection
 import customtkinter as ctk
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from tkinter import messagebox, filedialog
 import os, sys
 import csv
-# Remplacé par SQL Server  # Remplacé par SQL Server
-from database.connection import get_db_connection
 
 # ============== Compat Pillow LANCZOS (Pillow ≥ 10) ==============
 try:
@@ -90,10 +86,20 @@ ICONS = {
 
 try:
     from utils.validators import is_name, is_phone, is_email, is_date
-    from controllers.professeur_controller import (
+except ImportError:
+    print("WARNING: Le module 'utils.validators' n'a pas été trouvé. Utilisation de stubs.")
+    def is_name(s): return isinstance(s, str) and len(s) > 1
+    def is_phone(s): return isinstance(s, str) and s.isdigit() and len(s) > 5
+    def is_email(s): return isinstance(s, str) and "@" in s
+    def is_date(s): return isinstance(s, str) and len(s) == 10 and s[4] == '-' and s[7] == '-'
+
+# Import du contrôleur des professeurs
+try:
+    from src.modules.academic.teachers.controllers.professeur_controller import (
         get_all_professeurs, add_professeur, update_professeur, delete_professeur, get_professeur
     )
-except ImportError:
+    print("✅ Contrôleur des professeurs importé avec succès")
+except ImportError as e:
     print("WARNING: Le module 'utils.validators' ou 'controllers.professeur_controller' n'a pas été trouvé. Utilisation de stubs.")
     def is_name(s): return isinstance(s, str) and len(s) > 1
     def is_phone(s): return isinstance(s, str) and s.isdigit() and len(s) > 5

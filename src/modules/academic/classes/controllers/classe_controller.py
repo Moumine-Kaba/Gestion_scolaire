@@ -8,9 +8,6 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-# Utiliser le gestionnaire de base de données unifié
-from database.connection import get_db_connection
-
 # Chemin de base de données relatif
 
 def _connect():
@@ -35,36 +32,60 @@ def preload_classes():
 
 def get_all_classes():
     """
-    Liste toutes les classes en tant que dictionnaires.
+    Liste toutes les classes depuis SQL Server.
     
     Returns:
-        list: Une liste de dictionnaires, où chaque dictionnaire représente une classes.
+        list: Une liste de dictionnaires, où chaque dictionnaire représente une classe.
     """
     try:
-        if None is not None:
-            return _CACHE["classes_all"]  # pyright: ignore[reportUndefinedVariable]
         conn = _connect()
-
         if not conn:
-
             print("❌ Impossible de se connecter à la base de données")
-
-            return
-
-            cur = conn.cursor()
-            # Utilisation directe de 'c.*' pour récupérer toutes les colonnes,
-            # ou lister les colonnes par leur nom d'origine.
-            cur.execute("""
-                SELECT c.id_classe as id, c.nom_classe as nom, c.niveau, c.annee_scolaire, c.id_professeur_principal, c.salle_id
-                FROM classes c
-                ORDER BY c.nom_classe
-            """)
-            rows = cur.fetchall()
-            data = [dict(row) for row in rows]
-            
-            return data
+            return []
+        
+        cursor = conn.cursor()
+        
+        # Vérifier si la table classes existe
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_NAME = 'classes'
+        """)
+        
+        table_exists = cursor.fetchone()[0] > 0
+        
+        if not table_exists:
+            print("⚠️ Table 'classes' n'existe pas dans SQL Server")
+            return []
+        
+        # Récupérer toutes les classes
+        cursor.execute("""
+            SELECT id_classe, nom_classe, niveau, capacite, statut, date_creation
+            FROM classes
+            ORDER BY nom_classe
+        """)
+        
+        rows = cursor.fetchall()
+        
+        # Convertir les résultats en dictionnaires
+        classes = []
+        for row in rows:
+            classe_dict = {
+                'id': row[0],  # id_classe
+                'nom': row[1],  # nom_classe
+                'niveau': row[2],  # niveau
+                'capacite': row[3],  # capacite
+                'statut': row[4],  # statut
+                'date_creation': row[5]  # date_creation
+            }
+            classes.append(classe_dict)
+        
+        conn.close()
+        print(f"✅ {len(classes)} classes récupérées depuis SQL Server")
+        return classes
+        
     except Exception as e:
-        print(f"[Classe] Erreur get_all_classes: {e}")
+        print(f"❌ Erreur get_all_classes: {e}")
         return []
 
 def add_class(nom, niveau, annee_scolaire, prof_id, salle_id):

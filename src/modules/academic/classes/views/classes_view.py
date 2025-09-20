@@ -1,13 +1,9 @@
 from database.connection import get_db_connection
-from database.connection import get_db_connection
-from database.connection import get_db_connection
 import customtkinter as ctk
 from tkinter import messagebox
 from PIL import Image
 import os
 import sys
-# Remplacé par SQL Server  # Remplacé par SQL Server
-from database.connection import get_db_connection
 
 # -*- coding: utf-8 -*-
 """
@@ -115,7 +111,8 @@ ICONS_PATH = {
     "person": "resources/icons/person.png",
     "door": "resources/icons/door.png",
     "book": "resources/icons/book.png",
-    "logo": "resources/icons/logo.png"
+    "logo": "resources/icons/logo.png",
+    "close": "resources/icons/close.png"
 }
 
 # --- Fonctions utilitaires ---
@@ -148,13 +145,13 @@ def get_all_classes():
         cursor = conn.cursor()
         # Requête optimisée avec jointure pour récupérer les statistiques des élèves
         cursor.execute("""
-            SELECT c.id_classe as id, c.nom_classe as nom, c.niveau, c.capacite,
+            SELECT c.id_classe as id, c.nom_classe as nom, c.niveau, c.capacite, c.statut,
                    COUNT(e.id_eleve) as nb_eleves,
                    COUNT(CASE WHEN e.genre = 'M' THEN 1 END) as nb_garcons,
                    COUNT(CASE WHEN e.genre = 'F' THEN 1 END) as nb_filles
             FROM classes c
             LEFT JOIN eleves e ON c.id_classe = e.id_classe
-            GROUP BY c.id_classe, c.nom_classe, c.niveau, c.capacite
+            GROUP BY c.id_classe, c.nom_classe, c.niveau, c.capacite, c.statut
             ORDER BY c.niveau, c.nom_classe
         """)
         classes = cursor.fetchall()
@@ -166,9 +163,10 @@ def get_all_classes():
                 'nom': row[1],
                 'niveau': row[2],
                 'capacite': row[3],
-                'nb_eleves': row[4],
-                'nb_garcons': row[5],
-                'nb_filles': row[6]
+                'statut': row[4],
+                'nb_eleves': row[5],
+                'nb_garcons': row[6],
+                'nb_filles': row[7]
             })
         return result
     except Exception as e:
@@ -349,9 +347,17 @@ def get_all_professeurs():
         return []
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id_professeur as id, nom, prenom FROM professeurs ORDER BY nom, prenom")
+        cursor.execute("SELECT id_professeur, nom, prenom FROM professeurs ORDER BY nom, prenom")
         profs = cursor.fetchall()
-        return [dict(p) for p in profs]
+        # Convertir les tuples en dictionnaires
+        result = []
+        for prof in profs:
+            result.append({
+                'id': prof[0],
+                'nom': prof[1],
+                'prenom': prof[2]
+            })
+        return result
     except Exception as e:
         print(f"Erreur lors de la récupération des professeurs : {e}")
         return []
@@ -366,9 +372,16 @@ def get_all_salles():
         return []
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id_salle as id, nom_salle as nom FROM salles ORDER BY nom_salle")
+        cursor.execute("SELECT id_salle, nom_salle FROM salles ORDER BY nom_salle")
         salles = cursor.fetchall()
-        return [dict(s) for s in salles]
+        # Convertir les tuples en dictionnaires
+        result = []
+        for salle in salles:
+            result.append({
+                'id': salle[0],
+                'nom': salle[1]
+            })
+        return result
     except Exception as e:
         print(f"Erreur lors de la récupération des salles : {e}")
         return []
@@ -699,7 +712,7 @@ class ModernClassesView(ctk.CTkFrame):
             placeholder_text="Rechercher une classes...",
             fg_color=BG_CARD,
             border_width=2,
-            border_color=WARNING_YELLOW,
+            border_color=BORDER_COLOR,
             text_color=TEXT_PRIMARY,
             font=("Segoe UI", 13),
             corner_radius=15
@@ -707,7 +720,7 @@ class ModernClassesView(ctk.CTkFrame):
         self.search_entry.pack(side="left", fill="x", expand=True, padx=(0, 12))
         self.search_entry.bind("<KeyRelease>", self.filter_view)
         self.search_entry.bind("<FocusIn>", lambda e: self.search_entry.configure(border_color=ACCENT))
-        self.search_entry.bind("<FocusOut>", lambda e: self.search_entry.configure(border_color=WARNING_YELLOW))
+        self.search_entry.bind("<FocusOut>", lambda e: self.search_entry.configure(border_color=BORDER_COLOR))
         
         # Filtre par niveau
         self.level_var = ctk.StringVar(value="Tous")
@@ -800,14 +813,16 @@ class ModernClassesView(ctk.CTkFrame):
     
     def _create_cards_batch(self, filtered_classes):
         """Crée les cartes en lot pour de meilleures performances"""
-        # Créer les cartes modernes en format paysage (2 colonnes)
-        num_columns = 4
+        # Créer les cartes modernes en format 3 par ligne
+        num_columns = 3
         cards_to_create = []
         
         # Préparer toutes les cartes
         for idx, row in enumerate(filtered_classes):
-            prof_name = self._cached_profs.get(row['prof_id'], '—')
-            salle_name = self._cached_salles.get(row['salle_id'], '—')
+            # Les champs prof_id et salle_id n'existent pas dans la table classes
+            # Utiliser des valeurs par défaut
+            prof_name = '—'  # Pas de professeur principal défini
+            salle_name = '—'  # Pas de salle spécifique définie
             
             card = ModernClassCard(self.card_container, row, prof_name, salle_name, self.on_edit, self.on_delete, self.icons)
             cards_to_create.append((card, idx))
@@ -816,7 +831,7 @@ class ModernClassesView(ctk.CTkFrame):
         for card, idx in cards_to_create:
             card.grid(row=idx // num_columns, column=idx % num_columns, padx=4, pady=4, sticky="nsew")
         
-        # Configurer les colonnes pour le format paysage
+        # Configurer les colonnes pour le format 3 par ligne
         for i in range(num_columns):
             self.card_container.grid_columnconfigure(i, weight=1)
     
@@ -841,36 +856,36 @@ class ModernClassCard(ctk.CTkFrame):
     """Carte de classes moderne avec design premium et effets visuels"""
     def __init__(self, parent, classe_data, prof_name, salle_name, on_edit, on_delete, icons):
         super().__init__(parent, fg_color=BG_CARD, corner_radius=25, 
-                         border_width=2, border_color=BORDER_COLOR)
+                         border_width=2, border_color=BORDER_COLOR, height=280)
         self.classe_id = classe_data['id']
         self.on_edit = on_edit
         self.on_delete = on_delete
         self.icons = icons
         self.is_hovered = False
 
-        # Container principal en format paysage
+        # Container principal en format portrait (vertical)
         main_container = ctk.CTkFrame(self, fg_color="transparent")
         main_container.pack(fill="both", expand=True, padx=15, pady=15)
         
         # Header avec icône et titre
         self.create_card_header(main_container, classe_data)
         
-        # Layout horizontal pour les sections Informations et Actions
+        # Layout vertical pour les sections Informations et Actions
         sections_container = ctk.CTkFrame(main_container, fg_color="transparent")
         sections_container.pack(fill="x", pady=(0, 10))
         
-        # Section gauche - Informations
+        # Section Informations (pleine largeur)
         info_section = ctk.CTkFrame(sections_container, fg_color="transparent")
-        info_section.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        info_section.pack(fill="x", pady=(0, 10))
         
-        # Section droite - Actions
+        # Section Actions (pleine largeur)
         actions_section = ctk.CTkFrame(sections_container, fg_color="transparent")
-        actions_section.pack(side="right", fill="y")
+        actions_section.pack(fill="x")
         
-        # Informations principales dans la section gauche
+        # Informations principales dans la section informations
         self.create_main_info(info_section, classe_data, prof_name, salle_name)
         
-        # Actions avec boutons modernes dans la section droite
+        # Actions avec boutons modernes dans la section actions
         self.create_action_buttons(actions_section)
         
         # Effets de survol
@@ -891,7 +906,7 @@ class ModernClassCard(ctk.CTkFrame):
             icon_label = ctk.CTkLabel(title_frame, image=classroom_icon, text="", fg_color="transparent")
             icon_label.pack(side="left", padx=(0, 12))
         
-        # Titre de la classes avec style moderne
+        # Titre de la classes avec style moderne (décentré)
         title_label = ctk.CTkLabel(
             title_frame, 
             text=classe_data['nom'], 
@@ -899,7 +914,7 @@ class ModernClassCard(ctk.CTkFrame):
             text_color=TEXT_PRIMARY,
             fg_color="transparent"
         )
-        title_label.pack(side="left", fill="x", expand=True)
+        title_label.pack(side="left")
         
         # Badge du niveau à droite avec couleur adaptée aux icônes blanches
         level_badge = ctk.CTkFrame(header_frame, fg_color=BG_CARD_HOVER, corner_radius=12, height=28)
@@ -937,17 +952,13 @@ class ModernClassCard(ctk.CTkFrame):
         separator = ctk.CTkFrame(info_header, fg_color=TEXT_ACCENT, height=2, corner_radius=1)
         separator.pack(fill="x", pady=(3, 0))
         
-        # Informations détaillées en layout horizontal compact
+        # Informations détaillées superposées (vertical)
         details_container = ctk.CTkFrame(info_container, fg_color="transparent")
         details_container.pack(fill="x", padx=12, pady=(0, 10))
         
-        # Container horizontal pour prof et salles
-        info_row = ctk.CTkFrame(details_container, fg_color="transparent")
-        info_row.pack(fill="x")
-        
-        # Information professeurs à gauche
-        prof_frame = ctk.CTkFrame(info_row, fg_color="transparent")
-        prof_frame.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        # Information professeurs (première ligne)
+        prof_frame = ctk.CTkFrame(details_container, fg_color="transparent")
+        prof_frame.pack(fill="x", pady=(0, 4))
         
         # Icône professeurs
         person_icon = load_icon(self.icons.get("person"), 12)
@@ -964,9 +975,9 @@ class ModernClassCard(ctk.CTkFrame):
         )
         prof_text.pack(side="left")
         
-        # Information salles à droite
-        room_frame = ctk.CTkFrame(info_row, fg_color="transparent")
-        room_frame.pack(side="right", fill="x", expand=True)
+        # Information salles (deuxième ligne)
+        room_frame = ctk.CTkFrame(details_container, fg_color="transparent")
+        room_frame.pack(fill="x")
         
         # Icône salles
         door_icon = load_icon(self.icons.get("door"), 12)
@@ -1006,41 +1017,43 @@ class ModernClassCard(ctk.CTkFrame):
         separator = ctk.CTkFrame(actions_header, fg_color=TEXT_ACCENT, height=2, corner_radius=1)
         separator.pack(fill="x", pady=(3, 0))
         
-        # Container des boutons en vertical
+        # Container des boutons en vertical pour le format 3 par ligne
         buttons_inner = ctk.CTkFrame(buttons_container, fg_color="transparent")
-        buttons_inner.pack(fill="both", expand=True, padx=12, pady=(0, 10))
+        buttons_inner.pack(fill="both", expand=True, padx=15, pady=(0, 10))
         
-        # Bouton Modifier avec icône seulement
+        # Bouton Modifier avec texte et icône
         edit_btn = ctk.CTkButton(
             buttons_inner, 
-            text="", 
-            image=load_icon(self.icons.get("edit"), 20),
+            text="Modifier", 
+            image=load_icon(self.icons.get("edit"), 18),
             fg_color="transparent",
             text_color=TEXT_PRIMARY,
             hover_color=HOVER_WARNING,
             command=lambda: self.on_edit(self.classe_id),
             corner_radius=12,
             height=40,
-            width=40,
+            width=120,
             border_width=2,
-            border_color=BORDER_COLOR
+            border_color=BORDER_COLOR,
+            font=("Segoe UI", 10, "bold")
         )
         edit_btn.pack(side="left", padx=(0, 8))
         
-        # Bouton Supprimer avec icône seulement
+        # Bouton Supprimer avec texte et icône
         delete_btn = ctk.CTkButton(
             buttons_inner, 
-            text="", 
-            image=load_icon(self.icons.get("delete"), 20),
+            text="Supprimer", 
+            image=load_icon(self.icons.get("delete"), 18),
             fg_color="transparent",
             text_color=TEXT_PRIMARY,
             hover_color=HOVER_ERROR,
             command=lambda: self.on_delete(self.classe_id),
             corner_radius=12,
             height=40,
-            width=40,
+            width=120,
             border_width=2,
-            border_color=BORDER_COLOR
+            border_color=BORDER_COLOR,
+            font=("Segoe UI", 10, "bold")
         )
         delete_btn.pack(side="left")
     
@@ -1272,7 +1285,7 @@ class PremiumClassesCardView(ctk.CTkFrame):
         self.search_entry.pack(side="left", fill="x", expand=True, padx=(0, 12))
         self.search_entry.bind("<KeyRelease>", self.filter_view)
         self.search_entry.bind("<FocusIn>", lambda e: self.search_entry.configure(border_color=ACCENT))
-        self.search_entry.bind("<FocusOut>", lambda e: self.search_entry.configure(border_color=WARNING_YELLOW))
+        self.search_entry.bind("<FocusOut>", lambda e: self.search_entry.configure(border_color=BORDER_COLOR))
         
         # Filtre par niveau dans la vue premium
         self.level_var = ctk.StringVar(value="Tous")
@@ -1371,7 +1384,7 @@ class PremiumClassesCardView(ctk.CTkFrame):
     
     def _create_premium_cards_batch(self, filtered_classes):
         """Crée les cartes premium en lot pour de meilleures performances"""
-        num_columns = 4  # Format paysage avec 2 colonnes
+        num_columns = 3  # Format 3 cartes par ligne
         cards_to_create = []
         
         # Préparer toutes les cartes
@@ -1386,7 +1399,7 @@ class PremiumClassesCardView(ctk.CTkFrame):
         for card, idx in cards_to_create:
             card.grid(row=idx // num_columns, column=idx % num_columns, padx=4, pady=4, sticky="nsew")
         
-        # Configurer les colonnes pour le format paysage
+        # Configurer les colonnes pour le format 3 par ligne
         for i in range(num_columns):
             self.card_container.grid_columnconfigure(i, weight=1)
     

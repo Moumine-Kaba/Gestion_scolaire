@@ -136,10 +136,31 @@ DB_PATH = r"C:\Users\Lenovo\Desktop\Clonage_git\Gestion_scolaire\Gestion_scolair
 # ICÔNES (absolu demandé + fallback relatif)
 ICONS_DIR_ABS = r"C:\Users\Lenovo\Desktop\Clonage_git\Gestion_scolaire\Gestion_scolaire\resources\icons"
 ICONS_DIR_REL = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "resources", "icons"))
-ICONS_DIR = ICONS_DIR_ABS if os.path.isdir(ICONS_DIR_ABS) else ICONS_DIR_REL
+
+# Vérifier quel répertoire existe
+if os.path.isdir(ICONS_DIR_ABS):
+    ICONS_DIR = ICONS_DIR_ABS
+elif os.path.isdir(ICONS_DIR_REL):
+    ICONS_DIR = ICONS_DIR_REL
+else:
+    # Essayer le répertoire courant
+    ICONS_DIR = os.path.join(os.getcwd(), "resources", "icons")
+    if not os.path.isdir(ICONS_DIR):
+        print(f"⚠️ Répertoire d'icônes non trouvé. Chemins testés:")
+        print(f"   - Absolu: {ICONS_DIR_ABS}")
+        print(f"   - Relatif: {ICONS_DIR_REL}")
+        print(f"   - Courant: {ICONS_DIR}")
+        ICONS_DIR = ICONS_DIR_REL  # Fallback vers le relatif
 
 # =================== CACHE ICÔNES =====================
 _ICON_CACHE = {}  # Cache des icônes PIL → CTkImage
+
+# Debug: confirmer le répertoire des icônes
+print(f"📁 Répertoire d'icônes détecté: {ICONS_DIR}")
+print(f"📁 Répertoire existe: {os.path.exists(ICONS_DIR)}")
+if os.path.exists(ICONS_DIR):
+    icon_count = len([f for f in os.listdir(ICONS_DIR) if f.endswith('.png')])
+    print(f"📁 Nombre d'icônes disponibles: {icon_count}")
 
 def get_icon(name: str, size=(24, 24)):
     """Cache d'icônes PIL → CTkImage optimisé avec gestion d'erreur améliorée."""
@@ -194,7 +215,8 @@ ICON_MAP = {
     "profs": "person", "ajouter": "add", "edit": "edit", "delete": "delete",
     "detail": "detail", "transferer": "transfer", "refresh": "refresh", "search": "search",
     "group": "group", "person": "person", "home": "home", "logout": "logout",
-    "analytics": "stats", "settings": "settings", "stats": "stats", "csv": "csv"
+    "analytics": "stats", "settings": "settings", "stats": "stats", "csv": "csv",
+    "info": "detail"
 }
 
 # =================== SQLITE HELPERS =====================
@@ -468,7 +490,7 @@ def get_classe_id_by_name(classe_name):
         cur = conn.cursor()
         cur.execute("SELECT id_classe FROM classes WHERE nom_classe=?", (classe_name,))
         row = cur.fetchone()
-        return row[0] if row else None
+        return row[0] if row and len(row) > 0 else None
     except Exception as e:
         print(f"⚠️ get_classe_id_by_name: {e}")
         return None
@@ -555,7 +577,7 @@ class DashboardEleves(ctk.CTkFrame):
     def _create_main_content(self):
         """Crée le contenu principal avec le design du dashboard principal"""
         self.main_content_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_content_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=10)
+        self.main_content_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 4), pady=10)
         self.main_content_frame.grid_rowconfigure(3, weight=1)  # Le graphique prendra l'espace restant
         self.main_content_frame.grid_columnconfigure(0, weight=1)
 
@@ -824,7 +846,7 @@ class DashboardEleves(ctk.CTkFrame):
             # Afficher un message si aucun étudiant
             self.clear_main_content()
             no_students_frame = ctk.CTkFrame(self.main_content_frame, fg_color=BG_CARD, corner_radius=12)
-            no_students_frame.pack(fill="both", expand=True, padx=20, pady=20)
+            no_students_frame.pack(fill="both", expand=True, padx=4, pady=4)
             
             no_students_label = ctk.CTkLabel(
                 no_students_frame,
@@ -840,11 +862,11 @@ class DashboardEleves(ctk.CTkFrame):
         
         # Créer le conteneur pour la liste des étudiants
         students_container = ctk.CTkFrame(self.main_content_frame, fg_color=BG_CARD, corner_radius=12)
-        students_container.pack(fill="both", expand=True, padx=20, pady=20)
+        students_container.pack(fill="both", expand=True, padx=4, pady=4)
         
         # En-tête avec informations de la classe
         header_frame = ctk.CTkFrame(students_container, fg_color="transparent")
-        header_frame.pack(fill="x", pady=(0, 20))
+        header_frame.pack(fill="x", pady=(0, 4))
         
         # Titre
         title_label = ctk.CTkLabel(
@@ -862,148 +884,60 @@ class DashboardEleves(ctk.CTkFrame):
             font=("Segoe UI", 14),
             text_color=TEXT_MUTED
         )
-        count_label.pack(side="left", padx=(10, 0))
+        count_label.pack(side="left", padx=(4, 0))
         
-        # Barre de recherche
-        search_frame = ctk.CTkFrame(students_container, fg_color="transparent")
-        search_frame.pack(fill="x", pady=(0, 20))
+        # Section de recherche et actions avec design moderne et spacieux
+        search_actions_frame = ctk.CTkFrame(students_container, fg_color=BG_CARD, corner_radius=15, border_width=1, border_color=BORDER_COLOR)
+        search_actions_frame.pack(fill="x", pady=(0, 4))
+        
+        # Container interne avec padding réduit
+        search_inner = ctk.CTkFrame(search_actions_frame, fg_color="transparent")
+        search_inner.pack(fill="x", padx=8, pady=8)
+        
+        # Barre de recherche avec icône
+        search_container = ctk.CTkFrame(search_inner, fg_color="transparent")
+        search_container.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        
+        # Icône de recherche
+        search_icon = get_icon("search", (20, 20))
+        if search_icon:
+            search_icon_label = ctk.CTkLabel(search_container, text="", image=search_icon, fg_color="transparent")
+            search_icon_label.pack(side="left", padx=(0, 8))
         
         search_entry = ctk.CTkEntry(
-            search_frame,
+            search_container,
             placeholder_text="Rechercher un élève par nom, prénom ou statut...",
             fg_color=BG_MAIN,
             text_color=TEXT_PRIMARY,
             border_color=BORDER_COLOR,
             placeholder_text_color=TEXT_MUTED,
-            height=40
+            height=35,
+            corner_radius=12,
+            font=("Segoe UI", 12)
         )
-        search_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        search_entry.pack(side="left", fill="x", expand=True)
         
-        # Boutons d'action
-        buttons_frame = ctk.CTkFrame(search_frame, fg_color="transparent")
-        buttons_frame.pack(side="right")
-        
-        # Bouton Modifier
-        edit_icon = get_icon("edit", (18, 18))
-        btn_edit = ctk.CTkButton(
-            buttons_frame, 
-            text="Modifier", 
-            image=edit_icon if edit_icon else None,
-            command=self.modifier_eleve,
-            fg_color="transparent", 
-            hover_color=BG_CARD_HOVER, 
-            text_color=TEXT_ACCENT,
-            corner_radius=8, 
-            height=40, 
-            width=100, 
-            font=("Segoe UI", 12, "bold"), 
-            border_width=1, 
-            border_color=BORDER_COLOR
-        )
-        btn_edit.pack(side="left", padx=(0, 8))
-        
-        # Bouton Supprimer
-        delete_icon = get_icon("delete", (18, 18))
-        btn_delete = ctk.CTkButton(
-            buttons_frame, 
-            text="Supprimer", 
-            image=delete_icon if delete_icon else None,
-            command=self.supprimer_eleve,
-            fg_color="transparent", 
-            hover_color=BG_CARD_HOVER, 
-            text_color=TEXT_ACCENT,
-            corner_radius=8, 
-            height=40, 
-            width=100, 
-            font=("Segoe UI", 12, "bold"), 
-            border_width=1, 
-            border_color=BORDER_COLOR
-        )
-        btn_delete.pack(side="left", padx=(0, 8))
-        
-        # Bouton Exporter
-        export_icon = get_icon("csv", (18, 18))
+        # Bouton Exporter uniquement (les autres boutons sont dans le panneau de détails)
+        export_icon = get_icon("csv", (20, 20))
         btn_export = ctk.CTkButton(
-            buttons_frame, 
+            search_inner, 
             text="Exporter", 
             image=export_icon if export_icon else None,
             command=self.exporter_eleves,
-            fg_color="transparent", 
-            hover_color=BG_CARD_HOVER, 
-            text_color=TEXT_ACCENT,
-            corner_radius=8, 
-            height=40, 
-            width=100, 
+            fg_color=BG_SIDEBAR, 
+            hover_color=HOVER_SUCCESS, 
+            text_color=TEXT_PRIMARY,
+            corner_radius=12, 
+            height=35, 
+            width=120, 
             font=("Segoe UI", 12, "bold"), 
-            border_width=1, 
+            border_width=2, 
             border_color=BORDER_COLOR
         )
-        btn_export.pack(side="left")
+        btn_export.pack(side="right")
         
-        # Tableau des étudiants
-        table_frame = ctk.CTkFrame(students_container, fg_color="transparent")
-        table_frame.pack(fill="both", expand=True)
-        
-        # Configuration du style Treeview
-        style = ttk.Style()
-        style.theme_use('clam')
-        
-        # Style des en-têtes
-        style.configure("Treeview.Heading", 
-                       background="transparent", 
-                       foreground=TEXT_ACCENT, 
-                       padding=(20, 15),
-                       borderwidth=1,
-                       relief="solid")
-        
-        # Style des lignes
-        style.configure("Treeview", 
-                       background=BG_CARD, 
-                       foreground=TEXT_PRIMARY, 
-                       rowheight=50,
-                       borderwidth=0,
-                       fieldbackground=BG_CARD)
-        
-        # Créer le tableau
-        columns = ("Nom", "Prénom", "Genre", "Naissance", "Âge", "Statut")
-        self.students_table = ttk.Treeview(table_frame, columns=columns, show="headings", style="Treeview")
-        
-        # Configuration des colonnes
-        column_widths = {"Nom": 150, "Prénom": 150, "Genre": 80, "Naissance": 120, "Âge": 60, "Statut": 100}
-        for col in columns:
-            self.students_table.heading(col, text=col)
-            self.students_table.column(col, width=column_widths[col], anchor="center")
-        
-        # Barre de défilement
-        scrollbar = ctk.CTkScrollbar(table_frame, orientation="vertical", command=self.students_table.yview,
-                                    fg_color=BORDER_COLOR, button_color=BG_CARD, button_hover_color=TEXT_ACCENT)
-        self.students_table.configure(yscrollcommand=scrollbar.set)
-        
-        # Pack du tableau et de la barre de défilement
-        self.students_table.pack(side="left", fill="both", expand=True, padx=(0, 10))
-        scrollbar.pack(side="right", fill="y")
-        
-        # Remplir le tableau avec les données
-        for eleve in eleves_classe:
-            _id, nom, prenom, genre, naissance, statut, cid = eleve
-            age = calculate_age(naissance)
-            
-            # Insérer dans le tableau
-            item = self.students_table.insert("", "end", values=(nom, prenom, genre, naissance, age, statut))
-            
-            # Appliquer les couleurs selon le statut
-            if statut == "Actif":
-                self.students_table.tag_configure("actif", foreground="#27AE60")
-                self.students_table.item(item, tags=(self.students_table.item(item, "tags")[0], "actif"))
-            elif statut == "Inactif":
-                self.students_table.tag_configure("inactif", foreground="#E74C3C")
-                self.students_table.item(item, tags=(self.students_table.item(item, "tags")[0], "inactif"))
-        
-        # Stocker les données pour les boutons CRUD
-        self.eleves_data = eleves_classe
-        
-        # Bind des événements
-        self.students_table.bind("<<TreeviewSelect>>", self.on_students_table_select)
+        # Cartes des étudiants (design moderne comme les classes)
+        self.create_students_cards(eleves_classe)
 
     def clear_main_content(self):
         """Nettoie le contenu principal en préservant le breadcrumb"""
@@ -1015,12 +949,649 @@ class DashboardEleves(ctk.CTkFrame):
         for widget in children[1:]:  # Skip le breadcrumb (index 0)
             widget.destroy()
 
+    def create_students_cards(self, eleves_classe):
+        """Crée une liste d'élèves avec design moderne comme la vue des salles"""
+        # Conteneur principal avec layout horizontal (liste à gauche, détails à droite)
+        main_container = ctk.CTkFrame(self.main_content_frame, fg_color="transparent")
+        main_container.pack(fill="both", expand=True, padx=0, pady=0)
+        
+        # Configuration du layout horizontal avec proportions ajustées
+        main_container.grid_columnconfigure(0, weight=2)  # Liste des élèves (plus étroite)
+        main_container.grid_columnconfigure(1, weight=3)  # Détails de l'élève (plus large)
+        
+        # Panneau de gauche : Liste des élèves avec hauteur augmentée
+        self.students_list_frame = ctk.CTkScrollableFrame(main_container, fg_color=BG_CARD, corner_radius=12, height=500)
+        self.students_list_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 2))
+        
+        # Panneau de droite : Détails de l'élève sélectionné avec hauteur augmentée
+        self.student_details_panel = ctk.CTkFrame(main_container, fg_color=BG_CARD, corner_radius=12, height=600)
+        self.student_details_panel.grid(row=0, column=1, sticky="nsew", padx=(2, 0))
+        
+        # Stocker les données des élèves
+        self.eleves_data = eleves_classe
+        self.selected_student = None
+        self.selected_student_frame = None
+        
+        # Afficher la liste des élèves
+        self.display_students_list(eleves_classe)
+        
+        # Afficher le panneau de détails vide
+        self.show_empty_details()
+
+    def display_students_list(self, eleves_to_display):
+        """Affiche les élèves sous forme de liste cliquable comme la vue des salles"""
+        for w in self.students_list_frame.winfo_children():
+            w.destroy()
+
+        if not eleves_to_display:
+            # Message d'état vide
+            empty_frame = ctk.CTkFrame(self.students_list_frame, fg_color="transparent")
+            empty_frame.pack(expand=True, fill="both", pady=20)
+            
+            empty_label = ctk.CTkLabel(empty_frame, text="Aucun élève trouvé",
+                                      font=("Segoe UI", 14, "bold"), text_color=TEXT_SECONDARY)
+            empty_label.pack(pady=10)
+            
+            self.show_empty_details()
+            return
+
+        # Afficher les élèves avec design moderne
+        for i, eleve in enumerate(eleves_to_display):
+            if len(eleve) >= 7:
+                _id, nom, prenom, genre, naissance, classe_id, classe_nom = eleve
+                age = calculate_age(naissance)
+                
+                # Créer l'élément de liste pour l'élève
+                student_item_frame = StudentListItem(self.students_list_frame, {
+                    'id': _id,
+                    'nom': nom,
+                    'prenom': prenom,
+                    'genre': genre,
+                    'naissance': naissance,
+                    'age': age,
+                    'classe': classe_nom or "Non assigné"
+                }, self.show_student_details)
+                student_item_frame.pack(fill="x", padx=3, pady=(3 if i == 0 else 1, 1))
+
+    def show_empty_details(self):
+        """Affiche le panneau de détails vide"""
+        for w in self.student_details_panel.winfo_children():
+            w.destroy()
+            
+        empty_frame = ctk.CTkFrame(self.student_details_panel, fg_color="transparent")
+        empty_frame.pack(expand=True, fill="both", pady=50)
+        
+        empty_label = ctk.CTkLabel(empty_frame, text="Sélectionnez un élève",
+                                  font=("Segoe UI", 16, "bold"), text_color=TEXT_SECONDARY)
+        empty_label.pack(pady=20)
+        
+        empty_subtitle = ctk.CTkLabel(empty_frame, text="pour voir ses informations détaillées",
+                                     font=("Segoe UI", 12), text_color=TEXT_SECONDARY)
+        empty_subtitle.pack()
+
+    def show_student_details(self, student_data, item_frame):
+        """Affiche les détails d'un élève sélectionné"""
+        self.selected_student = student_data
+
+        if self.selected_student_frame:
+            self.selected_student_frame.deselect()
+        self.selected_student_frame = item_frame
+        self.selected_student_frame.select()
+
+        # Effacer le contenu du panneau de détails
+        for w in self.student_details_panel.winfo_children():
+            w.destroy()
+
+        details_frame = ctk.CTkFrame(self.student_details_panel, fg_color="transparent")
+        details_frame.pack(fill="both", expand=True, padx=8, pady=8)
+
+        # Titre avec nom complet et design premium amélioré
+        title_container = ctk.CTkFrame(details_frame, fg_color=BG_SIDEBAR, corner_radius=15, 
+                                     border_width=2, border_color=ACCENT_BLUE)
+        title_container.pack(fill="x", pady=(0, 8))
+        
+        # Container interne pour le titre avec gradient effect
+        title_inner = ctk.CTkFrame(title_container, fg_color="transparent")
+        title_inner.pack(fill="x", padx=15, pady=12)
+        
+        full_name = f"{student_data['prenom']} {student_data['nom']}"
+        title_label = ctk.CTkLabel(title_inner, text=full_name, 
+                                  font=("Segoe UI", 20, "bold"), text_color=TEXT_PRIMARY)
+        title_label.pack(side="left")
+        
+        # Badge de statut à droite
+        status_badge = ctk.CTkFrame(title_inner, fg_color=ACCENT_BLUE, corner_radius=20)
+        status_badge.pack(side="right")
+        
+        status_label = ctk.CTkLabel(status_badge, text="ACTIF", 
+                                  font=("Segoe UI", 10, "bold"), text_color="white")
+        status_label.pack(padx=12, pady=4)
+
+        # Détails de l'élève avec design premium amélioré
+        details_card = ctk.CTkFrame(details_frame, fg_color=BG_SIDEBAR, corner_radius=15, 
+                                   border_width=1, border_color=BORDER_COLOR)
+        details_card.pack(fill="both", expand=True, pady=(0, 8))
+
+        def create_detail_row(parent, label, value, icon_name=None):
+            # Container principal ultra compact
+            frame = ctk.CTkFrame(parent, fg_color="transparent", corner_radius=6)
+            frame.pack(fill="x", pady=1, padx=2)
+            
+            # Container pour l'icône et le label ultra compact
+            label_container = ctk.CTkFrame(frame, fg_color=BG_CARD, corner_radius=6)
+            label_container.pack(side="left", padx=(0, 2), pady=1)
+            
+            # Icône si fournie ultra compacte
+            if icon_name:
+                try:
+                    icon_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..', 'resources', 'icons', f"{icon_name}.png")
+                    icon = ctk.CTkImage(Image.open(icon_path), size=(12, 12))
+                    icon_label = ctk.CTkLabel(label_container, text="", image=icon, fg_color="transparent")
+                    icon_label.pack(side="left", padx=(4, 2))
+                except:
+                    pass
+            
+            ctk.CTkLabel(label_container, text=f"{label} :", font=("Segoe UI", 11, "bold"), 
+                        text_color=TEXT_SECONDARY, anchor="w").pack(side="left", padx=(0, 2))
+            
+            # Valeur ultra compacte
+            value_frame = ctk.CTkFrame(frame, fg_color=BG_MAIN, corner_radius=6, 
+                                     border_width=1, border_color=BORDER_COLOR)
+            value_frame.pack(side="right", fill="x", expand=True, padx=(2, 0), pady=1)
+            
+            ctk.CTkLabel(value_frame, text=str(value), font=("Segoe UI", 11), 
+                        text_color=TEXT_PRIMARY, anchor="w").pack(padx=6, pady=3)
+
+        # Container principal avec layout en deux colonnes et marges ultra réduites
+        main_content = ctk.CTkFrame(details_card, fg_color="transparent")
+        main_content.pack(fill="both", expand=True, padx=4, pady=4)
+        
+        # Configuration des colonnes
+        main_content.grid_columnconfigure(0, weight=1)
+        main_content.grid_columnconfigure(1, weight=1)
+        
+        # Colonne gauche - Informations personnelles et scolaires avec marges ultra réduites
+        left_column = ctk.CTkFrame(main_content, fg_color=BG_CARD, corner_radius=10, 
+                                 border_width=1, border_color=BORDER_COLOR)
+        left_column.grid(row=0, column=0, sticky="nsew", padx=(0, 2))
+        
+        # Informations personnelles
+        personal_section = ctk.CTkFrame(left_column, fg_color="transparent")
+        personal_section.pack(fill="x", pady=(6, 4))
+        
+        section_title = ctk.CTkLabel(personal_section, text="📋 Informations Personnelles", 
+                                   font=("Segoe UI", 13, "bold"), text_color=TEXT_ACCENT)
+        section_title.pack(anchor="w", pady=(0, 4))
+        
+        create_detail_row(personal_section, "Nom", student_data['nom'], "person")
+        create_detail_row(personal_section, "Prénom", student_data['prenom'], "person")
+        create_detail_row(personal_section, "Genre", student_data['genre'], "person")
+        create_detail_row(personal_section, "Date de naissance", student_data['naissance'], "calendar")
+        create_detail_row(personal_section, "Âge", f"{student_data['age']} ans", "calendar")
+        
+        # Informations scolaires
+        school_section = ctk.CTkFrame(left_column, fg_color="transparent")
+        school_section.pack(fill="x", pady=(4, 6))
+        
+        section_title2 = ctk.CTkLabel(school_section, text="🎓 Informations Scolaires", 
+                                     font=("Segoe UI", 13, "bold"), text_color=TEXT_ACCENT)
+        section_title2.pack(anchor="w", pady=(0, 4))
+        
+        create_detail_row(school_section, "Classe", student_data['classe'], "class")
+        create_detail_row(school_section, "Statut", "Actif", "check")
+        
+        # Colonne droite - Informations familiales et autres avec marges ultra réduites
+        right_column = ctk.CTkFrame(main_content, fg_color=BG_CARD, corner_radius=10, 
+                                  border_width=1, border_color=BORDER_COLOR)
+        right_column.grid(row=0, column=1, sticky="nsew", padx=(2, 0))
+        
+        # Informations familiales
+        family_section = ctk.CTkFrame(right_column, fg_color="transparent")
+        family_section.pack(fill="x", pady=(6, 4))
+        
+        section_title3 = ctk.CTkLabel(family_section, text="👨‍👩‍👧‍👦 Informations Familiales", 
+                                     font=("Segoe UI", 13, "bold"), text_color=TEXT_ACCENT)
+        section_title3.pack(anchor="w", pady=(0, 4))
+        
+        create_detail_row(family_section, "Nom du père", "Non renseigné", "person")
+        create_detail_row(family_section, "Nom de la mère", "Non renseigné", "person")
+        create_detail_row(family_section, "Téléphone", "Non renseigné", "phone")
+        create_detail_row(family_section, "Adresse", "Non renseignée", "location")
+        
+        # Informations supplémentaires
+        additional_section = ctk.CTkFrame(right_column, fg_color="transparent")
+        additional_section.pack(fill="x", pady=(4, 6))
+        
+        section_title4 = ctk.CTkLabel(additional_section, text="📊 Informations Supplémentaires", 
+                                     font=("Segoe UI", 13, "bold"), text_color=TEXT_ACCENT)
+        section_title4.pack(anchor="w", pady=(0, 4))
+        
+        create_detail_row(additional_section, "ID Élève", student_data['id'], "id")
+        create_detail_row(additional_section, "Date d'inscription", "2024-01-01", "calendar")
+        create_detail_row(additional_section, "Moyenne générale", "15.5/20", "chart")
+        create_detail_row(additional_section, "Absences", "2 jours", "warning")
+
+        # Boutons d'action avec design premium amélioré
+        btn_frame = ctk.CTkFrame(details_frame, fg_color="transparent")
+        btn_frame.pack(pady=8)
+
+        # Bouton Modifier avec design premium
+        edit_btn = ctk.CTkButton(btn_frame, text="Modifier", 
+                                font=("Segoe UI", 13, "bold"),
+                                fg_color=ACCENT_BLUE, hover_color=HOVER_WARNING, 
+                                text_color="white",
+                                command=lambda: self.modifier_eleve(student_data['id']), 
+                                height=45, width=140,
+                                border_width=2, border_color=BORDER_COLOR,
+                                corner_radius=15)
+        edit_btn.pack(side="left", padx=(0, 12))
+
+        # Bouton Supprimer avec design premium
+        delete_btn = ctk.CTkButton(btn_frame, text="Supprimer", 
+                                 font=("Segoe UI", 13, "bold"),
+                                 fg_color="#E74C3C", hover_color=HOVER_ERROR, 
+                                 text_color="white",
+                                 command=lambda: self.supprimer_eleve(student_data['id']), 
+                                 height=45, width=140,
+                                 border_width=2, border_color=BORDER_COLOR,
+                                 corner_radius=15)
+        delete_btn.pack(side="left")
+
+    def create_student_card(self, parent, index, eleve_data):
+        """Crée une carte individuelle élégante pour un élève avec design premium"""
+        row = index // 4
+        col = index % 4
+        
+        # Carte principale avec design premium
+        card = ctk.CTkFrame(parent, fg_color=BG_CARD, corner_radius=20, border_width=2, border_color=BORDER_COLOR)
+        card.grid(row=row, column=col, padx=4, pady=4, sticky="nsew")
+        
+        # Effet hover avec animation
+        def on_enter(event):
+            card.configure(fg_color=BG_CARD_HOVER, border_color=ACCENT_BLUE, border_width=3)
+            
+        def on_leave(event):
+            card.configure(fg_color=BG_CARD, border_color=BORDER_COLOR, border_width=2)
+            
+        card.bind("<Enter>", on_enter)
+        card.bind("<Leave>", on_leave)
+        
+        # En-tête de la carte avec gradient et icônes
+        header_frame = ctk.CTkFrame(card, fg_color=ACCENT_BLUE, corner_radius=18)
+        header_frame.pack(fill="x", padx=12, pady=(12, 8))
+        
+        # Contenu de l'en-tête
+        header_content = ctk.CTkFrame(header_frame, fg_color="transparent")
+        header_content.pack(fill="x", padx=15, pady=12)
+        
+        # Avatar avec icône de personne
+        avatar_container = ctk.CTkFrame(header_content, fg_color=WHITE, corner_radius=30, width=60, height=60)
+        avatar_container.pack(side="left")
+        avatar_container.pack_propagate(False)
+        
+        # Icône de personne dans l'avatar
+        person_icon = get_icon("person", (24, 24))
+        if person_icon:
+            avatar_label = ctk.CTkLabel(avatar_container, text="", image=person_icon, text_color=ACCENT_BLUE)
+            avatar_label._imgref = person_icon
+            avatar_label.pack(expand=True)
+        else:
+            # Fallback avec initiales
+            initiales = f"{eleve_data['prenom'][0]}{eleve_data['nom'][0]}".upper()
+            avatar_label = ctk.CTkLabel(avatar_container, text=initiales, font=("Segoe UI", 14, "bold"), text_color=ACCENT_BLUE)
+            avatar_label.pack(expand=True)
+        
+        # Informations principales avec icônes
+        info_frame = ctk.CTkFrame(header_content, fg_color="transparent")
+        info_frame.pack(side="left", fill="x", expand=True, padx=(4, 0))
+        
+        # Nom complet avec icône utilisateur
+        nom_frame = ctk.CTkFrame(info_frame, fg_color="transparent")
+        nom_frame.pack(fill="x")
+        
+        user_icon = get_icon("person", (16, 16))
+        if user_icon:
+            user_label = ctk.CTkLabel(nom_frame, text="", image=user_icon, text_color=WHITE)
+            user_label._imgref = user_icon
+            user_label.pack(side="left")
+        
+        nom_complet = f"{eleve_data['prenom']} {eleve_data['nom']}"
+        nom_label = ctk.CTkLabel(nom_frame, text=nom_complet, font=("Segoe UI", 16, "bold"), text_color=WHITE)
+        nom_label.pack(side="left", padx=(8, 0))
+        
+        # Classe et âge avec icône de groupe
+        classe_frame = ctk.CTkFrame(info_frame, fg_color="transparent")
+        classe_frame.pack(fill="x", pady=(5, 0))
+        
+        group_icon = get_icon("group", (14, 14))
+        if group_icon:
+            group_label = ctk.CTkLabel(classe_frame, text="", image=group_icon, text_color=WHITE)
+            group_label._imgref = group_icon
+            group_label.pack(side="left")
+        
+        classe_age = f"{eleve_data['classe']} • {eleve_data['age']} ans"
+        classe_label = ctk.CTkLabel(classe_frame, text=classe_age, font=("Segoe UI", 12), text_color=WHITE)
+        classe_label.pack(side="left", padx=(8, 0))
+        
+        # Corps de la carte avec informations détaillées
+        body_frame = ctk.CTkFrame(card, fg_color="transparent")
+        body_frame.pack(fill="x", padx=12, pady=(0, 12))
+        
+        # Section des informations avec design moderne
+        info_section = ctk.CTkFrame(body_frame, fg_color=BG_CARD_HOVER, corner_radius=12)
+        info_section.pack(fill="x", pady=(0, 4))
+        
+        # Genre avec icône et statut
+        genre_statut_frame = ctk.CTkFrame(info_section, fg_color="transparent")
+        genre_statut_frame.pack(fill="x", padx=12, pady=10)
+        
+        # Genre avec icône
+        genre_container = ctk.CTkFrame(genre_statut_frame, fg_color="transparent")
+        genre_container.pack(side="left")
+        
+        # Icône genre (homme/femme)
+        gender_icon = "👨" if eleve_data['genre'] == 'M' else "👩"
+        genre_label = ctk.CTkLabel(genre_container, text=f"{gender_icon} {eleve_data['genre']}", 
+                                 font=("Segoe UI", 12, "bold"), text_color=TEXT_PRIMARY)
+        genre_label.pack(side="left")
+        
+        # Statut avec icône et couleur
+        statut_container = ctk.CTkFrame(genre_statut_frame, fg_color="transparent")
+        statut_container.pack(side="right")
+        
+        # Icône de statut
+        status_icon = get_icon("check_circle", (14, 14)) if eleve_data['statut'] == 'Actif' else get_icon("close", (14, 14))
+        if status_icon:
+            status_label = ctk.CTkLabel(statut_container, text="", image=status_icon, text_color=SUCCESS_GREEN if eleve_data['statut'] == 'Actif' else ERROR_RED)
+            status_label._imgref = status_icon
+            status_label.pack(side="left")
+        
+        statut_color = SUCCESS_GREEN if eleve_data['statut'] == 'Actif' else ERROR_RED
+        statut_text = ctk.CTkLabel(statut_container, text=eleve_data['statut'], 
+                                  font=("Segoe UI", 11, "bold"), text_color=statut_color)
+        statut_text.pack(side="left", padx=(5, 0))
+        
+        # Date de naissance avec icône calendrier
+        naissance_container = ctk.CTkFrame(info_section, fg_color="transparent")
+        naissance_container.pack(fill="x", padx=12, pady=(0, 4))
+        
+        calendar_icon = get_icon("calendar", (14, 14))
+        if calendar_icon:
+            calendar_label = ctk.CTkLabel(naissance_container, text="", image=calendar_icon, text_color=TEXT_SECONDARY)
+            calendar_label._imgref = calendar_icon
+            calendar_label.pack(side="left")
+        
+        naissance_label = ctk.CTkLabel(naissance_container, text=eleve_data['naissance'], 
+                                      font=("Segoe UI", 11), text_color=TEXT_SECONDARY)
+        naissance_label.pack(side="left", padx=(8, 0))
+        
+        # Boutons d'action avec icônes et design premium
+        actions_frame = ctk.CTkFrame(card, fg_color="transparent")
+        actions_frame.pack(fill="x", padx=12, pady=(0, 12))
+        
+        # Bouton Modifier avec icône
+        edit_icon = get_icon("edit", (16, 16))
+        edit_btn = ctk.CTkButton(actions_frame, text="Modifier", width=85, height=32,
+                                fg_color=ACCENT_BLUE, hover_color=BORDER_ACCENT,
+                                font=("Segoe UI", 10, "bold"), text_color=WHITE,
+                                image=edit_icon if edit_icon else None,
+                                command=lambda: self.edit_student_from_card(eleve_data))
+        if edit_icon:
+            edit_btn._imgref = edit_icon
+        edit_btn.pack(side="left", padx=(0, 6))
+        
+        # Bouton Détails avec icône
+        details_icon = get_icon("detail", (16, 16))
+        details_btn = ctk.CTkButton(actions_frame, text="Détails", width=85, height=32,
+                                   fg_color=WARNING_ORANGE, hover_color="#d97706",
+                                   font=("Segoe UI", 10, "bold"), text_color=WHITE,
+                                   image=details_icon if details_icon else None,
+                                   command=lambda: self.show_student_details_from_card(eleve_data))
+        if details_icon:
+            details_btn._imgref = details_icon
+        details_btn.pack(side="left", padx=(0, 6))
+        
+        # Bouton Supprimer avec icône
+        delete_icon = get_icon("delete", (16, 16))
+        delete_btn = ctk.CTkButton(actions_frame, text="Supprimer", width=85, height=32,
+                                  fg_color=ERROR_RED, hover_color="#dc2626",
+                                  font=("Segoe UI", 10, "bold"), text_color=WHITE,
+                                  image=delete_icon if delete_icon else None,
+                                  command=lambda: self.delete_student_from_card(eleve_data))
+        if delete_icon:
+            delete_btn._imgref = delete_icon
+        delete_btn.pack(side="right")
+        
+        return card
+
+    def edit_student_from_card(self, eleve_data):
+        """Ouvre le formulaire de modification depuis une carte"""
+        self.formulaire_eleve(mode="Modifier", eleves=eleve_data)
+
+    def show_student_details_from_card(self, eleve_data):
+        """Affiche les détails d'un élève depuis une carte avec design premium"""
+        # Créer la fenêtre de détails
+        details_window = ctk.CTkToplevel(self)
+        details_window.title(f"Détails - {eleve_data['nom']} {eleve_data['prenom']}")
+        details_window.geometry("700x600")
+        details_window.minsize(600, 500)
+        details_window.transient(self.winfo_toplevel())
+        details_window.grab_set()
+        details_window.configure(fg_color=BG_MAIN)
+        
+        # Centrer la fenêtre
+        self._center_window(details_window)
+        
+        # Contenu principal
+        main_container = ctk.CTkFrame(details_window, fg_color="transparent")
+        main_container.pack(fill="both", expand=True, padx=4, pady=4)
+        
+        # En-tête avec avatar et gradient
+        header = ctk.CTkFrame(main_container, fg_color=ACCENT_BLUE, corner_radius=20)
+        header.pack(fill="x", pady=(0, 4))
+        
+        header_content = ctk.CTkFrame(header, fg_color="transparent")
+        header_content.pack(fill="x", padx=25, pady=25)
+        
+        # Avatar grand avec icône
+        avatar_frame = ctk.CTkFrame(header_content, fg_color=WHITE, corner_radius=50, width=100, height=100)
+        avatar_frame.pack(side="left")
+        avatar_frame.pack_propagate(False)
+        
+        # Icône de personne dans l'avatar
+        person_icon = get_icon("person", (40, 40))
+        if person_icon:
+            avatar_label = ctk.CTkLabel(avatar_frame, text="", image=person_icon, text_color=ACCENT_BLUE)
+            avatar_label._imgref = person_icon
+            avatar_label.pack(expand=True)
+        else:
+            # Fallback avec initiales
+            initiales = f"{eleve_data['prenom'][0]}{eleve_data['nom'][0]}".upper()
+            avatar_label = ctk.CTkLabel(avatar_frame, text=initiales, font=("Segoe UI", 28, "bold"), text_color=ACCENT_BLUE)
+            avatar_label.pack(expand=True)
+        
+        # Informations principales avec icônes
+        info_frame = ctk.CTkFrame(header_content, fg_color="transparent")
+        info_frame.pack(side="left", fill="x", expand=True, padx=(25, 0))
+        
+        # Nom complet avec icône
+        nom_frame = ctk.CTkFrame(info_frame, fg_color="transparent")
+        nom_frame.pack(fill="x")
+        
+        user_icon = get_icon("person", (20, 20))
+        if user_icon:
+            user_label = ctk.CTkLabel(nom_frame, text="", image=user_icon, text_color=WHITE)
+            user_label._imgref = user_icon
+            user_label.pack(side="left")
+        
+        nom_complet = f"{eleve_data['prenom']} {eleve_data['nom']}"
+        nom_label = ctk.CTkLabel(nom_frame, text=nom_complet, font=("Segoe UI", 28, "bold"), text_color=WHITE)
+        nom_label.pack(side="left", padx=(4, 0))
+        
+        # Classe et âge avec icône
+        classe_frame = ctk.CTkFrame(info_frame, fg_color="transparent")
+        classe_frame.pack(fill="x", pady=(10, 0))
+        
+        group_icon = get_icon("group", (18, 18))
+        if group_icon:
+            group_label = ctk.CTkLabel(classe_frame, text="", image=group_icon, text_color=WHITE)
+            group_label._imgref = group_icon
+            group_label.pack(side="left")
+        
+        classe_age = f"{eleve_data['classe']} • {eleve_data['age']} ans"
+        classe_label = ctk.CTkLabel(classe_frame, text=classe_age, font=("Segoe UI", 16), text_color=WHITE)
+        classe_label.pack(side="left", padx=(4, 0))
+        
+        # Corps des détails avec design moderne
+        body = ctk.CTkScrollableFrame(main_container, fg_color=BG_CARD, corner_radius=15)
+        body.pack(fill="both", expand=True, pady=(0, 4))
+        
+        # Section informations personnelles
+        info_personnelles = ctk.CTkFrame(body, fg_color=BG_CARD_HOVER, corner_radius=12)
+        info_personnelles.pack(fill="x", pady=15, padx=15)
+        
+        # Titre de section avec icône
+        title_frame = ctk.CTkFrame(info_personnelles, fg_color="transparent")
+        title_frame.pack(fill="x", padx=20, pady=(20, 10))
+        
+        detail_icon = get_icon("detail", (20, 20))
+        if detail_icon:
+            detail_label = ctk.CTkLabel(title_frame, text="", image=detail_icon, text_color=TEXT_PRIMARY)
+            detail_label._imgref = detail_icon
+            detail_label.pack(side="left")
+        
+        ctk.CTkLabel(title_frame, text="Informations Personnelles", 
+                    text_color=TEXT_PRIMARY, font=("Segoe UI", 18, "bold")).pack(side="left", padx=(4, 0))
+        
+        # Grille d'informations avec icônes
+        info_grid = ctk.CTkFrame(info_personnelles, fg_color="transparent")
+        info_grid.pack(fill="x", padx=20, pady=(0, 4))
+        
+        # Informations avec icônes
+        infos = [
+            ("Matricule", eleve_data.get('matricule', 'Non renseigné'), "assignment"),
+            ("Genre", eleve_data['genre'], "person"),
+            ("Date de naissance", eleve_data['naissance'], "calendar"),
+            ("Classe", eleve_data['classe'], "class"),
+            ("Statut", eleve_data['statut'], "check_circle" if eleve_data['statut'] == 'Actif' else "close")
+        ]
+        
+        for i, (label, value, icon_name) in enumerate(infos):
+            row = i // 2
+            col = i % 2
+            
+            # Conteneur pour chaque information
+            info_container = ctk.CTkFrame(info_grid, fg_color="transparent")
+            info_container.grid(row=row, column=col, sticky="ew", padx=4, pady=4)
+            
+            # Icône
+            icon = get_icon(icon_name, (16, 16))
+            if icon:
+                icon_label = ctk.CTkLabel(info_container, text="", image=icon, text_color=TEXT_SECONDARY)
+                icon_label._imgref = icon
+                icon_label.pack(side="left")
+            
+            # Label
+            label_widget = ctk.CTkLabel(info_container, text=label, text_color=TEXT_SECONDARY, 
+                                      font=("Segoe UI", 12))
+            label_widget.pack(side="left", padx=(8, 0))
+            
+            # Valeur
+            value_color = SUCCESS_GREEN if label == "Statut" and value == "Actif" else TEXT_PRIMARY
+            value_widget = ctk.CTkLabel(info_container, text=value, text_color=value_color, 
+                                       font=("Segoe UI", 12, "bold"))
+            value_widget.pack(side="right")
+        
+        # Configuration de la grille
+        info_grid.grid_columnconfigure(0, weight=1)
+        info_grid.grid_columnconfigure(1, weight=1)
+        
+        # Boutons d'action
+        footer = ctk.CTkFrame(main_container, fg_color=BG_CARD, corner_radius=12)
+        footer.pack(fill="x")
+        
+        buttons_frame = ctk.CTkFrame(footer, fg_color="transparent")
+        buttons_frame.pack(side="right", padx=20, pady=15)
+        
+        # Bouton Modifier
+        edit_icon = get_icon("edit", (18, 18))
+        edit_btn = ctk.CTkButton(buttons_frame, text="Modifier", width=100, height=40,
+                                fg_color=ACCENT_BLUE, hover_color=BORDER_ACCENT,
+                                font=("Segoe UI", 12, "bold"), text_color=WHITE,
+                                image=edit_icon if edit_icon else None,
+                                command=lambda: [self.edit_student_from_card(eleve_data), details_window.destroy()])
+        if edit_icon:
+            edit_btn._imgref = edit_icon
+        edit_btn.pack(side="left", padx=(0, 2))
+        
+        # Bouton Fermer
+        close_icon = get_icon("close", (18, 18))
+        close_btn = ctk.CTkButton(buttons_frame, text="Fermer", width=100, height=40,
+                                 fg_color=ERROR_RED, hover_color="#dc2626",
+                                 font=("Segoe UI", 12, "bold"), text_color=WHITE,
+                                 image=close_icon if close_icon else None,
+                                 command=details_window.destroy)
+        if close_icon:
+            close_btn._imgref = close_icon
+        close_btn.pack(side="left")
+
+    def delete_student_from_card(self, eleve_data):
+        """Supprime un élève depuis une carte"""
+        result = messagebox.askyesno("Confirmation", 
+                                   f"Êtes-vous sûr de vouloir supprimer l'élève {eleve_data['prenom']} {eleve_data['nom']} ?")
+        if result:
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM eleves WHERE id_eleve = ?", (eleve_data['id'],))
+                conn.commit()
+                conn.close()
+                messagebox.showinfo("Succès", "Élève supprimé avec succès.")
+                self.refresh_dashboard()
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur lors de la suppression : {e}")
+
     def on_students_table_select(self, event):
-        """Gère la sélection dans le tableau des étudiants"""
-        selected_items = self.students_table.selection()
-        if selected_items:
-            # Mettre à jour l'état de sélection pour les boutons CRUD
-            pass
+        """Gère la sélection d'un élève dans le tableau"""
+        try:
+            selected_items = self.students_table.selection()
+            if selected_items:
+                selected_item = selected_items[0]
+                values = self.students_table.item(selected_item)['values']
+        except Exception as e:
+            print(f"⚠️ Erreur sélection tableau: {e}")
+            return
+
+    def on_students_table_double_click(self, event):
+        """Gère le double-clic sur un élève pour le modifier"""
+        try:
+            selected_items = self.students_table.selection()
+            if selected_items:
+                selected_item = selected_items[0]
+                values = self.students_table.item(selected_item)['values']
+                
+                if values and len(values) >= 6:
+                    # Trouver l'index de la ligne sélectionnée
+                    all_items = self.students_table.get_children()
+                    row_index = all_items.index(selected_item)
+                    
+                    # Récupérer les données de l'élève depuis self.eleves_data
+                    if hasattr(self, 'eleves_data') and row_index < len(self.eleves_data):
+                        eleve_data = self.eleves_data[row_index]
+                        _id, nom, prenom, genre, naissance, classe_id, classe_nom = eleve_data
+                        
+                        # Ouvrir le formulaire de modification
+                        self.formulaire_eleve(mode="Modifier", eleves={
+                            'id': _id,
+                            'nom': nom,
+                            'prenom': prenom,
+                            'genre': genre,
+                            'date_naissance': naissance,
+                            'classe': classe_nom,
+                            'statut': 'Actif'
+                        })
+        except Exception as e:
+            print(f"⚠️ Erreur double-clic tableau: {e}")
 
     def refresh_stats_for_classe(self, classe_id):
         """Met à jour les statistiques pour une classes spécifique"""
@@ -1129,7 +1700,7 @@ class DashboardEleves(ctk.CTkFrame):
         if chart_icon:
             icon_label = ctk.CTkLabel(title_frame, text="", image=chart_icon, text_color=TEXT_ACCENT)
             icon_label._imgref = chart_icon
-            icon_label.pack(side="left", padx=(0, 10))
+            icon_label.pack(side="left", padx=(0, 4))
         
         # Titre principal
         ctk.CTkLabel(title_frame, text="Répartition des Élèves par Classe", font=("Segoe UI", 26, "bold"), text_color=TEXT_PRIMARY).pack(side="left")
@@ -1224,11 +1795,12 @@ class DashboardEleves(ctk.CTkFrame):
             # Organiser les classes par niveau
             classes_par_niveau = {}
             for classe in classes:
-                nom = classe[0]  # nom_classe
-                niveau = classe[1]  # niveau
-                if niveau not in classes_par_niveau:
-                    classes_par_niveau[niveau] = []
-                classes_par_niveau[niveau].append(nom)
+                if len(classe) >= 2:
+                    nom = classe[0]  # nom_classe
+                    niveau = classe[1]  # niveau
+                    if niveau not in classes_par_niveau:
+                        classes_par_niveau[niveau] = []
+                    classes_par_niveau[niveau].append(nom)
             
             # Créer les sections dans l'ordre logique du système français
             niveaux_order = ["Primaire", "Collège", "Lycée"]
@@ -1594,20 +2166,24 @@ class DashboardEleves(ctk.CTkFrame):
         
         # Charger l'icône élève depuis les ressources
         try:
-            eleve_icon = ctk.CTkImage(light_image=Image.open("resources/icons/person.png"), size=(32, 32))
-            icon_label = ctk.CTkLabel(title_inner, image=eleve_icon, text="")
-            icon_label.pack(side="left", padx=(0, 10))
+            eleve_icon = get_icon("person", (32, 32))
+            if eleve_icon:
+                icon_label = ctk.CTkLabel(title_inner, image=eleve_icon, text="")
+                icon_label._imgref = eleve_icon
+                icon_label.pack(side="left", padx=(0, 4))
+            else:
+                raise Exception("Icône non trouvée")
         except:
             # Fallback si l'icône n'est pas trouvée
-            icon_label = ctk.CTkLabel(title_inner, text="👨‍🎓", font=("Segoe UI", 24), text_color=ACCENT)
-            icon_label.pack(side="left", padx=(0, 10))
+            icon_label = ctk.CTkLabel(title_inner, text="👨‍🎓", font=("Segoe UI", 24), text_color=ACCENT_BLUE)
+            icon_label.pack(side="left", padx=(0, 4))
         
         title_label = ctk.CTkLabel(title_inner, text="Gestion des élèves",font=("Segoe UI", 32, "bold"), text_color=TEXT_ACCENT)
         title_label.pack(side="left")
         
         # Informations sur la classes
         info_frame = ctk.CTkFrame(header_frame, fg_color=BG_SIDEBAR, corner_radius=8, border_width=2, border_color=TEXT_ACCENT)
-        info_frame.pack(fill="x", padx=20, pady=(0, 15))
+        info_frame.pack(fill="x", padx=20, pady=(0, 4))
         
         info_text = f"Classe {self.selected_classe} - {len(eleves_classe)} élève(s)"
         info_label = ctk.CTkLabel(info_frame, text=info_text,font=("Segoe UI", 16, "bold"), text_color=TEXT_ACCENT)
@@ -1615,15 +2191,15 @@ class DashboardEleves(ctk.CTkFrame):
         
         # Zone principale avec recherche et boutons
         main_frame = ctk.CTkFrame(self.show_all_window, fg_color=BG_MAIN)
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        main_frame.pack(fill="both", expand=True, padx=4, pady=4)
         
         # Barre d'actions (recherche + boutons)
         actions_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        actions_frame.pack(fill="x", pady=(0, 20))
+        actions_frame.pack(fill="x", pady=(0, 4))
         
         # Zone de recherche (à gauche) avec le thème cohérent
         search_frame = ctk.CTkFrame(actions_frame, fg_color=BG_CARD, corner_radius=12, border_width=1, border_color=BORDER_COLOR)
-        search_frame.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        search_frame.pack(side="left", fill="x", expand=True, padx=(0, 4))
         
         search_inner = ctk.CTkFrame(search_frame, fg_color="transparent")
         search_inner.pack(fill="x", padx=15, pady=10)
@@ -1660,6 +2236,16 @@ class DashboardEleves(ctk.CTkFrame):
             btn_edit._imgref = edit_icon
         btn_edit.pack(side="left", padx=(0, 8))
         
+        # Bouton Détails sans fond
+        details_icon = get_icon("info", (20, 20))
+        btn_details = ctk.CTkButton(buttons_frame, text="Détails", image=details_icon if details_icon else None, command=self.afficher_details_eleve, 
+                                   fg_color="transparent", hover_color=BG_CARD_HOVER, text_color=TEXT_ACCENT,
+                                   corner_radius=8, height=45, width=120, font=("Segoe UI", 13, "bold"), 
+                                   border_width=1, border_color=BORDER_COLOR)
+        if details_icon:
+            btn_details._imgref = details_icon
+        btn_details.pack(side="left", padx=(0, 8))
+        
         # Bouton Supprimer sans fond
         delete_icon = get_icon("delete", (20, 20))
         btn_delete = ctk.CTkButton(buttons_frame, text="Supprimer", image=delete_icon if delete_icon else None, command=self.supprimer_eleve, 
@@ -1682,7 +2268,7 @@ class DashboardEleves(ctk.CTkFrame):
         
         # Message contextuel
         self.context_message = ctk.CTkLabel(main_frame, text="Sélectionnez un élève pour modifier ou supprimer",font=("Segoe UI", 12, "bold"), text_color=TEXT_ACCENT)
-        self.context_message.pack(pady=(0, 10))
+        self.context_message.pack(pady=(0, 4))
         
         # Conteneur du tableau avec le thème cohérent
         table_container = ctk.CTkFrame(main_frame, fg_color=BG_CARD, corner_radius=12, border_width=1, border_color=BORDER_COLOR)
@@ -1724,8 +2310,8 @@ class DashboardEleves(ctk.CTkFrame):
         self.table.configure(yscrollcommand=scrollbar.set)
         
         # Pack du tableau et de la barre de défilement
-        self.table.pack(side="left", fill="both", expand=True, padx=10, pady=10)
-        scrollbar.pack(side="right", fill="y", padx=(0, 10), pady=10)
+        self.table.pack(side="left", fill="both", expand=True, padx=4, pady=4)
+        scrollbar.pack(side="right", fill="y", padx=(0, 4), pady=10)
         
         # Stocker les données des élèves
         self.eleves_data = eleves_classe
@@ -1772,18 +2358,31 @@ class DashboardEleves(ctk.CTkFrame):
         """Modifie l'élève sélectionné dans le tableau"""
         try:
             # Obtenir l'élève sélectionné depuis le tableau
-            selected_eleve = self.get_selected_eleve_from_table()
-            if selected_eleve:
-                self.update_last_action("Modification", f"Modification de {selected_eleve[1]} {selected_eleve[2]}")
+            selected_items = self.students_table.selection()
+            if selected_items:
+                selected_item = selected_items[0]
+                values = self.students_table.item(selected_item)['values']
+                
+                if values and len(values) >= 6:
+                    # Trouver l'index de la ligne sélectionnée
+                    all_items = self.students_table.get_children()
+                    row_index = all_items.index(selected_item)
+                    
+                    # Récupérer les données de l'élève depuis self.eleves_data
+                    if hasattr(self, 'eleves_data') and row_index < len(self.eleves_data):
+                        eleve_data = self.eleves_data[row_index]
+                        _id, nom, prenom, genre, naissance, classe_id, classe_nom = eleve_data
+                        
+                        self.update_last_action("Modification", f"Modification de {nom} {prenom}")
                 self.formulaire_eleve(mode="Modifier", eleves={
-                    'id': selected_eleve[0],
-                    'nom': selected_eleve[1],
-                    'prenom': selected_eleve[2],
-                    'genre': selected_eleve[3],
-                    'date_naissance': selected_eleve[4],
-                    'statut': selected_eleve[5],
-                    'classe_id': selected_eleve[6]
-                })
+                            'id': _id,
+                            'nom': nom,
+                            'prenom': prenom,
+                            'genre': genre,
+                            'date_naissance': naissance,
+                            'classe': classe_nom,
+                            'statut': 'Actif'
+                        })
             else:
                 messagebox.showwarning("Aucune sélection", "Veuillez sélectionner un élève dans le tableau pour le modifier.")
         except Exception as e:
@@ -1793,9 +2392,20 @@ class DashboardEleves(ctk.CTkFrame):
         """Supprime l'élève sélectionné dans le tableau"""
         try:
             # Obtenir l'élève sélectionné depuis le tableau
-            selected_eleve = self.get_selected_eleve_from_table()
-            if selected_eleve:
-                _id, nom, prenom, genre, naissance, statut, cid = selected_eleve
+            selected_items = self.students_table.selection()
+            if selected_items:
+                selected_item = selected_items[0]
+                values = self.students_table.item(selected_item)['values']
+                
+                if values and len(values) >= 6:
+                    # Trouver l'index de la ligne sélectionnée
+                    all_items = self.students_table.get_children()
+                    row_index = all_items.index(selected_item)
+                    
+                    # Récupérer les données de l'élève depuis self.eleves_data
+                    if hasattr(self, 'eleves_data') and row_index < len(self.eleves_data):
+                        eleve_data = self.eleves_data[row_index]
+                        _id, nom, prenom, genre, naissance, classe_id, classe_nom = eleve_data
                 
                 # Confirmation de suppression
                 result = messagebox.askyesno(
@@ -1809,7 +2419,7 @@ class DashboardEleves(ctk.CTkFrame):
                 
                 if result:
                     # Supprimer de la base de données
-                    conn = get_conn()
+                    conn = get_db_connection()
                     if conn:
                         cur = conn.cursor()
                         cur.execute("DELETE FROM eleves WHERE id_eleve=?", (_id,))
@@ -1822,6 +2432,8 @@ class DashboardEleves(ctk.CTkFrame):
                         self.refresh_dashboard()
                     else:
                         messagebox.showerror("Erreur", "Impossible de se connecter à la base de données.")
+                else:
+                    messagebox.showwarning("Aucune sélection", "Veuillez sélectionner un élève dans le tableau pour le supprimer.")
             else:
                 messagebox.showwarning("Aucune sélection", "Veuillez sélectionner un élève dans le tableau pour le supprimer.")
         except Exception as e:
@@ -1971,9 +2583,242 @@ class DashboardEleves(ctk.CTkFrame):
         """Affiche les détails de l'élève sélectionné"""
         messagebox.showinfo("Détails", "Fonctionnalité de détails d'élève - À implémenter")
 
-    def ouvrir_transfert(self):
-        """Ouvre la fenêtre de transfert d'élève"""
-        messagebox.showinfo("Transfert", "Fonctionnalité de transfert d'élève - À implémenter")
+    def afficher_details_eleve(self):
+        """Affiche les détails complets d'un élève sélectionné dans le tableau"""
+        try:
+            # Obtenir l'élève sélectionné depuis le tableau
+            selected_items = self.students_table.selection()
+            if selected_items:
+                selected_item = selected_items[0]
+                values = self.students_table.item(selected_item)['values']
+                
+                if values and len(values) >= 6:
+                    # Trouver l'index de la ligne sélectionnée
+                    all_items = self.students_table.get_children()
+                    row_index = all_items.index(selected_item)
+                    
+                    # Récupérer les données de l'élève depuis self.eleves_data
+                    if hasattr(self, 'eleves_data') and row_index < len(self.eleves_data):
+                        eleve_data = self.eleves_data[row_index]
+                        _id, nom, prenom, genre, naissance, classe_id, classe_nom = eleve_data
+                        
+                        # Ouvrir la fenêtre de détails
+                        self.show_student_details_from_table({
+                            'id': _id,
+                            'nom': nom,
+                            'prenom': prenom,
+                            'genre': genre,
+                            'naissance': naissance,
+                            'classe': classe_nom,
+                            'statut': 'Actif'
+                        })
+                    else:
+                        messagebox.showwarning("Aucune sélection", "Veuillez sélectionner un élève dans le tableau pour voir ses détails.")
+                else:
+                    messagebox.showwarning("Aucune sélection", "Veuillez sélectionner un élève dans le tableau pour voir ses détails.")
+            else:
+                messagebox.showwarning("Aucune sélection", "Veuillez sélectionner un élève dans le tableau pour voir ses détails.")
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de l'affichage des détails : {str(e)}")
+
+    def show_student_details_from_table(self, eleve_data):
+        """Affiche les détails d'un élève depuis le tableau avec design premium"""
+        # Créer la fenêtre de détails
+        details_window = ctk.CTkToplevel(self)
+        details_window.title(f"Détails - {eleve_data['nom']} {eleve_data['prenom']}")
+        details_window.geometry("700x600")
+        details_window.minsize(600, 500)
+        details_window.transient(self.winfo_toplevel())
+        details_window.grab_set()
+        details_window.configure(fg_color=BG_MAIN)
+        
+        # Centrer la fenêtre
+        self._center_window(details_window)
+        
+        # Contenu principal
+        main_container = ctk.CTkFrame(details_window, fg_color="transparent")
+        main_container.pack(fill="both", expand=True, padx=4, pady=4)
+        
+        # En-tête avec avatar et gradient
+        header = ctk.CTkFrame(main_container, fg_color=ACCENT_BLUE, corner_radius=20)
+        header.pack(fill="x", pady=(0, 4))
+        
+        header_content = ctk.CTkFrame(header, fg_color="transparent")
+        header_content.pack(fill="x", padx=25, pady=25)
+        
+        # Avatar grand avec icône
+        avatar_frame = ctk.CTkFrame(header_content, fg_color=WHITE, corner_radius=50, width=100, height=100)
+        avatar_frame.pack(side="left")
+        avatar_frame.pack_propagate(False)
+        
+        # Icône de personne dans l'avatar
+        person_icon = get_icon("person", (40, 40))
+        if person_icon:
+            avatar_label = ctk.CTkLabel(avatar_frame, text="", image=person_icon, text_color=ACCENT_BLUE)
+            avatar_label._imgref = person_icon
+            avatar_label.pack(expand=True)
+        else:
+            # Fallback avec initiales
+            initiales = f"{eleve_data['prenom'][0]}{eleve_data['nom'][0]}".upper()
+            avatar_label = ctk.CTkLabel(avatar_frame, text=initiales, font=("Segoe UI", 28, "bold"), text_color=ACCENT_BLUE)
+            avatar_label.pack(expand=True)
+        
+        # Informations principales avec icônes
+        info_frame = ctk.CTkFrame(header_content, fg_color="transparent")
+        info_frame.pack(side="left", fill="x", expand=True, padx=(25, 0))
+        
+        # Nom complet avec icône
+        nom_frame = ctk.CTkFrame(info_frame, fg_color="transparent")
+        nom_frame.pack(fill="x")
+        
+        user_icon = get_icon("person", (20, 20))
+        if user_icon:
+            user_label = ctk.CTkLabel(nom_frame, text="", image=user_icon, text_color=WHITE)
+            user_label._imgref = user_icon
+            user_label.pack(side="left")
+        
+        nom_complet = f"{eleve_data['prenom']} {eleve_data['nom']}"
+        nom_label = ctk.CTkLabel(nom_frame, text=nom_complet, font=("Segoe UI", 28, "bold"), text_color=WHITE)
+        nom_label.pack(side="left", padx=(4, 0))
+        
+        # Classe et âge avec icône
+        classe_frame = ctk.CTkFrame(info_frame, fg_color="transparent")
+        classe_frame.pack(fill="x", pady=(10, 0))
+        
+        group_icon = get_icon("group", (18, 18))
+        if group_icon:
+            group_label = ctk.CTkLabel(classe_frame, text="", image=group_icon, text_color=WHITE)
+            group_label._imgref = group_icon
+            group_label.pack(side="left")
+        
+        age = calculate_age(eleve_data['naissance']) if eleve_data['naissance'] else "N/A"
+        classe_age = f"{eleve_data['classe']} • {age} ans"
+        classe_label = ctk.CTkLabel(classe_frame, text=classe_age, font=("Segoe UI", 16), text_color=WHITE)
+        classe_label.pack(side="left", padx=(4, 0))
+        
+        # Corps des détails avec design moderne
+        body = ctk.CTkScrollableFrame(main_container, fg_color=BG_CARD, corner_radius=15)
+        body.pack(fill="both", expand=True, pady=(0, 4))
+        
+        # Section informations personnelles
+        info_personnelles = ctk.CTkFrame(body, fg_color=BG_CARD_HOVER, corner_radius=12)
+        info_personnelles.pack(fill="x", pady=15, padx=15)
+        
+        # Titre de section avec icône
+        title_frame = ctk.CTkFrame(info_personnelles, fg_color="transparent")
+        title_frame.pack(fill="x", padx=20, pady=(20, 10))
+        
+        detail_icon = get_icon("detail", (20, 20))
+        if detail_icon:
+            detail_label = ctk.CTkLabel(title_frame, text="", image=detail_icon, text_color=TEXT_PRIMARY)
+            detail_label._imgref = detail_icon
+            detail_label.pack(side="left")
+        
+        ctk.CTkLabel(title_frame, text="Informations Personnelles", 
+                    text_color=TEXT_PRIMARY, font=("Segoe UI", 18, "bold")).pack(side="left", padx=(4, 0))
+        
+        # Grille d'informations avec icônes
+        info_grid = ctk.CTkFrame(info_personnelles, fg_color="transparent")
+        info_grid.pack(fill="x", padx=20, pady=(0, 4))
+        
+        # Informations avec icônes
+        infos = [
+            ("Nom", eleve_data['nom'], "person"),
+            ("Prénom", eleve_data['prenom'], "person"),
+            ("Genre", eleve_data['genre'], "person"),
+            ("Date de naissance", eleve_data['naissance'], "calendar"),
+            ("Classe", eleve_data['classe'], "class"),
+            ("Statut", eleve_data['statut'], "check_circle" if eleve_data['statut'] == 'Actif' else "close")
+        ]
+        
+        for i, (label, value, icon_name) in enumerate(infos):
+            row = i // 2
+            col = i % 2
+            
+            # Conteneur pour chaque information
+            info_container = ctk.CTkFrame(info_grid, fg_color="transparent")
+            info_container.grid(row=row, column=col, sticky="ew", padx=4, pady=4)
+            
+            # Icône
+            icon = get_icon(icon_name, (16, 16))
+            if icon:
+                icon_label = ctk.CTkLabel(info_container, text="", image=icon, text_color=TEXT_SECONDARY)
+                icon_label._imgref = icon
+                icon_label.pack(side="left")
+            
+            # Label
+            label_widget = ctk.CTkLabel(info_container, text=label, text_color=TEXT_SECONDARY, 
+                                      font=("Segoe UI", 12))
+            label_widget.pack(side="left", padx=(8, 0))
+            
+            # Valeur
+            value_color = SUCCESS_GREEN if label == "Statut" and value == "Actif" else TEXT_PRIMARY
+            value_widget = ctk.CTkLabel(info_container, text=value, text_color=value_color, 
+                                       font=("Segoe UI", 12, "bold"))
+            value_widget.pack(side="right")
+        
+        # Configuration de la grille
+        info_grid.grid_columnconfigure(0, weight=1)
+        info_grid.grid_columnconfigure(1, weight=1)
+        
+        # Boutons d'action
+        footer = ctk.CTkFrame(main_container, fg_color=BG_CARD, corner_radius=12)
+        footer.pack(fill="x")
+        
+        buttons_frame = ctk.CTkFrame(footer, fg_color="transparent")
+        buttons_frame.pack(side="right", padx=20, pady=15)
+        
+        # Bouton Modifier
+        edit_icon = get_icon("edit", (18, 18))
+        edit_btn = ctk.CTkButton(buttons_frame, text="Modifier", width=100, height=40,
+                                fg_color=ACCENT_BLUE, hover_color=BORDER_ACCENT,
+                                font=("Segoe UI", 12, "bold"), text_color=WHITE,
+                                image=edit_icon if edit_icon else None,
+                                command=lambda: [self.formulaire_eleve("Modifier", eleve_data), details_window.destroy()])
+        if edit_icon:
+            edit_btn._imgref = edit_icon
+        edit_btn.pack(side="left", padx=(0, 2))
+        
+        # Bouton Fermer
+        close_icon = get_icon("close", (18, 18))
+        close_btn = ctk.CTkButton(buttons_frame, text="Fermer", width=100, height=40,
+                                 fg_color=ERROR_RED, hover_color="#dc2626",
+                                 font=("Segoe UI", 12, "bold"), text_color=WHITE,
+                                 image=close_icon if close_icon else None,
+                                 command=details_window.destroy)
+        if close_icon:
+            close_btn._imgref = close_icon
+        close_btn.pack(side="left")
+
+    def get_classe_id_by_name(self, classe_name):
+        """Récupère l'ID de la classe à partir de son nom"""
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT id_classe FROM classes WHERE nom_classe = ?", (classe_name,))
+            result = cursor.fetchone()
+            return result[0] if result and len(result) > 0 else None
+        except Exception as e:
+            print(f"Erreur lors de la récupération de l'ID de la classe: {e}")
+            return None
+        finally:
+            try:
+                conn.close()
+            except:
+                pass
+
+    def get_classes_list(self):
+        """Récupère la liste des classes disponibles depuis la base de données"""
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT nom_classe FROM classes ORDER BY nom_classe")
+            classes = cursor.fetchall()
+            conn.close()
+            return [classe[0] for classe in classes] if classes else ["Aucune classe"]
+        except Exception as e:
+            print(f"Erreur lors de la récupération des classes: {e}")
+            return ["Aucune classe"]
 
     def formulaire_eleve(self, mode="Ajouter", eleves=None):
         """Ouvre le formulaire d'élève avec design moderne"""
@@ -1990,11 +2835,11 @@ class DashboardEleves(ctk.CTkFrame):
         
         # Contenu principal
         main_container = ctk.CTkFrame(popup, fg_color="transparent")
-        main_container.pack(fill="both", expand=True, padx=20, pady=20)
+        main_container.pack(fill="both", expand=True, padx=4, pady=4)
         
         # En-tête du formulaire
         header = ctk.CTkFrame(main_container, fg_color=BG_CARD, corner_radius=12)
-        header.pack(fill="x", pady=(0, 15))
+        header.pack(fill="x", pady=(0, 4))
         
         title_text = "Nouveau Profil Élève" if mode == "Ajouter" else f"Modification de {eleves.get('nom','')} {eleves.get('prenom','')}"
         ctk.CTkLabel(
@@ -2004,7 +2849,7 @@ class DashboardEleves(ctk.CTkFrame):
 
         # Corps du formulaire
         body = ctk.CTkScrollableFrame(main_container, fg_color=BG_CARD, corner_radius=12)
-        body.pack(fill="both", expand=True, pady=(0, 15))
+        body.pack(fill="both", expand=True, pady=(0, 4))
         
         # Champs du formulaire
         fields = [
@@ -2013,6 +2858,7 @@ class DashboardEleves(ctk.CTkFrame):
             ("Prénom *", "prenom"),
             ("Date de naissance", "date_naissance"),
             ("Genre", "genre"),
+            ("Classe *", "classe"),
             ("Statut", "statut"),
             ("Téléphone", "telephone"),
             ("Email", "email"),
@@ -2045,13 +2891,23 @@ class DashboardEleves(ctk.CTkFrame):
                     button_hover_color=BORDER_ACCENT,
                     height=35
                 )
+            elif key == "classe":
+                # Récupérer les classes disponibles depuis la base de données
+                classes_values = self.get_classes_list()
+                widget = ctk.CTkOptionMenu(
+                    body,
+                    values=classes_values, fg_color=BG_CARD_HOVER,
+                    button_color=ACCENT_BLUE,
+                    button_hover_color=BORDER_ACCENT,
+                    height=35
+                )
             else:
                 widget = ctk.CTkEntry(
                     body, fg_color=BG_CARD_HOVER, border_color=BORDER_COLOR,
                     height=35
                 )
             
-            widget.grid(row=row*2+1, column=col, sticky="ew", padx=10, pady=(0, 10))
+            widget.grid(row=row*2+1, column=col, sticky="ew", padx=10, pady=(0, 4))
             self.form_entries[key] = widget
         
         # Configuration des colonnes
@@ -2068,14 +2924,14 @@ class DashboardEleves(ctk.CTkFrame):
                 text="Enregistrer",
                 command=lambda: self.save_eleve(popup, mode), fg_color=SUCCESS_GREEN, hover_color="#059669",
                 height=40,
-            ).pack(side="left", padx=(0, 10), pady=15)
+            ).pack(side="left", padx=(0, 4), pady=15)
         elif mode == "Modifier":
             ctk.CTkButton(
                 footer, 
                 text="Mettre à jour",
                 command=lambda: self.save_eleve(popup, mode, eleves.get('id_eleve')), fg_color=WARNING_ORANGE, hover_color="#d97706",
                 height=40,
-            ).pack(side="left", padx=(0, 10), pady=15)
+            ).pack(side="left", padx=(0, 4), pady=15)
 
         ctk.CTkButton(
             footer, 
@@ -2096,6 +2952,7 @@ class DashboardEleves(ctk.CTkFrame):
             "prenom": eleves.get("prenom"),
             "genre": eleves.get("genre"),
             "date_naissance": eleves.get("date_naissance"),
+            "classe": eleves.get("classe"),
             "statut": eleves.get("statut"),
             "telephone": eleves.get("telephone"),
             "email": eleves.get("email"),
@@ -2133,6 +2990,7 @@ class DashboardEleves(ctk.CTkFrame):
             "prenom": _get("prenom"),
             "genre": _get("genre"),
             "date_naissance": _get("date_naissance"),
+            "classe": _get("classe"),
             "statut": _get("statut"),
             "telephone": _get("telephone"),
             "email": _get("email"),
@@ -2146,8 +3004,14 @@ class DashboardEleves(ctk.CTkFrame):
         }
 
         # Validation
-        if not all([data.get("nom"), data.get("prenom")]):
-            messagebox.showerror("Erreur", "Nom et Prénom sont obligatoires.")
+        if not all([data.get("nom"), data.get("prenom"), data.get("classe")]):
+            messagebox.showerror("Erreur", "Nom, Prénom et Classe sont obligatoires.")
+            return
+
+        # Récupérer l'ID de la classe
+        classe_id = self.get_classe_id_by_name(data.get("classe"))
+        if not classe_id:
+            messagebox.showerror("Erreur", "Classe sélectionnée introuvable.")
             return
 
         conn = get_conn()
@@ -2165,7 +3029,7 @@ class DashboardEleves(ctk.CTkFrame):
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date('now'), ?, ?, ?, ?, ?, ?)
                 """, (
                     data["matricule"], data["nom"], data["prenom"], data["genre"], data["date_naissance"],
-                    data["statut"], data["telephone"], data["email"], data["adresse"], self.selected_classe_id,
+                    data["statut"], data["telephone"], data["email"], data["adresse"], classe_id,
                     data["parent_nom"], data["parent_prenom"], data["parent_telephone"],
                     data["parent_email"], data["parent_adresse"], data["parent_profession"]
                 ))
@@ -2174,12 +3038,12 @@ class DashboardEleves(ctk.CTkFrame):
                 cur.execute("""
                     UPDATE eleves SET 
                         matricule=?, nom=?, prenom=?, genre=?, date_naissance=?, statut=?, 
-                        telephone=?, email=?, adresse=?, parent_nom=?, parent_prenom=?, 
+                        telephone=?, email=?, adresse=?, id_classe=?, parent_nom=?, parent_prenom=?, 
                         parent_telephone=?, parent_email=?, parent_adresse=?, parent_profession=?
                     WHERE id_eleve=?
                 """, (
                     data["matricule"], data["nom"], data["prenom"], data["genre"], data["date_naissance"],
-                    data["statut"], data["telephone"], data["email"], data["adresse"],
+                    data["statut"], data["telephone"], data["email"], data["adresse"], classe_id,
                     data["parent_nom"], data["parent_prenom"], data["parent_telephone"],
                     data["parent_email"], data["parent_adresse"], data["parent_profession"], eleve_id
                 ))
@@ -2204,22 +3068,22 @@ class DashboardEleves(ctk.CTkFrame):
         
         # Contenu principal
         main_container = ctk.CTkFrame(popup, fg_color="transparent")
-        main_container.pack(fill="both", expand=True, padx=20, pady=20)
+        main_container.pack(fill="both", expand=True, padx=4, pady=4)
         
         # En-tête avec design moderne
         header = ctk.CTkFrame(main_container, fg_color=ACCENT_BLUE, corner_radius=15)
-        header.pack(fill="x", pady=(0, 15))
+        header.pack(fill="x", pady=(0, 4))
         
         # Contenu de l'en-tête avec icône
         header_content = ctk.CTkFrame(header, fg_color="transparent")
         header_content.pack(fill="x", padx=20, pady=15)
         
         # Icône élève
-        eleve_icon = get_icon("eleves", (40, 40))
+        eleve_icon = get_icon("eleve", (40, 40))
         if eleve_icon:
             icon_label = ctk.CTkLabel(header_content, text="", image=eleve_icon, text_color=WHITE)
             icon_label._imgref = eleve_icon
-            icon_label.pack(side="left", padx=(0, 15))
+            icon_label.pack(side="left", padx=(0, 4))
         
         # Titre principal
         title_label = ctk.CTkLabel(
@@ -2232,7 +3096,7 @@ class DashboardEleves(ctk.CTkFrame):
         statut = eleves.get('statut', 'Inconnu')
         statut_color = SUCCESS_GREEN if statut.lower() == 'actif' else ERROR_RED
         statut_badge = ctk.CTkFrame(header_content, fg_color=statut_color, corner_radius=20)
-        statut_badge.pack(side="right", padx=(15, 0))
+        statut_badge.pack(side="right", padx=(4, 0))
         
         statut_label = ctk.CTkLabel(
             statut_badge,
@@ -2242,7 +3106,7 @@ class DashboardEleves(ctk.CTkFrame):
 
         # Corps des détails
         body = ctk.CTkScrollableFrame(main_container, fg_color=BG_CARD, corner_radius=12)
-        body.pack(fill="both", expand=True, pady=(0, 15))
+        body.pack(fill="both", expand=True, pady=(0, 4))
         
         # Affichage des informations
         details = [
@@ -2339,7 +3203,7 @@ class DashboardEleves(ctk.CTkFrame):
         )
         if edit_icon:
             btn_edit._imgref = edit_icon
-        btn_edit.pack(side="left", padx=(0, 10))
+        btn_edit.pack(side="left", padx=(0, 4))
         
         # Bouton Supprimer
         delete_icon = get_icon("delete", (20, 20))
@@ -2354,7 +3218,7 @@ class DashboardEleves(ctk.CTkFrame):
         )
         if delete_icon:
             btn_delete._imgref = delete_icon
-        btn_delete.pack(side="left", padx=(0, 10))
+        btn_delete.pack(side="left", padx=(0, 4))
         
         # Bouton Fermer
         btn_close = ctk.CTkButton(
@@ -2380,3 +3244,84 @@ if __name__ == "__main__":
     dashboard.pack(fill="both", expand=True)
 
     app.mainloop()
+
+
+class StudentListItem(ctk.CTkFrame):
+    """Un élément de liste cliquable pour un élève avec design moderne comme les salles"""
+    def __init__(self, parent, student_data, command):
+        super().__init__(parent, fg_color=BG_CARD, height=60, corner_radius=12, 
+                         border_color=BORDER_COLOR, border_width=1)
+        self.student_data = student_data
+        self.command = command
+        self.is_selected = False
+
+        # Container principal
+        main_frame = ctk.CTkFrame(self, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=12, pady=12)
+
+        # Icône selon le genre
+        try:
+            if student_data['genre'] == "M":
+                icon_name = "person.png"
+            else:
+                icon_name = "person.png"  # Même icône pour les deux genres
+            
+            icon_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..', 'resources', 'icons', icon_name)
+            student_icon = ctk.CTkImage(Image.open(icon_path), size=(24, 24))
+            icon_label = ctk.CTkLabel(main_frame, text="", image=student_icon)
+            icon_label.pack(side="left", padx=(0, 8))
+        except FileNotFoundError:
+            print(f"Icône '{icon_name}' non trouvée.")
+
+        # Informations de l'élève
+        info_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        info_frame.pack(side="left", fill="both", expand=True)
+
+        # Nom complet de l'élève
+        full_name = f"{student_data['prenom']} {student_data['nom']}"
+        self.name_label = ctk.CTkLabel(info_frame, text=full_name, 
+                                      font=("Segoe UI", 14, "bold"), 
+                                      text_color=TEXT_PRIMARY, anchor="w")
+        self.name_label.pack(side="left", fill="x", expand=True)
+
+        # Âge à droite
+        age_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        age_frame.pack(side="right", padx=(8, 0))
+
+        self.age_label = ctk.CTkLabel(age_frame, text=f"{student_data['age']} ans", 
+                                     font=("Segoe UI", 12), text_color=TEXT_SECONDARY)
+        self.age_label.pack(side="left")
+
+        # Bindings pour l'interactivité
+        self.bind("<Button-1>", self.on_click)
+        main_frame.bind("<Button-1>", self.on_click)
+        self.name_label.bind("<Button-1>", self.on_click)
+        self.age_label.bind("<Button-1>", self.on_click)
+        
+        self.bind("<Enter>", self.on_enter)
+        self.bind("<Leave>", self.on_leave)
+        main_frame.bind("<Enter>", self.on_enter)
+        main_frame.bind("<Leave>", self.on_leave)
+        self.name_label.bind("<Enter>", self.on_enter)
+        self.name_label.bind("<Leave>", self.on_leave)
+        self.age_label.bind("<Enter>", self.on_enter)
+        self.age_label.bind("<Leave>", self.on_leave)
+
+    def on_click(self, event=None):
+        self.command(self.student_data, self)
+
+    def on_enter(self, event=None):
+        if not self.is_selected:
+            self.configure(fg_color=BG_CARD_HOVER, border_color=ACCENT_BLUE)
+
+    def on_leave(self, event=None):
+        if not self.is_selected:
+            self.configure(fg_color=BG_CARD, border_color=BORDER_COLOR)
+
+    def select(self):
+        self.is_selected = True
+        self.configure(fg_color=ACCENT_BLUE, border_color=ACCENT_BLUE, border_width=2)
+
+    def deselect(self):
+        self.is_selected = False
+        self.configure(fg_color=BG_CARD, border_color=BORDER_COLOR, border_width=1)

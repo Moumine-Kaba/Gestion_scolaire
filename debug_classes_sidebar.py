@@ -54,3 +54,4 @@ def test_classes_sidebar():
 
 if __name__ == "__main__":
     test_classes_sidebar()
+

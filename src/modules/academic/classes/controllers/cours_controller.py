@@ -1,6 +1,4 @@
 from database.connection import get_db_connection
-from database.connection import get_db_connection
-from database.connection import get_db_connection
 import os
 import sys
 
@@ -9,12 +7,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-# Utiliser le gestionnaire de base de données unifié
-from database.connection import get_db_connection
-
 from datetime import datetime
-
-# Chemin de base de données centralisé
 
 # =================== CONNEXION BASE DE DONNÉES ===================
 
@@ -107,40 +100,77 @@ _ensure_tables()
 # =================== FONCTIONS UNIFIÉES COURS ===================
 
 def get_all_cours():
-    """Récupère tous les cours avec les noms associés (sans distinction de type)"""
+    """Récupère tous les cours depuis SQL Server"""
     try:
-        # Cache
-        if None is not None:
-            return _CACHE["cours_all"]
-        with _connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT 
-                    c.id_cours, c.professeur_id, c.classe_id, c.matiere_id, c.salle_id,
-                    c.date, c.heure_debut, c.heure_fin, c.statut,                     c.description,
-                    p.nom as professeur_nom,
-                    p.prenom as professeur_prenom,
-                    cl.nom_classe as classe_nom,
-                    cl.niveau as classe_niveau,
-                    m.nom_matiere as matiere_nom,
-                    s.nom_salle as salle_nom
-                FROM cours c
-                LEFT JOIN professeurs p ON c.professeur_id = p.id_professeur
-                LEFT JOIN classes cl ON c.classe_id = cl.id_classe
-                LEFT JOIN matieres m ON c.matiere_id = m.id_matiere
-                LEFT JOIN salles s ON c.salle_id = s.id_salle
-                ORDER BY c.date DESC, c.heure_debut DESC
-            """)
-            data = []
-            for row in cursor.fetchall():
-                if hasattr(row, 'keys'):
-                    data.append(dict(row))
-                else:
-                    # Convertir tuple en dict si nécessaire
-                    columns = [desc[0] for desc in cursor.description]
-                    data.append(dict(zip(columns, row)))
-            
-            return data
+        conn = _connect()
+        if not conn:
+            print("❌ Impossible de se connecter à la base de données")
+            return []
+        
+        cursor = conn.cursor()
+        
+        # Vérifier si la table cours existe
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_NAME = 'cours'
+        """)
+        
+        table_exists = cursor.fetchone()[0] > 0
+        
+        if not table_exists:
+            print("⚠️ Table 'cours' n'existe pas dans SQL Server")
+            return []
+        
+        # Récupérer tous les cours avec jointures
+        cursor.execute("""
+            SELECT 
+                c.id_cours, c.professeur_id, c.classe_id, c.matiere_id, c.salle_id,
+                c.jour, c.heure_debut, c.heure_fin, c.date, c.duree, c.statut, c.description, c.type,
+                p.nom as professeur_nom, p.prenom as professeur_prenom,
+                cl.nom_classe as classe_nom, cl.niveau as classe_niveau,
+                m.nom_matiere as matiere_nom,
+                s.nom_salle as salle_nom
+            FROM cours c
+            LEFT JOIN professeurs p ON c.professeur_id = p.id_professeur
+            LEFT JOIN classes cl ON c.classe_id = cl.id_classe
+            LEFT JOIN matieres m ON c.matiere_id = m.id_matiere
+            LEFT JOIN salles s ON c.salle_id = s.id_salle
+            ORDER BY c.date DESC, c.heure_debut DESC
+        """)
+        
+        rows = cursor.fetchall()
+        
+        # Convertir les résultats en dictionnaires
+        cours = []
+        for row in rows:
+            cours_dict = {
+                'id': row[0],  # id_cours
+                'professeur_id': row[1],  # professeur_id
+                'classe_id': row[2],  # classe_id
+                'matiere_id': row[3],  # matiere_id
+                'salle_id': row[4],  # salle_id
+                'jour': row[5],  # jour
+                'heure_debut': row[6],  # heure_debut
+                'heure_fin': row[7],  # heure_fin
+                'date': row[8],  # date
+                'duree': row[9],  # duree
+                'statut': row[10],  # statut
+                'description': row[11],  # description
+                'type': row[12],  # type
+                'professeur_nom': row[13],  # professeur_nom
+                'professeur_prenom': row[14],  # professeur_prenom
+                'classe_nom': row[15],  # classe_nom
+                'classe_niveau': row[16],  # classe_niveau
+                'matiere_nom': row[17],  # matiere_nom
+                'salle_nom': row[18]  # salle_nom
+            }
+            cours.append(cours_dict)
+        
+        conn.close()
+        print(f"✅ {len(cours)} cours récupérés depuis SQL Server")
+        return cours
+        
     except Exception as e:
         print(f"❌ Erreur get_all_cours: {e}")
         return []

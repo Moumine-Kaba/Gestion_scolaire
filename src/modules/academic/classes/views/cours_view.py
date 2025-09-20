@@ -331,27 +331,53 @@ class CoursManagerView(ctk.CTkFrame):
         self.refresh_view()
     
     def refresh_view(self):
-        """Actualise la vue avec des cartes"""
+        """Actualise la vue avec des cartes de manière optimisée"""
         try:
             # Nettoyage des anciens minuteurs
             self.timer_manager.cleanup_all()
-            
-            # Récupération de tous les cours (unifié)
-            data = get_all_cours()
             
             # Nettoyage des anciennes cartes
             for card in self.cards:
                 card.destroy()
             self.cards.clear()
             
-            # Création des nouvelles cartes
-            for i, item in enumerate(data):
-                card = self.create_course_card(item, i)
-                self.cards.append(card)
+            # Chargement direct des données
+            self._load_courses_async()
                     
         except Exception as e:
             print(f"❌ Erreur refresh_view: {e}")
             messagebox.showerror("Erreur", f"Erreur lors du chargement des données: {e}")
+    
+    
+    def _load_courses_async(self):
+        """Charge les cours de manière asynchrone"""
+        try:
+            # Récupération des cours
+            print("🔄 Chargement des cours...")
+            data = get_all_cours()
+            
+            # Supprimer l'indicateur de chargement s'il existe
+            if hasattr(self, 'loading_frame'):
+                self.loading_frame.destroy()
+            
+            # Limiter à 20 cours pour éviter le blocage
+            limited_data = data[:20] if data else []
+            
+            # Création des nouvelles cartes
+            for i, item in enumerate(limited_data):
+                card = self.create_course_card(item, i)
+                self.cards.append(card)
+                # Petit délai pour éviter le blocage
+                if i % 5 == 0:
+                    self.update()
+            
+            print(f"✅ {len(limited_data)} cours chargés (limité à 20)")
+                    
+        except Exception as e:
+            print(f"❌ Erreur _load_courses_async: {e}")
+            # Supprimer l'indicateur de chargement s'il existe
+            if hasattr(self, 'loading_frame'):
+                self.loading_frame.destroy()
     
     def show_course_history(self):
         """Affiche l'historique des cours terminés"""

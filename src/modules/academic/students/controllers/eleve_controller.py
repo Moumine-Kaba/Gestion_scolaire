@@ -1,6 +1,3 @@
-from database.connection import get_db_connection
-from database.connection import get_db_connection
-from database.connection import get_db_connection
 import os
 import sys
 
@@ -53,35 +50,64 @@ def preload_eleves():
         print(f"⚠️ Préchargement élèves ignoré: {e}")
 
 # ---------- SELECT (liste) ----------
-def get_all_eleves(classe_id: Optional[int] = None) -> List[Dict[str, Any]]:
+def get_all_eleves(classe_id: Optional[int] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
     """
-    Retourne les élèves (optionnellement filtrés par classe_id) avec un sous-ensemble pour la liste.
+    Retourne les élèves (optionnellement filtrés par classe_id).
+    Si classe_id est spécifié, retourne TOUS les élèves de cette classe.
+    Sinon, limite à 100 élèves pour éviter le blocage.
     """
-    if classe_id is None and None is not None:
-        return _CACHE["eleves_all"]
-    conn = _connect()
+    conn = get_db_connection()
 
     if not conn:
-
         print("❌ Impossible de se connecter à la base de données")
+        return []
 
-        return
-
+    try:
         cur = conn.cursor()
-        base_select = """
-            SELECT e.id_eleve as id, e.nom, e.prenom, e.genre as sexe, e.date_naissance, e.statut, e.id_classe as classe_id
-            FROM eleves e
-        """
+        
+        # Si une classe spécifique est demandée, charger TOUS les élèves de cette classe
         if classe_id is not None:
-            cur.execute(base_select + " WHERE e.id_classe=? ORDER BY e.nom, e.prenom", (classe_id,))
+            base_select = """
+                SELECT e.id_eleve, e.nom, e.prenom, e.genre, e.date_naissance, e.statut, e.id_classe
+                FROM eleves e
+                WHERE e.id_classe=?
+                ORDER BY e.nom, e.prenom
+            """
+            cur.execute(base_select, (classe_id,))
         else:
-            cur.execute(base_select + " ORDER BY e.nom, e.prenom")
+            # Pour la vue générale, limiter à 100 élèves pour éviter le blocage
+            if limit is None:
+                limit = 100
+            
+            base_select = f"""
+                SELECT TOP {limit} e.id_eleve, e.nom, e.prenom, e.genre, e.date_naissance, e.statut, e.id_classe
+                FROM eleves e
+                ORDER BY e.nom, e.prenom
+            """
+            cur.execute(base_select)
         rows = cur.fetchall()
-        data = [dict(r) for r in rows]
-        if classe_id is None:
-            pass  # Pas d'action spéciale pour toutes les classes
+        
+        # Conversion en dictionnaires
+        data = []
+        for row in rows:
+            eleve_dict = {
+                'id_eleve': row[0],
+                'nom': row[1],
+                'prenom': row[2],
+                'genre': row[3] if row[3] else 'Non spécifié',
+                'date_naissance': row[4] if row[4] else None,
+                'statut': row[5] if row[5] else 'Actif',
+                'id_classe': row[6] if row[6] else None
+            }
+            data.append(eleve_dict)
         
         return data
+        
+    except Exception as e:
+        print(f"❌ Erreur lors de la récupération des élèves: {e}")
+        return []
+    finally:
+        conn.close()
 
 # ---------- SELECT (fiche complète) ----------
 def get_eleve_complet(eleve_id: int) -> Optional[Dict[str, Any]]:

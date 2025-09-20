@@ -1,21 +1,80 @@
 from database.connection import get_db_connection
-from database.connection import get_db_connection
-from database.connection import get_db_connection
 import customtkinter as ctk
 from tkinter import messagebox
 from datetime import datetime
-# Remplacé par SQL Server  # Remplacé par SQL Server
+import os
+import sys
 
-# Le chemin de la base de données
-DB_PATH = r"database/edumanager.db"
-
-# --- CONTROLLERS (fonctions pour la base de données) ---
+# Ajouter le chemin du projet pour les imports
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../..'))
+if project_root not in sys.path:
+    sys.path.append(project_root)
 
 def _connect():
-    """Crée et retourne une connexion à la base de données."""
+    """Crée et retourne une connexion à la base de données SQL Server."""
     conn = get_db_connection()
-    # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
     return conn
+
+def get_all_presences():
+    """Récupère toutes les présences depuis SQL Server avec les noms associés."""
+    try:
+        conn = _connect()
+        if not conn:
+            print("❌ Impossible de se connecter à la base de données")
+            return []
+        
+        cursor = conn.cursor()
+        
+        # Vérifier si la table presences existe
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_NAME = 'presences'
+        """)
+        
+        table_exists = cursor.fetchone()[0] > 0
+        
+        if not table_exists:
+            print("⚠️ Table 'presences' n'existe pas dans SQL Server")
+            return []
+        
+        # Récupérer toutes les présences avec jointures
+        cursor.execute("""
+            SELECT 
+                p.id_presence, p.eleve_id, p.classe_id, p.date, p.statut, p.commentaire,
+                e.nom as eleve_nom, e.prenom as eleve_prenom,
+                c.nom_classe as classe_nom
+            FROM presences p
+            LEFT JOIN eleves e ON p.eleve_id = e.id_eleve
+            LEFT JOIN classes c ON p.classe_id = c.id_classe
+            ORDER BY p.date DESC, p.id_presence DESC
+        """)
+        
+        rows = cursor.fetchall()
+        
+        # Convertir les résultats en dictionnaires
+        presences = []
+        for row in rows:
+            presence_dict = {
+                'id': row[0],  # id_presence
+                'eleve_id': row[1],  # eleve_id
+                'classe_id': row[2],  # classe_id
+                'date': row[3],  # date
+                'statut': row[4],  # statut
+                'commentaire': row[5],  # commentaire
+                'eleve_nom': row[6],  # eleve_nom
+                'eleve_prenom': row[7],  # eleve_prenom
+                'classe_nom': row[8]  # classe_nom
+            }
+            presences.append(presence_dict)
+        
+        conn.close()
+        print(f"✅ {len(presences)} présences récupérées depuis SQL Server")
+        return presences
+        
+    except Exception as e:
+        print(f"❌ Erreur get_all_presences: {e}")
+        return []
 
 def get_all_classes():
     """Récupère toutes les classes."""
@@ -81,7 +140,7 @@ def add_presence(eleve_id, classe_id, date, statut, commentaire):
             VALUES (?, ?, ?, ?, ?)
         """, (eleve_id, classe_id, date, statut, commentaire))
         conn.commit()
-            conn.close()
+        conn.close()
 
 def update_presence(eleve_id, classe_id, date, statut, commentaire):
     """Met à jour une entrée de présence existante."""
