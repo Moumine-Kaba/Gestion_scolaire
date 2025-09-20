@@ -203,6 +203,24 @@ class AttendanceController:
             print(f"❌ Erreur bulk_update_attendance: {e}")
             return False
     
+    def reset_all_attendance_for_date(self, classe_id: int, date_str: str) -> bool:
+        """Supprime toutes les présences d'une classe pour une date donnée"""
+        try:
+            conn = self._connect()
+            if not conn:
+                return False
+            cursor = conn.cursor()
+            cursor.execute("""
+                DELETE FROM presences 
+                WHERE classe_id=? AND date=?
+            """, (classe_id, date_str))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Erreur reset_all_attendance_for_date: {e}")
+            return False
+    
     def delete_attendance_for_date(self, classe_id: int, date: str) -> bool:
         """Supprime toutes les présences d'une classe pour une date"""
         try:

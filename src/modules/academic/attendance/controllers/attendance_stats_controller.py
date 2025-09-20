@@ -14,6 +14,10 @@ class AttendanceStatsController:
         """Établit la connexion à la base de données"""
         return get_db_connection()
     
+    def get_absence_threshold(self) -> int:
+        """Retourne le seuil d'absence injustifiée (valeur par défaut pour SQL Server)"""
+        return 3  # Valeur par défaut
+    
     def get_student_attendance_stats(self, eleve_id: int, start_date: str = None, 
                                    end_date: str = None) -> AttendanceStatsModel:
         """Récupère les statistiques de présence d'un élève"""

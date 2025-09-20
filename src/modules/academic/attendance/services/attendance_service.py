@@ -14,6 +14,79 @@ class AttendanceService:
         self.stats_controller = AttendanceStatsController()
         self.history_controller = AttendanceHistoryController()
     
+    def get_students_with_attendance_status(self, classe_id: int, date_str: str, search_term: str = "", statut_filter: Optional[str] = None) -> List[Dict]:
+        """Récupère les élèves d'une classe avec leur statut de présence pour une date donnée"""
+        eleves = self.attendance_controller.get_students_by_class(classe_id, search_term, statut_filter, date_str)
+        presences = self.attendance_controller.get_attendance_for_date_and_class(classe_id, date_str)
+        
+        for eleve in eleves:
+            eleve_id = eleve["id_eleve"]
+            eleve["statut"] = presences.get(eleve_id, {}).get("statut", "Présent")
+            eleve["commentaire"] = presences.get(eleve_id, {}).get("commentaire", "")
+            eleve["unjustified_absences"] = self.stats_controller.get_unjustified_absences_count(eleve_id)
+        return eleves
+    
+    def get_class_attendance_summary_stats(self, classe_id: int, date_str: str) -> Dict[str, int]:
+        """Récupère les statistiques de présence pour une classe et une date"""
+        eleves = self.attendance_controller.get_students_by_class(classe_id)
+        presences = self.attendance_controller.get_attendance_for_date_and_class(classe_id, date_str)
+        
+        counts = {"Présent": 0, "Absent": 0, "Retard": 0, "Justifié": 0}
+        for eleve in eleves:
+            statut = presences.get(eleve["id_eleve"], {}).get("statut", "Présent")
+            counts[statut] = counts.get(statut, 0) + 1
+        return counts
+    
+    def get_absence_threshold(self) -> int:
+        """Récupère le seuil d'absence"""
+        return self.stats_controller.get_absence_threshold()
+    
+    def get_student_full_history(self, eleve_id: int) -> List[Dict]:
+        """Récupère l'historique complet d'un élève"""
+        return self.history_controller.get_student_history(eleve_id)
+    
+    def get_student_stats(self, eleve_id: int) -> AttendanceStatsModel:
+        """Récupère les statistiques d'un élève"""
+        return self.stats_controller.get_student_attendance_stats(eleve_id)
+    
+    def validate_all_students_present(self, classe_id: int, date_str: str) -> bool:
+        """Valide toutes les présences comme présentes"""
+        return self.attendance_controller.bulk_update_attendance(classe_id, date_str, "Présent", "Validation en masse")
+    
+    def mark_all_students_absent(self, classe_id: int, date_str: str) -> bool:
+        """Marque tous les élèves comme absents"""
+        return self.attendance_controller.bulk_update_attendance(classe_id, date_str, "Absent", "Marquage en masse")
+    
+    def reset_all_students_attendance(self, classe_id: int, date_str: str) -> bool:
+        """Réinitialise toutes les présences"""
+        return self.attendance_controller.reset_all_attendance_for_date(classe_id, date_str)
+    
+    def update_student_attendance(self, eleve_id: int, classe_id: int, date_str: str, statut: str, commentaire: Optional[str], justificatif_path: Optional[str] = None):
+        """Met à jour ou ajoute une présence pour un élève"""
+        presences = self.attendance_controller.get_attendance_for_date_and_class(classe_id, date_str)
+        if eleve_id in presences:
+            self.attendance_controller.update_attendance(eleve_id, classe_id, date_str, statut, commentaire, justificatif_path)
+        else:
+            from ..models.attendance_model import AttendanceModel
+            attendance_model = AttendanceModel(
+                eleve_id=eleve_id,
+                classe_id=classe_id,
+                date=date_str,
+                statut=statut,
+                commentaire=commentaire
+            )
+            self.attendance_controller.add_attendance(attendance_model)
+    
+    def get_classes_for_dropdown(self) -> List[str]:
+        """Récupère les noms des classes pour un menu déroulant"""
+        classes = self.attendance_controller.get_all_classes()
+        return [c["nom_classe"] for c in classes]
+    
+    def get_class_id_map(self) -> Dict[str, int]:
+        """Récupère un mapping nom_classe -> id_classe"""
+        classes = self.attendance_controller.get_all_classes()
+        return {c["nom_classe"]: c["id_classe"] for c in classes}
+    
     def get_classes_with_students(self) -> List[Dict]:
         """Récupère toutes les classes avec le nombre d'élèves"""
         classes = self.attendance_controller.get_all_classes()

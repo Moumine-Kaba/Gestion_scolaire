@@ -709,10 +709,10 @@ class PresenceView(ctk.CTkFrame):
         if not rows:
             messagebox.showinfo("Historique", "Aucun historique pour cet élève.")
             return
-        
+            
         # Récupérer les statistiques de l'élève
         stats = get_student_attendance_stats(eid)
-        
+            
         nom = f"{rows[0]['prenom']} {rows[0]['nom']}"
         win = ctk.CTkToplevel(self)
         win.title(f"Historique des présences - {nom}")

@@ -51,6 +51,128 @@ class AttendanceHistoryController:
             print(f"❌ Erreur get_student_history: {e}")
             return []
     
+    def get_monthly_attendance_data(self, classe_id: int, year: int, month: int) -> List[Dict]:
+        """Récupère les données de présence mensuelles d'une classe"""
+        try:
+            conn = self._connect()
+            if not conn:
+                return []
+            
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT p.date, p.statut, p.commentaire, e.prenom, e.nom, e.id_eleve
+                FROM presences p 
+                JOIN eleves e ON p.eleve_id=e.id_eleve
+                WHERE p.classe_id=? 
+                AND YEAR(p.date) = ? 
+                AND MONTH(p.date) = ?
+                ORDER BY p.date DESC, e.nom, e.prenom
+            """, (classe_id, year, month))
+            
+            rows = cursor.fetchall()
+            data = []
+            
+            for row in rows:
+                data.append({
+                    'date': row[0],
+                    'statut': row[1],
+                    'commentaire': row[2] or "",
+                    'prenom': row[3],
+                    'nom': row[4],
+                    'eleve_id': row[5]
+                })
+            
+            conn.close()
+            return data
+            
+        except Exception as e:
+            print(f"❌ Erreur get_monthly_attendance_data: {e}")
+            return []
+    
+    def get_class_attendance_summary(self, classe_id: int, start_date: str, end_date: str) -> Dict:
+        """Récupère un résumé des présences d'une classe pour une période donnée"""
+        try:
+            conn = self._connect()
+            if not conn:
+                return {}
+            
+            cursor = conn.cursor()
+            
+            # Compter les présences par statut
+            cursor.execute("""
+                SELECT p.statut, COUNT(*) as count
+                FROM presences p 
+                WHERE p.classe_id=? 
+                AND p.date BETWEEN ? AND ?
+                GROUP BY p.statut
+            """, (classe_id, start_date, end_date))
+            
+            stats = cursor.fetchall()
+            summary = {
+                'total': 0,
+                'presents': 0,
+                'absents': 0,
+                'retards': 0,
+                'justifies': 0
+            }
+            
+            for statut, count in stats:
+                summary['total'] += count
+                if statut == 'Présent':
+                    summary['presents'] = count
+                elif statut == 'Absent':
+                    summary['absents'] = count
+                elif statut == 'Retard':
+                    summary['retards'] = count
+                elif statut == 'Justifié':
+                    summary['justifies'] = count
+            
+            # Calculer le taux de présence
+            if summary['total'] > 0:
+                summary['taux_presence'] = (summary['presents'] / summary['total']) * 100
+            else:
+                summary['taux_presence'] = 0
+            
+            conn.close()
+            return summary
+            
+        except Exception as e:
+            print(f"❌ Erreur get_class_attendance_summary: {e}")
+            return {}
+    
+    def get_student_attendance_trend(self, eleve_id: int, days: int = 30) -> List[Dict]:
+        """Récupère la tendance des présences d'un élève sur les derniers jours"""
+        try:
+            conn = self._connect()
+            if not conn:
+                return []
+            
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT p.date, p.statut, p.commentaire
+                FROM presences p 
+                WHERE p.eleve_id=? 
+                AND p.date >= DATEADD(day, -?, GETDATE())
+                ORDER BY p.date DESC
+            """, (eleve_id, days))
+            
+            rows = cursor.fetchall()
+            trend = []
+            
+            for row in rows:
+                trend.append({
+                    'date': row[0],
+                    'statut': row[1],
+                    'commentaire': row[2] or ""
+                })
+            
+            conn.close()
+            return trend
+            
+        except Exception as e:
+            print(f"❌ Erreur get_student_attendance_trend: {e}")
+            return []
+    
     def get_class_history(self, classe_id: int, start_date: str = None, 
                          end_date: str = None) -> List[AttendanceHistoryModel]:
         """Récupère l'historique des présences d'une classe"""

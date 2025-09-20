@@ -380,7 +380,14 @@ SallesView = view_registry.views.get("salles")
 UtilisateursView = view_registry.views.get("utilisateurs")
 MatieresView = view_registry.views.get("matieres")
 NotesView = view_registry.views.get("notes")
-PresenceView = view_registry.views.get("presences")
+# Import de la nouvelle vue avancée des présences
+try:
+    from src.modules.academic.attendance.views.advanced_attendance_view import AdvancedAttendanceView
+    PresenceView = AdvancedAttendanceView
+    print("✅ Vue avancée des présences importée")
+except ImportError as e:
+    print(f"⚠️ Vue avancée des présences non disponible: {e}")
+    PresenceView = view_registry.views.get("presences")
 PaiementsView = view_registry.views.get("paiements")
 BulletinsView = view_registry.views.get("bulletins")
 

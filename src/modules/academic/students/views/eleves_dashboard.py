@@ -999,8 +999,8 @@ class DashboardEleves(ctk.CTkFrame):
         for i, eleve in enumerate(eleves_to_display):
             if len(eleve) >= 7:
                 _id, nom, prenom, genre, naissance, classe_id, classe_nom = eleve
-                age = calculate_age(naissance)
-                
+            age = calculate_age(naissance)
+            
                 # Créer l'élément de liste pour l'élève
                 student_item_frame = StudentListItem(self.students_list_frame, {
                     'id': _id,
