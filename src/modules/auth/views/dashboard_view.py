@@ -364,6 +364,14 @@ def get_view_with_fallback(view_key):
 view_registry = get_view_registry()
 ElevesView = view_registry.views.get("eleves")
 ProfessorsDashboard = view_registry.views.get("professeurs")
+if ProfessorsDashboard is None:
+    # Essayer d'importer directement si le registre échoue
+    try:
+        from src.modules.academic.teachers.views.professeurs_view import ProfessorsDashboard
+        print("✅ Vue 'ProfessorsDashboard' importée directement")
+    except ImportError as e:
+        print(f"⚠️ Erreur import ProfessorsDashboard: {e}")
+        ProfessorsDashboard = None
 # Import direct de la vue des classes
 try:
     from src.modules.academic.classes.views.classes_view import ClassesManagerView

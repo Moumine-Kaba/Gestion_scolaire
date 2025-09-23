@@ -123,6 +123,13 @@ class CoursManagerView(ctk.CTkFrame):
         self.search_var = ctk.StringVar()
         self.mode_var = ctk.StringVar(value="Enseignements")
         
+        # Variables de pagination
+        self.current_page = 1
+        self.courses_per_page = 8  # 2 lignes de 4 cartes chacune
+        self.total_courses = 0
+        self.total_pages = 0
+        self.all_courses_data = []  # Stockage de toutes les données
+        
         # Cache pour optimiser les performances
         self._cached_data = None
         self._last_refresh_time = 0
@@ -191,8 +198,11 @@ class CoursManagerView(ctk.CTkFrame):
         # Header avec titre et contrôles
         self.create_header(main_container)
         
-        # Table unifiée
+        # Table unifiée avec pagination
         self.create_unified_table(main_container)
+        
+        # Contrôles de pagination
+        self.create_pagination_controls(main_container)
     
     def create_header(self, parent):
         """Crée l'en-tête avec titre et contrôles"""
@@ -318,17 +328,86 @@ class CoursManagerView(ctk.CTkFrame):
     def create_unified_table(self, parent):
         """Crée la vue avec des cartes au lieu d'un tableau"""
         # Frame pour les cartes
-        self.cards_frame = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        self.cards_frame = ctk.CTkFrame(parent, fg_color="transparent")
         self.cards_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
         
-        # Configuration de la grille pour 3 cartes par ligne
-        self.cards_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        # Configuration de la grille pour 4 cartes par ligne (2 lignes = 8 cours)
+        self.cards_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
         
         # Liste pour stocker les cartes
         self.cards = []
         
         # Initialiser l'affichage
         self.refresh_view()
+    
+    def create_pagination_controls(self, parent):
+        """Crée les contrôles de pagination"""
+        self.pagination_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self.pagination_frame.pack(fill="x", padx=15, pady=(0, 15))
+        
+        # Section gauche - Informations de pagination
+        info_frame = ctk.CTkFrame(self.pagination_frame, fg_color="transparent")
+        info_frame.pack(side="left", fill="y")
+        
+        self.pagination_info_label = ctk.CTkLabel(
+            info_frame,
+            text="Page 1 sur 1",
+            font=("Segoe UI", 12),
+            text_color=TEXT_SECONDARY,
+            fg_color="transparent"
+        )
+        self.pagination_info_label.pack(side="left")
+        
+        # Section droite - Boutons de navigation
+        nav_frame = ctk.CTkFrame(self.pagination_frame, fg_color="transparent")
+        nav_frame.pack(side="right", fill="y")
+        
+        # Bouton Précédent
+        self.prev_btn = ctk.CTkButton(
+            nav_frame,
+            text="◀ Précédent",
+            fg_color="transparent",
+            text_color=TEXT_PRIMARY,
+            hover_color=BG_CARD_HOVER,
+            command=self.go_to_previous_page,
+            corner_radius=10,
+            height=35,
+            width=100,
+            border_width=2,
+            border_color=BORDER_COLOR,
+            font=("Segoe UI", 11, "bold")
+        )
+        self.prev_btn.pack(side="left", padx=(0, 10))
+        
+        # Indicateur de page actuelle
+        self.page_indicator = ctk.CTkLabel(
+            nav_frame,
+            text="1",
+            font=("Segoe UI", 12, "bold"),
+            text_color=TEXT_ACCENT,
+            fg_color=BG_CARD,
+            corner_radius=15,
+            width=30,
+            height=30
+        )
+        self.page_indicator.pack(side="left", padx=(0, 10))
+        
+        # Bouton Suivant
+        self.next_btn = ctk.CTkButton(
+            nav_frame,
+            text="Suivant ▶",
+            fg_color="transparent",
+            text_color=TEXT_PRIMARY,
+            hover_color=BG_CARD_HOVER,
+            command=self.go_to_next_page,
+            corner_radius=10,
+            height=35,
+            width=100,
+            border_width=2,
+            border_color=BORDER_COLOR,
+            font=("Segoe UI", 11, "bold")
+        )
+        self.next_btn.pack(side="left")
     
     def refresh_view(self):
         """Actualise la vue avec des cartes de manière optimisée"""
@@ -348,30 +427,90 @@ class CoursManagerView(ctk.CTkFrame):
             print(f"❌ Erreur refresh_view: {e}")
             messagebox.showerror("Erreur", f"Erreur lors du chargement des données: {e}")
     
+    def go_to_previous_page(self):
+        """Va à la page précédente"""
+        if self.current_page > 1:
+            self.current_page -= 1
+            self._display_current_page()
+    
+    def go_to_next_page(self):
+        """Va à la page suivante"""
+        if self.current_page < self.total_pages:
+            self.current_page += 1
+            self._display_current_page()
+    
+    def _display_current_page(self):
+        """Affiche la page actuelle"""
+        try:
+            # Nettoyage des anciennes cartes
+            for card in self.cards:
+                card.destroy()
+            self.cards.clear()
+            
+            # Calculer les indices de début et fin pour la page actuelle
+            start_index = (self.current_page - 1) * self.courses_per_page
+            end_index = start_index + self.courses_per_page
+            
+            # Récupérer les cours de la page actuelle
+            courses_to_display = self.all_courses_data[start_index:end_index]
+            
+            # Créer les cartes pour cette page
+            for i, item in enumerate(courses_to_display):
+                card = self.create_course_card(item, i)
+                self.cards.append(card)
+            
+            # Mettre à jour les contrôles de pagination
+            self._update_pagination_controls()
+            
+            print(f"✅ Page {self.current_page}/{self.total_pages} affichée ({len(courses_to_display)} cours)")
+                    
+        except Exception as e:
+            print(f"❌ Erreur _display_current_page: {e}")
+    
+    def _update_pagination_controls(self):
+        """Met à jour les contrôles de pagination"""
+        try:
+            # Mettre à jour les informations de pagination
+            self.pagination_info_label.configure(
+                text=f"Page {self.current_page} sur {self.total_pages} ({self.total_courses} cours au total)"
+            )
+            
+            # Mettre à jour l'indicateur de page
+            self.page_indicator.configure(text=str(self.current_page))
+            
+            # Activer/désactiver les boutons selon la page actuelle
+            self.prev_btn.configure(state="normal" if self.current_page > 1 else "disabled")
+            self.next_btn.configure(state="normal" if self.current_page < self.total_pages else "disabled")
+            
+        except Exception as e:
+            print(f"⚠️ Erreur _update_pagination_controls: {e}")
+    
     
     def _load_courses_async(self):
-        """Charge les cours de manière asynchrone"""
+        """Charge les cours de manière asynchrone avec pagination"""
         try:
-            # Récupération des cours
+            # Récupération de tous les cours
             print("🔄 Chargement des cours...")
-            data = get_all_cours()
+            all_data = get_all_cours()
+            
+            # Stocker toutes les données
+            self.all_courses_data = all_data if all_data else []
+            self.total_courses = len(self.all_courses_data)
+            
+            # Calculer le nombre total de pages
+            self.total_pages = max(1, (self.total_courses + self.courses_per_page - 1) // self.courses_per_page)
+            
+            # Réinitialiser à la page 1
+            self.current_page = 1
             
             # Supprimer l'indicateur de chargement s'il existe
             if hasattr(self, 'loading_frame'):
                 self.loading_frame.destroy()
             
-            # Limiter à 20 cours pour éviter le blocage
-            limited_data = data[:20] if data else []
+            # Afficher la première page
+            self._display_current_page()
             
-            # Création des nouvelles cartes
-            for i, item in enumerate(limited_data):
-                card = self.create_course_card(item, i)
-                self.cards.append(card)
-                # Petit délai pour éviter le blocage
-                if i % 5 == 0:
-                    self.update()
-            
-            print(f"✅ {len(limited_data)} cours chargés (limité à 20)")
+            print(f"✅ {self.total_courses} cours chargés en {self.total_pages} pages")
                     
         except Exception as e:
             print(f"❌ Erreur _load_courses_async: {e}")
@@ -414,11 +553,11 @@ class CoursManagerView(ctk.CTkFrame):
     
     def create_course_card(self, item, index):
         """Crée une carte pour un cours"""
-        # Calculer la position dans la grille (3 colonnes)
-        row = index // 3
-        col = index % 3
+        # Calculer la position dans la grille (4 colonnes pour 8 cours par page)
+        row = index // 4
+        col = index % 4
         
-        # Créer la carte optimisée pour 3 colonnes
+        # Créer la carte optimisée pour 4 colonnes
         card = ctk.CTkFrame(
             self.cards_frame,
             fg_color=BG_CARD,
@@ -656,21 +795,35 @@ class CoursManagerView(ctk.CTkFrame):
                 messagebox.showerror("Erreur", f"Erreur lors de la suppression: {e}")
     
     def filter_view(self, event=None):
-        """Filtre la vue selon le terme de recherche"""
+        """Filtre la vue selon le terme de recherche avec pagination"""
         search_term = self.search_var.get().lower()
         
-        # Masquer/afficher les cartes selon le terme de recherche
-        for card in self.cards:
-            # Récupérer le texte de la carte pour la recherche
-            card_text = ""
-            for widget in card.winfo_children():
-                if isinstance(widget, ctk.CTkLabel):
-                    card_text += widget.cget("text") + " "
+        if not search_term:
+            # Si pas de recherche, afficher tous les cours
+            self.all_courses_data = get_all_cours() if get_all_cours() else []
+        else:
+            # Filtrer les cours selon le terme de recherche
+            all_courses = get_all_cours() if get_all_cours() else []
+            filtered_courses = []
             
-            if search_term in card_text.lower():
-                card.grid()
-            else:
-                card.grid_remove()
+            for course in all_courses:
+                # Créer une chaîne de recherche à partir des données du cours
+                search_text = f"{course.get('professeur_nom', '')} {course.get('classe_nom', '')} {course.get('matiere_nom', '')} {course.get('salle_nom', '')} {course.get('jour', '')}".lower()
+                
+                if search_term in search_text:
+                    filtered_courses.append(course)
+            
+            self.all_courses_data = filtered_courses
+        
+        # Recalculer la pagination
+        self.total_courses = len(self.all_courses_data)
+        self.total_pages = max(1, (self.total_courses + self.courses_per_page - 1) // self.courses_per_page)
+        self.current_page = 1
+        
+        # Afficher la première page des résultats filtrés
+        self._display_current_page()
+        
+        print(f"🔍 Recherche '{search_term}': {self.total_courses} cours trouvés en {self.total_pages} pages")
     
     def open_add_modal(self):
         """Ouvre le formulaire d'ajout de cours avec design similaire aux salles"""

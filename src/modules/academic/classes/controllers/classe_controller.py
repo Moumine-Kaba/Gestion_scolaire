@@ -60,7 +60,7 @@ def get_all_classes():
         
         # Récupérer toutes les classes
         cursor.execute("""
-            SELECT id_classe, nom_classe, niveau, capacite, statut, date_creation
+            SELECT id_classe, nom_classe, niveau, capacite, statut, date_creation, professeur_principal
             FROM classes
             ORDER BY nom_classe
         """)
@@ -76,7 +76,8 @@ def get_all_classes():
                 'niveau': row[2],  # niveau
                 'capacite': row[3],  # capacite
                 'statut': row[4],  # statut
-                'date_creation': row[5]  # date_creation
+                'date_creation': row[5],  # date_creation
+                'professeur_principal': row[6] if row[6] else 'Non assigné'  # professeur_principal
             }
             classes.append(classe_dict)
         
@@ -195,16 +196,152 @@ def get_classe_by_id(classe_id: int) -> Optional[Dict[str, Any]]:
 
             print("❌ Impossible de se connecter à la base de données")
 
-            return
+            return None
 
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT c.id_classe, c.nom_classe, c.niveau, c.annee_scolaire, c.id_professeur_principal, c.salle_id
-                FROM classes c
-                WHERE c.id_classe=?
-            """, (classe_id,))
-            row = cur.fetchone()
-            return dict(row) if row else None
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT c.id_classe, c.nom_classe, c.niveau, c.capacite, c.statut, c.date_creation, c.professeur_principal
+            FROM classes c
+            WHERE c.id_classe=?
+        """, (classe_id,))
+        row = cur.fetchone()
+        
+        if row:
+            return {
+                'id': row[0],
+                'nom': row[1],
+                'niveau': row[2],
+                'capacite': row[3],
+                'statut': row[4],
+                'date_creation': row[5],
+                'professeur_principal': row[6] if row[6] else 'Non assigné'
+            }
+        return None
     except Exception as e:
         print(f"[Classe] Erreur get_classe_by_id: {e}")
         return None
+
+# Fonctions avec les noms attendus par la vue
+def add_classe(classe_data: Dict[str, Any]) -> bool:
+    """
+    Ajoute une nouvelle classe avec les données fournies.
+    
+    Args:
+        classe_data (dict): Dictionnaire contenant les données de la classe
+        
+    Returns:
+        bool: True si succès, False sinon
+    """
+    try:
+        conn = _connect()
+        if not conn:
+            print("❌ Impossible de se connecter à la base de données")
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Vérifier si la table classes existe
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_NAME = 'classes'
+        """)
+        
+        table_exists = cursor.fetchone()[0] > 0
+        
+        if not table_exists:
+            print("⚠️ Table 'classes' n'existe pas dans SQL Server")
+            return False
+        
+        # Insérer la nouvelle classe
+        cursor.execute("""
+            INSERT INTO classes (nom_classe, niveau, capacite, statut, date_creation, professeur_principal)
+            VALUES (?, ?, ?, ?, GETDATE(), ?)
+        """, (
+            classe_data.get('nom', ''),
+            classe_data.get('niveau', ''),
+            classe_data.get('capacite', 0),
+            classe_data.get('statut', 'active'),
+            classe_data.get('professeur_principal', '')
+        ))
+        
+        conn.commit()
+        conn.close()
+        print("✅ Classe ajoutée avec succès")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erreur add_classe: {e}")
+        return False
+
+def update_classe(classe_id: int, classe_data: Dict[str, Any]) -> bool:
+    """
+    Met à jour une classe existante.
+    
+    Args:
+        classe_id (int): ID de la classe à mettre à jour
+        classe_data (dict): Nouvelles données de la classe
+        
+    Returns:
+        bool: True si succès, False sinon
+    """
+    try:
+        conn = _connect()
+        if not conn:
+            print("❌ Impossible de se connecter à la base de données")
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Mettre à jour la classe
+        cursor.execute("""
+            UPDATE classes 
+            SET nom_classe = ?, niveau = ?, capacite = ?, statut = ?, professeur_principal = ?
+            WHERE id_classe = ?
+        """, (
+            classe_data.get('nom', ''),
+            classe_data.get('niveau', ''),
+            classe_data.get('capacite', 0),
+            classe_data.get('statut', 'active'),
+            classe_data.get('professeur_principal', ''),
+            classe_id
+        ))
+        
+        conn.commit()
+        conn.close()
+        print("✅ Classe mise à jour avec succès")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erreur update_classe: {e}")
+        return False
+
+def delete_classe(classe_id: int) -> bool:
+    """
+    Supprime une classe.
+    
+    Args:
+        classe_id (int): ID de la classe à supprimer
+        
+    Returns:
+        bool: True si succès, False sinon
+    """
+    try:
+        conn = _connect()
+        if not conn:
+            print("❌ Impossible de se connecter à la base de données")
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Supprimer la classe
+        cursor.execute("DELETE FROM classes WHERE id_classe = ?", (classe_id,))
+        
+        conn.commit()
+        conn.close()
+        print("✅ Classe supprimée avec succès")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erreur delete_classe: {e}")
+        return False

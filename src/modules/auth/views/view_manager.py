@@ -361,9 +361,22 @@ class ViewManager:
         return frame
     
     def _create_eleves_view(self):
-        frame = ctk.CTkFrame(self.main_app.main_content)
-        ctk.CTkLabel(frame, text="👨‍🎓 Gestion des Élèves", font=ctk.CTkFont(size=24, weight="bold")).pack(pady=20)
-        return frame
+        """Crée la vue de gestion des élèves"""
+        try:
+            # Import de la vraie vue des élèves
+            from src.modules.academic.students.views.eleves_dashboard import DashboardEleves
+            
+            # Créer le dashboard des élèves
+            dashboard = DashboardEleves(self.main_app.main_content)
+            return dashboard
+            
+        except Exception as e:
+            print(f"⚠️ Erreur création vue élèves: {e}")
+            # Fallback vers placeholder
+            frame = ctk.CTkFrame(self.main_app.main_content)
+            ctk.CTkLabel(frame, text="👨‍🎓 Gestion des Élèves", font=ctk.CTkFont(size=24, weight="bold")).pack(pady=20)
+            ctk.CTkLabel(frame, text=f"Erreur: {e}", font=ctk.CTkFont(size=12)).pack(pady=10)
+            return frame
     
     def _create_professeurs_view(self):
         """Crée la vue de gestion des professeurs"""
