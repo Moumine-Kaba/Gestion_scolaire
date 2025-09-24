@@ -18,7 +18,7 @@ CARD_BG      = "#0b1d34"   # Fond cartes / widgets
 BORDER_COLOR = "#1f3b5a"   # Bordures sobres
 
 # Accents et highlights
-ACCENT       = "#64FFDA"   # Couleur accent / boutons / progress
+ACCENT       = "#3B82F6"   # Couleur accent bleu professionnel
 
 # Texte
 TEXT         = "#E2E8F0"   # Texte principal
