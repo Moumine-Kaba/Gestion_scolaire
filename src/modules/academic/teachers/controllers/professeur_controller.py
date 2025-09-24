@@ -89,6 +89,110 @@ def get_all_professeurs():
         print(f"❌ Erreur get_all_professeurs SQL Server: {e}")
         return []
 
+def get_professeurs_paginated(limit: int = 50, offset: int = 0, 
+                              query: str = None, statut: str = None, 
+                              specialite: str = None, principal: bool = None):
+    """
+    Récupère une liste paginée de professeurs avec filtres optionnels.
+    - limit: nombre de lignes à récupérer
+    - offset: décalage de départ
+    - query: recherche texte sur nom/prenom/email/specialite
+    - statut: filtre par statut exact (e.g., 'Actif', 'Inactif')
+    - specialite: filtre exact par spécialité
+    - principal: filtre par colonne est_professeur_principal si disponible
+    """
+    try:
+        conn = connect_db()
+        if not conn:
+            print("❌ Impossible de se connecter à SQL Server")
+            return []
+
+        cursor = conn.cursor()
+
+        # Vérifier existence table
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_NAME = 'professeurs'
+        """)
+        if cursor.fetchone()[0] == 0:
+            print("⚠️ Table 'professeurs' non trouvée dans SQL Server")
+            return []
+
+        # Déterminer si la colonne est_professeur_principal existe
+        cursor.execute("""
+            SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = 'professeurs' AND COLUMN_NAME = 'est_professeur_principal'
+        """)
+        has_principal = cursor.fetchone()[0] > 0
+
+        # Construction du WHERE dynamique
+        where_clauses = []
+        params = []
+        if query:
+            where_clauses.append("(nom LIKE ? OR prenom LIKE ? OR email LIKE ? OR specialite LIKE ?)")
+            like = f"%{query}%"
+            params += [like, like, like, like]
+        if statut:
+            where_clauses.append("statut = ?")
+            params.append(statut)
+        if specialite:
+            where_clauses.append("specialite = ?")
+            params.append(specialite)
+        if principal is not None and has_principal:
+            where_clauses.append("est_professeur_principal = ?")
+            params.append(1 if principal else 0)
+
+        where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+        # Sélection des colonnes
+        columns = (
+            "id_professeur, nom, prenom, email, telephone, specialite, statut, date_embauche"
+            + (", est_professeur_principal" if has_principal else "")
+        )
+
+        # Requête paginée (SQL Server OFFSET/FETCH nécessite ORDER BY)
+        query_sql = f"""
+            SELECT {columns}
+            FROM professeurs
+            {where_sql}
+            ORDER BY nom, prenom
+            OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+        """
+        params += [offset, limit]
+        cursor.execute(query_sql, params)
+
+        rows = cursor.fetchall()
+
+        result = []
+        for row in rows:
+            # Indexation dynamique selon présence 'est_professeur_principal'
+            base = {
+                'id': row[0],
+                'matricule': f"PROF{row[0]:04d}",
+                'nom': row[1] or '',
+                'prenom': row[2] or '',
+                'sexe': '',
+                'telephone': row[4] or '',
+                'email': row[3] or '',
+                'specialite': row[5] or '',
+                'date_embauche': str(row[7]) if row[7] else '',
+                'statut': row[6] or 'Actif',
+                'adresse': '',
+                'date_naissance': '',
+                'photo_path': ''
+            }
+            if has_principal:
+                base['est_professeur_principal'] = bool(row[8])
+            result.append(base)
+
+        conn.close()
+        return result
+
+    except Exception as e:
+        print(f"❌ Erreur get_professeurs_paginated SQL Server: {e}")
+        return []
+
 def add_professeur(data):
     """
     Ajoute un nouveau professeur dans SQL Server.

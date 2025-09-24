@@ -1,449 +1,706 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Contrôleur de gestion des salaires des professeurs
-==================================================
-
-Gestion complète des salaires, heures de cours et calculs de paie.
+Gestion complète basée sur les heures de cours dispensées
 """
 
 import sqlite3
-import os
+from database.connection import get_db_connection
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
+import json
 
 class SalaryController:
-    """Contrôleur pour la gestion des salaires des professeurs"""
+    """Contrôleur pour la gestion des salaires basés sur les heures"""
     
-    def __init__(self, db_path: str = None):
-        if db_path is None:
-            self.db_path = os.path.join(os.getcwd(), "database", "edumanager.db")
-        else:
-            self.db_path = db_path
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+        try:
+            self.init_tables()
+        except Exception as e:
+            print(f"⚠️ Impossible d'initialiser les tables SQLite: {e}")
     
-    def get_connection(self):
-        """Obtient une connexion à la base de données"""
+    def init_tables(self):
+        """Initialise les tables nécessaires pour la gestion des salaires"""
+        # Tente d'initialiser côté SQL Server si possible
+        try:
+            conn_mssql = get_db_connection()
+            if conn_mssql:
+                cur = conn_mssql.cursor()
+                # Créer les tables si elles n'existent pas (synonyme SQL Server)
+                try:
+                    cur.execute("""
+                        IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='heures_cours' AND xtype='U')
+                        CREATE TABLE heures_cours (
+                            id INT IDENTITY(1,1) PRIMARY KEY,
+                            professeur_id INT NOT NULL,
+                            date_cours DATE NOT NULL,
+                            nombre_heures FLOAT NOT NULL,
+                            matiere NVARCHAR(255),
+                            classe NVARCHAR(255),
+                            statut NVARCHAR(50) DEFAULT 'effectue',
+                            commentaire NVARCHAR(MAX),
+                            created_at DATETIME DEFAULT GETDATE()
+                        )
+                    """)
+                except Exception:
+                    pass
+                try:
+                    cur.execute("""
+                        IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='absences_professeurs' AND xtype='U')
+                        CREATE TABLE absences_professeurs (
+                            id INT IDENTITY(1,1) PRIMARY KEY,
+                            professeur_id INT NOT NULL,
+                            date_absence DATE NOT NULL,
+                            heures_manquees FLOAT NOT NULL,
+                            motif NVARCHAR(255),
+                            justifie BIT DEFAULT 0,
+                            heures_recuperees FLOAT DEFAULT 0,
+                            created_at DATETIME DEFAULT GETDATE()
+                        )
+                    """)
+                except Exception:
+                    pass
+                try:
+                    cur.execute("""
+                        IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='paiements_professeurs' AND xtype='U')
+                        CREATE TABLE paiements_professeurs (
+                            id INT IDENTITY(1,1) PRIMARY KEY,
+                            professeur_id INT NOT NULL,
+                            periode_debut DATE NOT NULL,
+                            periode_fin DATE NOT NULL,
+                            heures_total FLOAT NOT NULL,
+                            taux_horaire FLOAT NOT NULL,
+                            montant_total FLOAT NOT NULL,
+                            statut_paiement NVARCHAR(50) DEFAULT 'en_attente',
+                            date_paiement DATE,
+                            commentaire NVARCHAR(MAX),
+                            created_at DATETIME DEFAULT GETDATE()
+                        )
+                    """)
+                except Exception:
+                    pass
+                conn_mssql.commit()
+                conn_mssql.close()
+        except Exception:
+            pass
+
+        # Toujours garder la compatibilité SQLite locale
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Table des heures de cours
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS heures_cours (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                professeur_id INTEGER NOT NULL,
+                date_cours DATE NOT NULL,
+                nombre_heures REAL NOT NULL,
+                matiere TEXT,
+                classe TEXT,
+                statut TEXT DEFAULT 'effectue',
+                commentaire TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (professeur_id) REFERENCES professeurs(id)
+            )
+        """)
+        
+        # Table des paiements
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS paiements_professeurs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                professeur_id INTEGER NOT NULL,
+                periode_debut DATE NOT NULL,
+                periode_fin DATE NOT NULL,
+                heures_total REAL NOT NULL,
+                taux_horaire REAL NOT NULL,
+                montant_total REAL NOT NULL,
+                statut_paiement TEXT DEFAULT 'en_attente',
+                date_paiement DATE,
+                commentaire TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (professeur_id) REFERENCES professeurs(id)
+            )
+        """)
+        
+        # Table des absences
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS absences_professeurs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                professeur_id INTEGER NOT NULL,
+                date_absence DATE NOT NULL,
+                heures_manquees REAL NOT NULL,
+                motif TEXT,
+                justifie BOOLEAN DEFAULT FALSE,
+                heures_recuperees REAL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (professeur_id) REFERENCES professeurs(id)
+            )
+        """)
+        
+        conn.commit()
+        conn.close()
+
+    # Helpers
+    def _get_hours_prof_col(self) -> Optional[str]:
+        """Detecte le nom de colonne qui relie une heure au professeur dans heures_cours."""
         try:
             conn = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row
-            return conn
-        except Exception as e:
-            print(f"❌ Erreur de connexion à la base de données: {e}")
-            return None
-    
-    def calculate_salary(self, prof_id: int, mois: int, annee: int) -> Dict:
-        """
-        Calcule le salaire d'un professeur pour un mois donné
-        
-        Args:
-            prof_id: ID du professeur
-            mois: Mois (1-12)
-            annee: Année
-            
-        Returns:
-            Dict contenant le détail du calcul de salaire
-        """
-        conn = self.get_connection()
-        if not conn:
-            return {}
-        
-        try:
-            cursor = conn.cursor()
-            
-            # Récupérer les informations du professeur
-            cursor.execute("""
-                SELECT salaire_horaire, heures_mensuelles, salaire_base, 
-                       prime_performance, prime_anciennete, cotisations_sociales
-                FROM professeurs 
-                WHERE id_professeur = ?
-            """, (prof_id,))
-            
-            prof_data = cursor.fetchone()
-            if not prof_data:
-                return {}
-            
-            # Récupérer les heures réelles travaillées ce mois
-            cursor.execute("""
-                SELECT COALESCE(SUM(nombre_heures), 0) as heures_travaillees
-                FROM heures_cours 
-                WHERE id_professeur = ? 
-                AND strftime('%m', date_cours) = ? 
-                AND strftime('%Y', date_cours) = ?
-                AND statut = 'realise'
-            """, (prof_id, f"{mois:02d}", str(annee)))
-            
-            heures_data = cursor.fetchone()
-            heures_travaillees = heures_data['heures_travaillees'] if heures_data else 0
-            
-            # Calculs du salaire
-            salaire_horaire = prof_data['salaire_horaire'] or 0
-            salaire_base = prof_data['salaire_base'] or 0
-            prime_performance = prof_data['prime_performance'] or 0
-            prime_anciennete = prof_data['prime_anciennete'] or 0
-            cotisations_sociales = prof_data['cotisations_sociales'] or 0
-            
-            # Salaire basé sur les heures
-            salaire_heures = heures_travaillees * salaire_horaire
-            
-            # Salaire brut total
-            salaire_brut = salaire_base + salaire_heures + prime_performance + prime_anciennete
-            
-            # Salaire net
-            salaire_net = salaire_brut - cotisations_sociales
-            
-            return {
-                'prof_id': prof_id,
-                'mois': mois,
-                'annee': annee,
-                'heures_travaillees': heures_travaillees,
-                'salaire_horaire': salaire_horaire,
-                'salaire_base': salaire_base,
-                'salaire_heures': salaire_heures,
-                'prime_performance': prime_performance,
-                'prime_anciennete': prime_anciennete,
-                'salaire_brut': salaire_brut,
-                'cotisations_sociales': cotisations_sociales,
-                'salaire_net': salaire_net
-            }
-            
-        except Exception as e:
-            print(f"❌ Erreur calcul salaire: {e}")
-            return {}
-        finally:
+            cur = conn.cursor()
+            cur.execute("PRAGMA table_info(heures_cours)")
+            cols = [row[1] for row in cur.fetchall()]
             conn.close()
+            for name in [
+                "professeur_id", "prof_id", "id_prof", "teacher_id", "enseignant_id"
+            ]:
+                if name in cols:
+                    return name
+        except Exception:
+            pass
+        return None
     
-    def save_salary_record(self, salary_data: Dict) -> bool:
-        """
-        Sauvegarde un enregistrement de salaire dans l'historique
-        
-        Args:
-            salary_data: Dictionnaire contenant les données du salaire
-            
-        Returns:
-            bool: True si sauvegardé avec succès
-        """
-        conn = self.get_connection()
-        if not conn:
-            return False
-        
+    def add_course_hours(self, professeur_id: int, date_cours: str, 
+                        nombre_heures: float, matiere: str = "", 
+                        classe: str = "", commentaire: str = "") -> bool:
+        """Ajoute des heures de cours pour un professeur"""
         try:
+            # SQL Server d'abord
+            try:
+                mssql = get_db_connection()
+                if mssql:
+                    cur = mssql.cursor()
+                    cur.execute(
+                        """
+                        INSERT INTO heures_cours (professeur_id, date_cours, nombre_heures, matiere, classe, commentaire)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (professeur_id, date_cours, nombre_heures, matiere, classe, commentaire)
+                    )
+                    mssql.commit()
+                    mssql.close()
+                    return True
+            except Exception:
+                pass
+
+            # Fallback SQLite
+            conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
-            # Vérifier si un enregistrement existe déjà pour ce mois/année
-            cursor.execute("""
-                SELECT id FROM historique_salaires 
-                WHERE id_professeur = ? AND mois = ? AND annee = ?
-            """, (salary_data['prof_id'], salary_data['mois'], salary_data['annee']))
-            
-            existing = cursor.fetchone()
-            
-            if existing:
-                # Mettre à jour l'enregistrement existant
-                cursor.execute("""
-                    UPDATE historique_salaires SET
-                        heures_travaillees = ?,
-                        salaire_horaire = ?,
-                        salaire_brut = ?,
-                        prime_performance = ?,
-                        prime_anciennete = ?,
-                        cotisations_sociales = ?,
-                        salaire_net = ?,
-                        date_modification = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, (
-                    salary_data['heures_travaillees'],
-                    salary_data['salaire_horaire'],
-                    salary_data['salaire_brut'],
-                    salary_data['prime_performance'],
-                    salary_data['prime_anciennete'],
-                    salary_data['cotisations_sociales'],
-                    salary_data['salaire_net'],
-                    existing['id']
-                ))
+            prof_col = self._get_hours_prof_col()
+            if prof_col:
+                cursor.execute(
+                    f"INSERT INTO heures_cours ({prof_col}, date_cours, nombre_heures, matiere, classe, commentaire) VALUES (?, ?, ?, ?, ?, ?)",
+                    (professeur_id, date_cours, nombre_heures, matiere, classe, commentaire)
+                )
             else:
-                # Créer un nouvel enregistrement
-                cursor.execute("""
-                    INSERT INTO historique_salaires (
-                        id_professeur, mois, annee, heures_travaillees,
-                        salaire_horaire, salaire_brut, prime_performance,
-                        prime_anciennete, cotisations_sociales, salaire_net
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    salary_data['prof_id'],
-                    salary_data['mois'],
-                    salary_data['annee'],
-                    salary_data['heures_travaillees'],
-                    salary_data['salaire_horaire'],
-                    salary_data['salaire_brut'],
-                    salary_data['prime_performance'],
-                    salary_data['prime_anciennete'],
-                    salary_data['cotisations_sociales'],
-                    salary_data['salaire_net']
-                ))
+                # Table heures_cours sans colonne de lien; on insère quand même
+                cursor.execute(
+                    "INSERT INTO heures_cours (date_cours, nombre_heures, matiere, classe, commentaire) VALUES (?, ?, ?, ?, ?)",
+                    (date_cours, nombre_heures, matiere, classe, commentaire)
+                )
             
             conn.commit()
-            return True
-            
-        except Exception as e:
-            print(f"❌ Erreur sauvegarde salaire: {e}")
-            conn.rollback()
-            return False
-        finally:
             conn.close()
-    
-    def add_course_hours(self, prof_id: int, date_cours: str, heure_debut: str, 
-                        heure_fin: str, nombre_heures: float, id_classe: int = None, 
-                        id_matiere: int = None, notes: str = "") -> bool:
-        """
-        Ajoute des heures de cours pour un professeur
-        
-        Args:
-            prof_id: ID du professeur
-            date_cours: Date du cours (YYYY-MM-DD)
-            heure_debut: Heure de début (HH:MM)
-            heure_fin: Heure de fin (HH:MM)
-            nombre_heures: Nombre d'heures
-            id_classe: ID de la classe (optionnel)
-            id_matiere: ID de la matière (optionnel)
-            notes: Notes additionnelles
-            
-        Returns:
-            bool: True si ajouté avec succès
-        """
-        conn = self.get_connection()
-        if not conn:
-            return False
-        
-        try:
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT INTO heures_cours (
-                    id_professeur, id_classe, id_matiere, date_cours,
-                    heure_debut, heure_fin, nombre_heures, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (prof_id, id_classe, id_matiere, date_cours, 
-                  heure_debut, heure_fin, nombre_heures, notes))
-            
-            conn.commit()
             return True
-            
         except Exception as e:
-            print(f"❌ Erreur ajout heures cours: {e}")
-            conn.rollback()
+            print(f"❌ Erreur ajout heures: {e}")
             return False
-        finally:
-            conn.close()
     
-    def get_professor_hours(self, prof_id: int, mois: int = None, annee: int = None) -> List[Dict]:
-        """
-        Récupère les heures de cours d'un professeur
-        
-        Args:
-            prof_id: ID du professeur
-            mois: Mois (optionnel)
-            annee: Année (optionnel)
-            
-        Returns:
-            List[Dict]: Liste des heures de cours
-        """
-        conn = self.get_connection()
-        if not conn:
-            return []
-        
+    def get_professor_hours(self, professeur_id: int, month: int = None, year: int = None) -> List[Dict]:
+        """Récupère les heures d'un professeur pour une période donnée"""
         try:
+            # SQL Server d'abord
+            try:
+                mssql = get_db_connection()
+                if mssql:
+                    cur = mssql.cursor()
+                    sql = (
+                        "SELECT SUM(nombre_heures) as total_heures, COUNT(*) as nb_cours "
+                        "FROM heures_cours WHERE professeur_id = ? "
+                    )
+                    params = [professeur_id]
+                    if month and year:
+                        sql += "AND MONTH(date_cours) = ? AND YEAR(date_cours) = ? "
+                        params += [month, year]
+                    sql += "AND statut = 'effectue' ORDER BY date_cours DESC"
+                    cur.execute(sql, params)
+                    # Pour rester proche de l'API, retourner les lignes détaillées si besoin
+                    cur.execute(
+                        """
+                        SELECT id, professeur_id, date_cours, nombre_heures, matiere, classe, statut, commentaire, created_at
+                        FROM heures_cours WHERE professeur_id = ?
+                        """ + (" AND MONTH(date_cours) = ? AND YEAR(date_cours) = ?" if month and year else "") + " ORDER BY date_cours DESC",
+                        params
+                    )
+                    columns = [d[0] for d in cur.description]
+                    results = [dict(zip(columns, row)) for row in cur.fetchall()]
+                    mssql.close()
+                    return results
+            except Exception:
+                pass
+
+            # Fallback SQLite
+            conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
+            prof_col = self._get_hours_prof_col()
+            if not prof_col:
+                conn.close()
+                return []
+            if month and year:
+                query = (
+                    f"SELECT * FROM heures_cours WHERE {prof_col} = ? AND strftime('%m', date_cours) = ? AND strftime('%Y', date_cours) = ? ORDER BY date_cours DESC"
+                )
+                cursor.execute(query, (professeur_id, f"{month:02d}", str(year)))
+            else:
+                query = f"SELECT * FROM heures_cours WHERE {prof_col} = ? ORDER BY date_cours DESC"
+                cursor.execute(query, (professeur_id,))
             
-            query = """
-                SELECT hc.*, p.nom, p.prenom
-                FROM heures_cours hc
-                JOIN professeurs p ON hc.id_professeur = p.id_professeur
-                WHERE hc.id_professeur = ?
-            """
-            params = [prof_id]
+            columns = [description[0] for description in cursor.description]
+            results = [dict(zip(columns, row)) for row in cursor.fetchall()]
             
-            if mois and annee:
-                query += " AND strftime('%m', hc.date_cours) = ? AND strftime('%Y', hc.date_cours) = ?"
-                params.extend([f"{mois:02d}", str(annee)])
-            
-            query += " ORDER BY hc.date_cours DESC, hc.heure_debut"
-            
-            cursor.execute(query, params)
-            return [dict(row) for row in cursor.fetchall()]
-            
+            conn.close()
+            return results
         except Exception as e:
             print(f"❌ Erreur récupération heures: {e}")
             return []
-        finally:
-            conn.close()
     
-    def get_salary_history(self, prof_id: int = None, mois: int = None, annee: int = None) -> List[Dict]:
-        """
-        Récupère l'historique des salaires
-        
-        Args:
-            prof_id: ID du professeur (optionnel)
-            mois: Mois (optionnel)
-            annee: Année (optionnel)
-            
-        Returns:
-            List[Dict]: Liste des enregistrements de salaire
-        """
-        conn = self.get_connection()
-        if not conn:
-            return []
-        
+    def calculate_salary(self, professeur_id: int, periode_debut: str, 
+                       periode_fin: str) -> Dict:
+        """Calcule le salaire d'un professeur pour une période donnée"""
         try:
+            # SQL Server d'abord
+            try:
+                mssql = get_db_connection()
+                if mssql:
+                    cur = mssql.cursor()
+                    # Taux horaire
+                    cur.execute("SELECT salaire_horaire FROM professeurs WHERE id_professeur = ?", (professeur_id,))
+                    res = cur.fetchone()
+                    if not res:
+                        mssql.close()
+                        return {"error": "Professeur non trouvé"}
+                    taux_horaire = res[0] or 0
+                    # Heures
+                    cur.execute(
+                        """
+                        SELECT COALESCE(SUM(nombre_heures), 0) as total_heures, COUNT(*) as nb_cours
+                        FROM heures_cours
+                        WHERE professeur_id = ? AND date_cours BETWEEN ? AND ? AND statut = 'effectue'
+                        """,
+                        (professeur_id, periode_debut, periode_fin)
+                    )
+                    th, nb = cur.fetchone()
+                    mssql.close()
+                    return {
+                        "professeur_id": professeur_id,
+                        "periode_debut": periode_debut,
+                        "periode_fin": periode_fin,
+                        "total_heures": th or 0,
+                        "nb_cours": nb or 0,
+                        "taux_horaire": taux_horaire,
+                        "montant_total": (th or 0) * taux_horaire
+                    }
+            except Exception:
+                pass
+
+            # Fallback SQLite
+            conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
-            query = """
-                SELECT hs.*, p.nom, p.prenom, p.matricule
-                FROM historique_salaires hs
-                JOIN professeurs p ON hs.id_professeur = p.id_professeur
-                WHERE 1=1
-            """
-            params = []
+            # Récupérer le taux horaire du professeur
+            # Déterminer dynamiquement la colonne identifiant (id ou professeur_id)
+            try:
+                cursor.execute("SELECT salaire_horaire FROM professeurs WHERE id = ?", (professeur_id,))
+            except Exception:
+                try:
+                    cursor.execute("SELECT salaire_horaire FROM professeurs WHERE professeur_id = ?", (professeur_id,))
+                except Exception:
+                    conn.close()
+                    return {
+                        "professeur_id": professeur_id,
+                        "periode_debut": periode_debut,
+                        "periode_fin": periode_fin,
+                        "total_heures": 0,
+                        "nb_cours": 0,
+                        "taux_horaire": 0,
+                        "montant_total": 0
+                    }
+            result = cursor.fetchone()
+            if not result:
+                return {"error": "Professeur non trouvé"}
             
-            if prof_id:
-                query += " AND hs.id_professeur = ?"
-                params.append(prof_id)
+            taux_horaire = result[0] or 0
             
-            if mois:
-                query += " AND hs.mois = ?"
-                params.append(mois)
-            
-            if annee:
-                query += " AND hs.annee = ?"
-                params.append(annee)
-            
-            query += " ORDER BY hs.annee DESC, hs.mois DESC"
-            
-            cursor.execute(query, params)
-            return [dict(row) for row in cursor.fetchall()]
-            
-        except Exception as e:
-            print(f"❌ Erreur récupération historique salaires: {e}")
-            return []
-        finally:
-            conn.close()
-    
-    def get_salary_statistics(self, annee: int = None) -> Dict:
-        """
-        Récupère les statistiques des salaires
-        
-        Args:
-            annee: Année (optionnel, défaut: année actuelle)
-            
-        Returns:
-            Dict: Statistiques des salaires
-        """
-        if annee is None:
-            annee = datetime.now().year
-        
-        conn = self.get_connection()
-        if not conn:
-            return {}
-        
-        try:
-            cursor = conn.cursor()
-            
-            # Statistiques générales
+            # Récupérer les heures pour la période
             cursor.execute("""
-                SELECT 
-                    COUNT(*) as nombre_professeurs,
-                    SUM(salaire_brut) as total_salaires_bruts,
-                    SUM(salaire_net) as total_salaires_nets,
-                    SUM(cotisations_sociales) as total_cotisations,
-                    AVG(salaire_brut) as salaire_moyen_brut,
-                    AVG(salaire_net) as salaire_moyen_net
-                FROM historique_salaires hs
-                WHERE hs.annee = ?
-            """, (annee,))
+                SELECT SUM(nombre_heures) as total_heures, COUNT(*) as nb_cours
+                FROM heures_cours 
+                WHERE professeur_id = ? 
+                AND date_cours BETWEEN ? AND ?
+                AND statut = 'effectue'
+            """, (professeur_id, periode_debut, periode_fin))
             
-            stats = dict(cursor.fetchone())
+            result = cursor.fetchone()
+            total_heures = result[0] or 0
+            nb_cours = result[1] or 0
             
-            # Top 5 des professeurs les mieux payés
-            cursor.execute("""
-                SELECT p.nom, p.prenom, AVG(hs.salaire_net) as salaire_moyen
-                FROM historique_salaires hs
-                JOIN professeurs p ON hs.id_professeur = p.id_professeur
-                WHERE hs.annee = ?
-                GROUP BY hs.id_professeur, p.nom, p.prenom
-                ORDER BY salaire_moyen DESC
-                LIMIT 5
-            """, (annee,))
+            # Calculer le montant
+            montant_total = total_heures * taux_horaire
             
-            stats['top_professeurs'] = [dict(row) for row in cursor.fetchall()]
-            
-            return stats
-            
-        except Exception as e:
-            print(f"❌ Erreur récupération statistiques: {e}")
-            return {}
-        finally:
             conn.close()
-    
-    def update_professor_salary_info(self, prof_id: int, salary_info: Dict) -> bool:
-        """
-        Met à jour les informations de salaire d'un professeur
-        
-        Args:
-            prof_id: ID du professeur
-            salary_info: Dictionnaire contenant les nouvelles informations
             
-        Returns:
-            bool: True si mis à jour avec succès
-        """
-        conn = self.get_connection()
-        if not conn:
-            return False
-        
+            return {
+                "professeur_id": professeur_id,
+                "periode_debut": periode_debut,
+                "periode_fin": periode_fin,
+                "total_heures": total_heures,
+                "nb_cours": nb_cours,
+                "taux_horaire": taux_horaire,
+                "montant_total": montant_total
+            }
+        except Exception as e:
+            print(f"❌ Erreur calcul salaire: {e}")
+            return {"error": str(e)}
+    
+    def get_monthly_summary(self, month: int, year: int) -> Dict:
+        """Récupère un résumé mensuel de tous les professeurs"""
         try:
+            # SQL Server d'abord
+            try:
+                mssql = get_db_connection()
+                if mssql:
+                    cur = mssql.cursor()
+                    cur.execute(
+                        """
+                        SELECT 
+                            p.id_professeur as id,
+                            p.nom,
+                            p.prenom,
+                            p.specialite,
+                            p.salaire_horaire,
+                            COALESCE(SUM(h.nombre_heures), 0) as total_heures,
+                            COUNT(h.id) as nb_cours,
+                            COALESCE(SUM(h.nombre_heures) * p.salaire_horaire, 0) as montant_total
+                        FROM professeurs p
+                        LEFT JOIN heures_cours h ON p.id_professeur = h.professeur_id 
+                            AND MONTH(h.date_cours) = ? 
+                            AND YEAR(h.date_cours) = ?
+                            AND h.statut = 'effectue'
+                        GROUP BY p.id_professeur, p.nom, p.prenom, p.specialite, p.salaire_horaire
+                        ORDER BY montant_total DESC
+                        """,
+                        (month, year)
+                    )
+                    columns = [d[0] for d in cur.description]
+                    professeurs = [dict(zip(columns, row)) for row in cur.fetchall()]
+                    total_heures = sum(p['total_heures'] for p in professeurs)
+                    total_montant = sum(p['montant_total'] for p in professeurs)
+                    mssql.close()
+                    return {
+                        "month": month,
+                        "year": year,
+                        "professeurs": professeurs,
+                        "totals": {
+                            "nb_professeurs": len(professeurs),
+                            "total_heures": total_heures,
+                            "total_montant": total_montant,
+                            "moyenne_heures": total_heures / len(professeurs) if professeurs else 0,
+                            "moyenne_montant": total_montant / len(professeurs) if professeurs else 0,
+                        }
+                    }
+            except Exception:
+                pass
+
+            # Fallback SQLite
+            conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
-            # Construire la requête de mise à jour dynamiquement
-            fields = []
-            values = []
+            # Récupérer les données de tous les professeurs pour le mois
+            # Tenter de joindre sur id, sinon regrouper uniquement sur heures
+            try:
+                cursor.execute("""
+                    SELECT 
+                        p.id as id,
+                        p.nom,
+                        p.prenom,
+                        p.specialite,
+                        p.salaire_horaire,
+                        COALESCE(SUM(h.nombre_heures), 0) as total_heures,
+                        COUNT(h.id) as nb_cours,
+                        COALESCE(SUM(h.nombre_heures) * p.salaire_horaire, 0) as montant_total
+                    FROM professeurs p
+                    LEFT JOIN heures_cours h ON p.id = h.professeur_id 
+                        AND strftime('%m', h.date_cours) = ? 
+                        AND strftime('%Y', h.date_cours) = ?
+                        AND h.statut = 'effectue'
+                    GROUP BY p.id, p.nom, p.prenom, p.specialite, p.salaire_horaire
+                    ORDER BY montant_total DESC
+                """, (f"{month:02d}", str(year)))
+            except Exception:
+                prof_col = self._get_hours_prof_col()
+                cursor.execute(f"""
+                    SELECT 
+                        COALESCE(h.{prof_col}, 0) as id,
+                        '' as nom,
+                        '' as prenom,
+                        '' as specialite,
+                        0 as salaire_horaire,
+                        COALESCE(SUM(h.nombre_heures), 0) as total_heures,
+                        COUNT(h.id) as nb_cours,
+                        0 as montant_total
+                    FROM heures_cours h
+                    WHERE strftime('%m', h.date_cours) = ? 
+                      AND strftime('%Y', h.date_cours) = ?
+                      AND h.statut = 'effectue'
+                    GROUP BY id
+                    ORDER BY total_heures DESC
+                """, (f"{month:02d}", str(year)))
             
-            for key, value in salary_info.items():
-                if key in ['salaire_horaire', 'heures_mensuelles', 'salaire_base', 
-                          'prime_performance', 'prime_anciennete', 'cotisations_sociales',
-                          'compte_bancaire', 'numero_cnss', 'numero_impot']:
-                    fields.append(f"{key} = ?")
-                    values.append(value)
+            columns = [description[0] for description in cursor.description]
+            professeurs = [dict(zip(columns, row)) for row in cursor.fetchall()]
             
-            if fields:
-                values.append(prof_id)
-                query = f"UPDATE professeurs SET {', '.join(fields)}, date_modification = CURRENT_TIMESTAMP WHERE id_professeur = ?"
-                
-                cursor.execute(query, values)
-                conn.commit()
-                return True
+            # Calculer les totaux
+            total_heures = sum(p['total_heures'] for p in professeurs)
+            total_montant = sum(p['montant_total'] for p in professeurs)
+            nb_professeurs = len(professeurs)
             
-            return False
-            
-        except Exception as e:
-            print(f"❌ Erreur mise à jour salaire: {e}")
-            conn.rollback()
-            return False
-        finally:
             conn.close()
+            
+            return {
+                "month": month,
+                "year": year,
+                "professeurs": professeurs,
+                "totals": {
+                    "nb_professeurs": nb_professeurs,
+                    "total_heures": total_heures,
+                    "total_montant": total_montant,
+                    "moyenne_heures": total_heures / nb_professeurs if nb_professeurs > 0 else 0,
+                    "moyenne_montant": total_montant / nb_professeurs if nb_professeurs > 0 else 0
+                }
+            }
+        except Exception as e:
+            print(f"❌ Erreur résumé mensuel: {e}")
+            return {"error": str(e)}
+    
+    def get_academic_year_summary(self, year: int) -> Dict:
+        """Récupère un résumé de l'année scolaire (septembre à mai)"""
+        try:
+            # SQL Server d'abord
+            try:
+                mssql = get_db_connection()
+                if mssql:
+                    cur = mssql.cursor()
+                    periode_debut = f"{year-1}-09-01"
+                    periode_fin = f"{year}-05-31"
+                    cur.execute(
+                        """
+                        SELECT 
+                            p.id_professeur as id,
+                            p.nom,
+                            p.prenom,
+                            p.specialite,
+                            p.salaire_horaire,
+                            COALESCE(SUM(h.nombre_heures), 0) as total_heures,
+                            COUNT(h.id) as nb_cours,
+                            COALESCE(SUM(h.nombre_heures) * p.salaire_horaire, 0) as montant_total
+                        FROM professeurs p
+                        LEFT JOIN heures_cours h ON p.id_professeur = h.professeur_id 
+                            AND h.date_cours BETWEEN ? AND ?
+                            AND h.statut = 'effectue'
+                        GROUP BY p.id_professeur, p.nom, p.prenom, p.specialite, p.salaire_horaire
+                        ORDER BY montant_total DESC
+                        """,
+                        (periode_debut, periode_fin)
+                    )
+                    columns = [d[0] for d in cur.description]
+                    professeurs = [dict(zip(columns, row)) for row in cur.fetchall()]
+                    total_heures = sum(p['total_heures'] for p in professeurs)
+                    total_montant = sum(p['montant_total'] for p in professeurs)
+                    mssql.close()
+                    return {
+                        "academic_year": f"{year-1}-{year}",
+                        "periode_debut": periode_debut,
+                        "periode_fin": periode_fin,
+                        "professeurs": professeurs,
+                        "totals": {
+                            "nb_professeurs": len(professeurs),
+                            "total_heures": total_heures,
+                            "total_montant": total_montant,
+                            "moyenne_heures": total_heures / len(professeurs) if professeurs else 0,
+                            "moyenne_montant": total_montant / len(professeurs) if professeurs else 0,
+                        }
+                    }
+            except Exception:
+                pass
 
-# Fonctions utilitaires pour faciliter l'utilisation
-def calculate_monthly_salary(prof_id: int, mois: int, annee: int) -> Dict:
-    """Calcule le salaire mensuel d'un professeur"""
-    controller = SalaryController()
-    return controller.calculate_salary(prof_id, mois, annee)
+            # Fallback SQLite
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Période académique : septembre de l'année précédente à mai de l'année actuelle
+            periode_debut = f"{year-1}-09-01"
+            periode_fin = f"{year}-05-31"
+            
+            try:
+                cursor.execute("""
+                    SELECT 
+                        p.id as id,
+                        p.nom,
+                        p.prenom,
+                        p.specialite,
+                        p.salaire_horaire,
+                        COALESCE(SUM(h.nombre_heures), 0) as total_heures,
+                        COUNT(h.id) as nb_cours,
+                        COALESCE(SUM(h.nombre_heures) * p.salaire_horaire, 0) as montant_total
+                    FROM professeurs p
+                    LEFT JOIN heures_cours h ON p.id = h.professeur_id 
+                        AND h.date_cours BETWEEN ? AND ?
+                        AND h.statut = 'effectue'
+                    GROUP BY p.id, p.nom, p.prenom, p.specialite, p.salaire_horaire
+                    ORDER BY montant_total DESC
+                """, (periode_debut, periode_fin))
+            except Exception:
+                prof_col = self._get_hours_prof_col()
+                cursor.execute(f"""
+                    SELECT 
+                        COALESCE(h.{prof_col}, 0) as id,
+                        '' as nom,
+                        '' as prenom,
+                        '' as specialite,
+                        0 as salaire_horaire,
+                        COALESCE(SUM(h.nombre_heures), 0) as total_heures,
+                        COUNT(h.id) as nb_cours,
+                        0 as montant_total
+                    FROM heures_cours h
+                    WHERE h.date_cours BETWEEN ? AND ?
+                      AND h.statut = 'effectue'
+                    GROUP BY id
+                    ORDER BY total_heures DESC
+                """, (periode_debut, periode_fin))
+            
+            columns = [description[0] for description in cursor.description]
+            professeurs = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            
+            # Calculer les totaux
+            total_heures = sum(p['total_heures'] for p in professeurs)
+            total_montant = sum(p['montant_total'] for p in professeurs)
+            nb_professeurs = len(professeurs)
+            
+            conn.close()
+            
+            return {
+                "academic_year": f"{year-1}-{year}",
+                "periode_debut": periode_debut,
+                "periode_fin": periode_fin,
+                "professeurs": professeurs,
+                "totals": {
+                    "nb_professeurs": nb_professeurs,
+                    "total_heures": total_heures,
+                    "total_montant": total_montant,
+                    "moyenne_heures": total_heures / nb_professeurs if nb_professeurs > 0 else 0,
+                    "moyenne_montant": total_montant / nb_professeurs if nb_professeurs > 0 else 0
+                }
+            }
+        except Exception as e:
+            print(f"❌ Erreur résumé année: {e}")
+            return {"error": str(e)}
+    
+    def add_absence(self, professeur_id: int, date_absence: str, 
+                   heures_manquees: float, motif: str = "", 
+                   justifie: bool = False) -> bool:
+        """Enregistre une absence d'un professeur"""
+        try:
+            # SQL Server d'abord
+            try:
+                mssql = get_db_connection()
+                if mssql:
+                    cur = mssql.cursor()
+                    cur.execute(
+                        """
+                        INSERT INTO absences_professeurs (professeur_id, date_absence, heures_manquees, motif, justifie)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (professeur_id, date_absence, heures_manquees, motif, justifie)
+                    )
+                    mssql.commit()
+                    mssql.close()
+                    return True
+            except Exception:
+                pass
 
-def save_monthly_salary(prof_id: int, mois: int, annee: int) -> bool:
-    """Calcule et sauvegarde le salaire mensuel d'un professeur"""
-    controller = SalaryController()
-    salary_data = controller.calculate_salary(prof_id, mois, annee)
-    if salary_data:
-        return controller.save_salary_record(salary_data)
-    return False
+            # Fallback SQLite
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO absences_professeurs 
+                (professeur_id, date_absence, heures_manquees, motif, justifie)
+                VALUES (?, ?, ?, ?, ?)
+            """, (professeur_id, date_absence, heures_manquees, motif, justifie))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Erreur ajout absence: {e}")
+            return False
+    
+    def get_absences(self, professeur_id: int, month: int = None, year: int = None) -> List[Dict]:
+        """Récupère les absences d'un professeur"""
+        try:
+            # SQL Server d'abord
+            try:
+                mssql = get_db_connection()
+                if mssql:
+                    cur = mssql.cursor()
+                    if month and year:
+                        cur.execute(
+                            """
+                            SELECT * FROM absences_professeurs 
+                            WHERE professeur_id = ? AND MONTH(date_absence) = ? AND YEAR(date_absence) = ?
+                            ORDER BY date_absence DESC
+                            """,
+                            (professeur_id, month, year)
+                        )
+                    else:
+                        cur.execute(
+                            """
+                            SELECT * FROM absences_professeurs 
+                            WHERE professeur_id = ? ORDER BY date_absence DESC
+                            """,
+                            (professeur_id,)
+                        )
+                    columns = [d[0] for d in cur.description]
+                    results = [dict(zip(columns, row)) for row in cur.fetchall()]
+                    mssql.close()
+                    return results
+            except Exception:
+                pass
 
-def get_all_professors_salary_summary(mois: int, annee: int) -> List[Dict]:
-    """Récupère le résumé des salaires de tous les professeurs pour un mois donné"""
-    controller = SalaryController()
-    return controller.get_salary_history(mois=mois, annee=annee)
+            # Fallback SQLite
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            if month and year:
+                query = """
+                    SELECT * FROM absences_professeurs 
+                    WHERE professeur_id = ? 
+                    AND strftime('%m', date_absence) = ? 
+                    AND strftime('%Y', date_absence) = ?
+                    ORDER BY date_absence DESC
+                """
+                cursor.execute(query, (professeur_id, f"{month:02d}", str(year)))
+            else:
+                query = """
+                    SELECT * FROM absences_professeurs 
+                    WHERE professeur_id = ? 
+                    ORDER BY date_absence DESC
+                """
+                cursor.execute(query, (professeur_id,))
+            
+            columns = [description[0] for description in cursor.description]
+            results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            
+            conn.close()
+            return results
+        except Exception as e:
+            print(f"❌ Erreur récupération absences: {e}")
+            return []

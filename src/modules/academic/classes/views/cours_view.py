@@ -191,18 +191,35 @@ class CoursManagerView(ctk.CTkFrame):
     
     def setup_ui(self):
         """Configure l'interface utilisateurs"""
-        # Container principal
-        main_container = ctk.CTkFrame(self, fg_color=BG_CARD, corner_radius=20, border_width=2, border_color=BORDER_COLOR)
-        main_container.pack(fill="both", expand=True, padx=3, pady=3)
-        
-        # Header avec titre et contrôles
-        self.create_header(main_container)
-        
-        # Table unifiée avec pagination
-        self.create_unified_table(main_container)
-        
-        # Contrôles de pagination
-        self.create_pagination_controls(main_container)
+        try:
+            # Container principal
+            self.main_container = ctk.CTkFrame(self, fg_color=BG_CARD, corner_radius=20, border_width=2, border_color=BORDER_COLOR)
+            self.main_container.pack(fill="both", expand=True, padx=3, pady=3)
+            
+            # Header avec titre et contrôles
+            self.create_header(self.main_container)
+            
+            # Table unifiée avec pagination
+            self.create_unified_table(self.main_container)
+            
+            # Contrôles de pagination
+            self.create_pagination_controls(self.main_container)
+            
+            print("✅ Interface utilisateur configurée avec succès")
+            
+        except Exception as e:
+            print(f"❌ Erreur configuration interface: {e}")
+            # Fallback avec interface minimale
+            try:
+                self.main_container = ctk.CTkFrame(self, fg_color=BG_CARD, corner_radius=20, border_width=2, border_color=BORDER_COLOR)
+                self.main_container.pack(fill="both", expand=True, padx=3, pady=3)
+                
+                # Créer juste les contrôles de pagination de base
+                self.create_pagination_controls(self.main_container)
+                
+                print("✅ Interface de base créée")
+            except Exception as e2:
+                print(f"❌ Erreur critique interface: {e2}")
     
     def create_header(self, parent):
         """Crée l'en-tête avec titre et contrôles"""
@@ -342,72 +359,107 @@ class CoursManagerView(ctk.CTkFrame):
     
     def create_pagination_controls(self, parent):
         """Crée les contrôles de pagination"""
-        self.pagination_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        self.pagination_frame.pack(fill="x", padx=15, pady=(0, 15))
-        
-        # Section gauche - Informations de pagination
-        info_frame = ctk.CTkFrame(self.pagination_frame, fg_color="transparent")
-        info_frame.pack(side="left", fill="y")
-        
-        self.pagination_info_label = ctk.CTkLabel(
-            info_frame,
-            text="Page 1 sur 1",
-            font=("Segoe UI", 12),
-            text_color=TEXT_SECONDARY,
-            fg_color="transparent"
-        )
-        self.pagination_info_label.pack(side="left")
-        
-        # Section droite - Boutons de navigation
-        nav_frame = ctk.CTkFrame(self.pagination_frame, fg_color="transparent")
-        nav_frame.pack(side="right", fill="y")
-        
-        # Bouton Précédent
-        self.prev_btn = ctk.CTkButton(
-            nav_frame,
-            text="◀ Précédent",
-            fg_color="transparent",
-            text_color=TEXT_PRIMARY,
-            hover_color=BG_CARD_HOVER,
-            command=self.go_to_previous_page,
-            corner_radius=10,
-            height=35,
-            width=100,
-            border_width=2,
-            border_color=BORDER_COLOR,
-            font=("Segoe UI", 11, "bold")
-        )
-        self.prev_btn.pack(side="left", padx=(0, 10))
-        
-        # Indicateur de page actuelle
-        self.page_indicator = ctk.CTkLabel(
-            nav_frame,
-            text="1",
-            font=("Segoe UI", 12, "bold"),
-            text_color=TEXT_ACCENT,
-            fg_color=BG_CARD,
-            corner_radius=15,
-            width=30,
-            height=30
-        )
-        self.page_indicator.pack(side="left", padx=(0, 10))
-        
-        # Bouton Suivant
-        self.next_btn = ctk.CTkButton(
-            nav_frame,
-            text="Suivant ▶",
-            fg_color="transparent",
-            text_color=TEXT_PRIMARY,
-            hover_color=BG_CARD_HOVER,
-            command=self.go_to_next_page,
-            corner_radius=10,
-            height=35,
-            width=100,
-            border_width=2,
-            border_color=BORDER_COLOR,
-            font=("Segoe UI", 11, "bold")
-        )
-        self.next_btn.pack(side="left")
+        try:
+            # Nettoyer les anciens contrôles s'ils existent
+            if hasattr(self, 'pagination_frame') and self.pagination_frame:
+                try:
+                    self.pagination_frame.destroy()
+                except:
+                    pass
+            
+            # Créer le frame de pagination
+            self.pagination_frame = ctk.CTkFrame(parent, fg_color="transparent")
+            self.pagination_frame.pack(fill="x", padx=15, pady=(0, 15))
+            
+            # Section gauche - Informations de pagination
+            info_frame = ctk.CTkFrame(self.pagination_frame, fg_color="transparent")
+            info_frame.pack(side="left", fill="y")
+            
+            self.pagination_info_label = ctk.CTkLabel(
+                info_frame,
+                text="Page 1 sur 1",
+                font=("Segoe UI", 12),
+                text_color=TEXT_SECONDARY,
+                fg_color="transparent"
+            )
+            self.pagination_info_label.pack(side="left")
+            
+            # Section droite - Boutons de navigation
+            nav_frame = ctk.CTkFrame(self.pagination_frame, fg_color="transparent")
+            nav_frame.pack(side="right", fill="y")
+            
+            # Bouton Précédent
+            self.prev_btn = ctk.CTkButton(
+                nav_frame,
+                text="◀ Précédent",
+                fg_color="transparent",
+                text_color=TEXT_PRIMARY,
+                hover_color=BG_CARD_HOVER,
+                command=self.go_to_previous_page,
+                corner_radius=10,
+                height=35,
+                width=100,
+                border_width=2,
+                border_color=BORDER_COLOR,
+                font=("Segoe UI", 11, "bold")
+            )
+            self.prev_btn.pack(side="left", padx=(0, 10))
+            
+            # Indicateur de page actuelle
+            self.page_indicator = ctk.CTkLabel(
+                nav_frame,
+                text="1",
+                font=("Segoe UI", 12, "bold"),
+                text_color=TEXT_ACCENT,
+                fg_color=BG_CARD,
+                corner_radius=15,
+                width=30,
+                height=30
+            )
+            self.page_indicator.pack(side="left", padx=(0, 10))
+            
+            # Bouton Suivant
+            self.next_btn = ctk.CTkButton(
+                nav_frame,
+                text="Suivant ▶",
+                fg_color="transparent",
+                text_color=TEXT_PRIMARY,
+                hover_color=BG_CARD_HOVER,
+                command=self.go_to_next_page,
+                corner_radius=10,
+                height=35,
+                width=100,
+                border_width=2,
+                border_color=BORDER_COLOR,
+                font=("Segoe UI", 11, "bold")
+            )
+            self.next_btn.pack(side="left")
+            
+            print("✅ Contrôles de pagination créés avec succès")
+            
+        except Exception as e:
+            print(f"⚠️ Erreur création contrôles pagination: {e}")
+            # Créer des contrôles de base en cas d'erreur
+            try:
+                self.pagination_frame = ctk.CTkFrame(parent, fg_color="transparent")
+                self.pagination_frame.pack(fill="x", padx=15, pady=(0, 15))
+                
+                self.pagination_info_label = ctk.CTkLabel(
+                    self.pagination_frame,
+                    text="Page 1 sur 1",
+                    font=("Segoe UI", 12),
+                    text_color=TEXT_SECONDARY,
+                    fg_color="transparent"
+                )
+                self.pagination_info_label.pack(side="left")
+                
+                self.prev_btn = None
+                self.next_btn = None
+                self.page_indicator = None
+                
+                print("✅ Contrôles de pagination de base créés")
+            except Exception as e2:
+                print(f"❌ Erreur critique création pagination: {e2}")
     
     def refresh_view(self):
         """Actualise la vue avec des cartes de manière optimisée"""
@@ -459,8 +511,11 @@ class CoursManagerView(ctk.CTkFrame):
                 card = self.create_course_card(item, i)
                 self.cards.append(card)
             
-            # Mettre à jour les contrôles de pagination
-            self._update_pagination_controls()
+            # Mettre à jour les contrôles de pagination seulement s'ils existent
+            if hasattr(self, 'pagination_info_label') and self.pagination_info_label:
+                self._update_pagination_controls()
+            else:
+                print("⚠️ Contrôles de pagination non disponibles pour la mise à jour")
             
             print(f"✅ Page {self.current_page}/{self.total_pages} affichée ({len(courses_to_display)} cours)")
                     
@@ -470,20 +525,52 @@ class CoursManagerView(ctk.CTkFrame):
     def _update_pagination_controls(self):
         """Met à jour les contrôles de pagination"""
         try:
+            # Vérifier que les contrôles de pagination existent
+            if not hasattr(self, 'pagination_info_label') or not self.pagination_info_label:
+                print("⚠️ Contrôles de pagination non initialisés, création...")
+                # Trouver le parent correct pour les contrôles de pagination
+                parent = None
+                if hasattr(self, 'pagination_frame') and self.pagination_frame:
+                    parent = self.pagination_frame.master
+                else:
+                    # Chercher le container principal
+                    for widget in self.winfo_children():
+                        if isinstance(widget, ctk.CTkFrame):
+                            parent = widget
+                            break
+                
+                if parent:
+                    self.create_pagination_controls(parent)
+                else:
+                    print("❌ Impossible de trouver le parent pour les contrôles de pagination")
+                return
+            
             # Mettre à jour les informations de pagination
             self.pagination_info_label.configure(
                 text=f"Page {self.current_page} sur {self.total_pages} ({self.total_courses} cours au total)"
             )
             
             # Mettre à jour l'indicateur de page
-            self.page_indicator.configure(text=str(self.current_page))
+            if hasattr(self, 'page_indicator') and self.page_indicator:
+                self.page_indicator.configure(text=str(self.current_page))
             
             # Activer/désactiver les boutons selon la page actuelle
-            self.prev_btn.configure(state="normal" if self.current_page > 1 else "disabled")
-            self.next_btn.configure(state="normal" if self.current_page < self.total_pages else "disabled")
+            if hasattr(self, 'prev_btn') and self.prev_btn:
+                self.prev_btn.configure(state="normal" if self.current_page > 1 else "disabled")
+            if hasattr(self, 'next_btn') and self.next_btn:
+                self.next_btn.configure(state="normal" if self.current_page < self.total_pages else "disabled")
             
         except Exception as e:
             print(f"⚠️ Erreur _update_pagination_controls: {e}")
+            # Tentative de recréation des contrôles avec fallback
+            try:
+                # Chercher le container principal comme fallback
+                for widget in self.winfo_children():
+                    if isinstance(widget, ctk.CTkFrame):
+                        self.create_pagination_controls(widget)
+                        break
+            except Exception as e2:
+                print(f"⚠️ Erreur recréation contrôles pagination: {e2}")
     
     
     def _load_courses_async(self):
@@ -506,6 +593,14 @@ class CoursManagerView(ctk.CTkFrame):
             # Supprimer l'indicateur de chargement s'il existe
             if hasattr(self, 'loading_frame'):
                 self.loading_frame.destroy()
+            
+            # S'assurer que les contrôles de pagination existent avant d'afficher
+            if not hasattr(self, 'pagination_info_label') or not self.pagination_info_label:
+                print("⚠️ Contrôles de pagination manquants, création...")
+                if hasattr(self, 'main_container') and self.main_container:
+                    self.create_pagination_controls(self.main_container)
+                else:
+                    print("❌ Container principal non trouvé pour les contrôles de pagination")
             
             # Afficher la première page
             self._display_current_page()
