@@ -145,9 +145,11 @@ def get_professeurs_paginated(limit: int = 50, offset: int = 0,
 
         where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
-        # Sélection des colonnes
+        # Sélection des colonnes (inclure les colonnes pour les calculs de salaires)
         columns = (
-            "id_professeur, nom, prenom, email, telephone, specialite, statut, date_embauche"
+            "id_professeur, nom, prenom, email, telephone, specialite, statut, date_embauche, "
+            "heures_par_session, sessions_semaine, salaire_horaire, heures_mensuelles, "
+            "salaire_base, salaire_net"
             + (", est_professeur_principal" if has_principal else "")
         )
 
@@ -167,6 +169,8 @@ def get_professeurs_paginated(limit: int = 50, offset: int = 0,
         result = []
         for row in rows:
             # Indexation dynamique selon présence 'est_professeur_principal'
+            # Les colonnes sont maintenant: id, nom, prenom, email, telephone, specialite, statut, date_embauche,
+            # heures_par_session, sessions_semaine, salaire_horaire, heures_mensuelles, salaire_base, salaire_net
             base = {
                 'id': row[0],
                 'matricule': f"PROF{row[0]:04d}",
@@ -180,10 +184,17 @@ def get_professeurs_paginated(limit: int = 50, offset: int = 0,
                 'statut': row[6] or 'Actif',
                 'adresse': '',
                 'date_naissance': '',
-                'photo_path': ''
+                'photo_path': '',
+                # Colonnes pour les calculs de salaires
+                'heures_par_session': float(row[8]) if row[8] else 2.0,
+                'sessions_semaine': float(row[9]) if row[9] else 10.0,
+                'salaire_horaire': float(row[10]) if row[10] else 0.0,
+                'heures_mensuelles': float(row[11]) if row[11] else 0.0,
+                'salaire_base': float(row[12]) if row[12] else 0.0,
+                'salaire_net': float(row[13]) if row[13] else 0.0
             }
             if has_principal:
-                base['est_professeur_principal'] = bool(row[8])
+                base['est_professeur_principal'] = bool(row[14])  # Index décalé
             result.append(base)
 
         conn.close()

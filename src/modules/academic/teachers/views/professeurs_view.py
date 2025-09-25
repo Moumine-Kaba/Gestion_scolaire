@@ -268,70 +268,104 @@ class ProfesseurDialog(ctk.CTkToplevel):
             print(f"❌ Erreur lors du chargement des données: {e}")
             # Continuer même en cas d'erreur
         
+    def _validate_fields(self):
+        """Valide les champs obligatoires"""
+        if not self.nom_entry.get().strip():
+            print("❌ Nom manquant")
+            messagebox.showerror("Erreur", "Le nom est obligatoire")
+            return False
+        if not self.prenom_entry.get().strip():
+            print("❌ Prénom manquant")
+            messagebox.showerror("Erreur", "Le prénom est obligatoire")
+            return False
+        if not self.email_entry.get().strip():
+            print("❌ Email manquant")
+            messagebox.showerror("Erreur", "L'email est obligatoire")
+            return False
+        if not self.specialite_entry.get().strip():
+            print("❌ Spécialité manquante")
+            messagebox.showerror("Erreur", "La spécialité est obligatoire")
+            return False
+        return True
+
     def save(self):
         """Sauvegarde les données avec validation complète et calculs automatiques"""
-        # Validation des champs obligatoires
-        if not self.nom_entry.get().strip():
-            messagebox.showerror("Erreur", "Le nom est obligatoire")
+        print("🔍 Début de la sauvegarde...")
+        
+        # Éviter les doubles clics
+        if hasattr(self, '_saving') and self._saving:
+            print("⚠️ Sauvegarde déjà en cours, ignorée")
             return
-        if not self.prenom_entry.get().strip():
-            messagebox.showerror("Erreur", "Le prénom est obligatoire")
-            return
-        if not self.email_entry.get().strip():
-            messagebox.showerror("Erreur", "L'email est obligatoire")
-            return
-        if not self.specialite_entry.get().strip():
-            messagebox.showerror("Erreur", "La spécialité est obligatoire")
-            return
+        self._saving = True
         
-        # Collecte des données
-        taux_horaire = float(self.taux_horaire_entry.get() or 0)
-        heures_par_session = float(self.heures_par_session_entry.get() or 2)
-        sessions_semaine = float(self.sessions_semaine_entry.get() or 10)
-        
-        # Calculs automatiques des salaires
-        heures_semaine = sessions_semaine * heures_par_session
-        heures_mois = heures_semaine * 4.33  # Moyenne mensuelle
-        heures_annee_scolaire = heures_mois * 9  # 9 mois de cours
-        
-        salaire_semaine = heures_semaine * taux_horaire
-        salaire_mois = heures_mois * taux_horaire
-        salaire_annee = heures_annee_scolaire * taux_horaire
-        
-        data = {
-            # Informations personnelles
-            'nom': self.nom_entry.get().strip(),
-            'prenom': self.prenom_entry.get().strip(),
-            'email': self.email_entry.get().strip(),
-            'telephone': self.telephone_entry.get().strip(),
+        try:
+            # Validation des champs obligatoires
+            if not self._validate_fields():
+                return
             
-            # Informations professionnelles
-            'specialite': self.specialite_entry.get().strip(),
-            'statut': self.statut_combo.get(),
-            'date_embauche': self.date_embauche_entry.get().strip() or datetime.now().strftime("%Y-%m-%d"),
-            'heures_mensuelles': int(self.heures_mensuelles_entry.get() or 173),
+            print("✅ Validation des champs obligatoires réussie")
             
-            # Configuration salariale
-            'taux_horaire': taux_horaire,
-            'heures_par_session': heures_par_session,
-            'sessions_semaine': sessions_semaine,
+            # Collecte des données
+            taux_horaire = float(self.taux_horaire_entry.get() or 0)
+            heures_par_session = float(self.heures_par_session_entry.get() or 2)
+            sessions_semaine = float(self.sessions_semaine_entry.get() or 10)
             
-            # Salaires calculés automatiquement
-            'salaire_base': salaire_mois,  # Salaire de base = salaire mensuel
-            'salaire_net': salaire_mois,   # Salaire net = salaire mensuel (pas de déductions)
-            'salaire_horaire': taux_horaire,
+            print(f"📊 Données collectées: taux={taux_horaire}, heures/session={heures_par_session}, sessions/semaine={sessions_semaine}")
             
-            # Calculs pour affichage
-            'heures_semaine': heures_semaine,
-            'heures_mois': heures_mois,
-            'heures_annee_scolaire': heures_annee_scolaire,
-            'salaire_semaine': salaire_semaine,
-            'salaire_mois': salaire_mois,
-            'salaire_annee': salaire_annee
-        }
+            # Calculs automatiques des salaires
+            heures_semaine = sessions_semaine * heures_par_session
+            heures_mois = heures_semaine * 4.33  # Moyenne mensuelle
+            heures_annee_scolaire = heures_mois * 9  # 9 mois de cours
+            
+            salaire_semaine = heures_semaine * taux_horaire
+            salaire_mois = heures_mois * taux_horaire
+            salaire_annee = heures_annee_scolaire * taux_horaire
+            
+            print(f"💰 Calculs: salaire_mois={salaire_mois:,.0f} GNF")
+            
+            data = {
+                # Informations personnelles
+                'nom': self.nom_entry.get().strip(),
+                'prenom': self.prenom_entry.get().strip(),
+                'email': self.email_entry.get().strip(),
+                'telephone': self.telephone_entry.get().strip(),
+                
+                # Informations professionnelles
+                'specialite': self.specialite_entry.get().strip(),
+                'statut': self.statut_combo.get(),
+                'date_embauche': self.date_embauche_entry.get().strip() or datetime.now().strftime("%Y-%m-%d"),
+                'heures_mensuelles': float(self.heures_mensuelles_entry.get() or 173),
+                
+                # Configuration salariale
+                'taux_horaire': taux_horaire,
+                'heures_par_session': heures_par_session,
+                'sessions_semaine': sessions_semaine,
+                
+                # Salaires calculés automatiquement
+                'salaire_base': salaire_mois,  # Salaire de base = salaire mensuel
+                'salaire_net': salaire_mois,   # Salaire net = salaire mensuel (pas de déductions)
+                'salaire_horaire': taux_horaire,
+                
+                # Calculs pour affichage
+                'heures_semaine': heures_semaine,
+                'heures_mois': heures_mois,
+                'heures_annee_scolaire': heures_annee_scolaire,
+                'salaire_semaine': salaire_semaine,
+                'salaire_mois': salaire_mois,
+                'salaire_annee': salaire_annee
+            }
+            
+            print(f"✅ Données préparées: {data}")
+            self.result = data
+            print("✅ Résultat défini, fermeture du formulaire...")
+            self.destroy()
         
-        self.result = data
-        self.destroy()
+        except Exception as e:
+            print(f"❌ Erreur lors de la sauvegarde: {e}")
+            messagebox.showerror("Erreur", f"Erreur lors de la sauvegarde: {str(e)}")
+        finally:
+            # Réinitialiser le flag de sauvegarde
+            self._saving = False
         
     def cancel(self):
         """Annule le dialog"""
@@ -457,8 +491,7 @@ except ImportError as e:
     
     def get_db_connection_direct():
         try:
-            conn = get_db_connection_direct()
-            # conn.row_factory = sqlite3.Row  # Remplacé par SQL Server
+            conn = get_db_connection()
             return conn
         except Exception as e:
             print(f"Erreur de connexion à la base de données: {e}")
@@ -918,6 +951,25 @@ class ProfessorsDashboard(ctk.CTkFrame):
         self.details_content_frame = ctk.CTkFrame(details_panel, fg_color="transparent")
         self.details_content_frame.pack(fill="both", expand=True, padx=8, pady=8)
         
+    def clear_professor_details(self):
+        """Efface les détails du professeur affichés"""
+        try:
+            for widget in self.details_content_frame.winfo_children():
+                widget.destroy()
+            
+            # Afficher le message par défaut
+            default_label = ctk.CTkLabel(
+                self.details_content_frame,
+                text="Sélectionnez un professeur pour voir ses détails",
+                font=FONT_SECONDARY,
+                text_color=MUTED,
+                fg_color="transparent"
+            )
+            default_label.pack(expand=True)
+            print("✅ Détails du professeur effacés")
+        except Exception as e:
+            print(f"❌ Erreur lors de l'effacement des détails: {e}")
+
     def refresh_professors_view(self):
         """Actualise la vue des professeurs"""
         try:
@@ -930,6 +982,18 @@ class ProfessorsDashboard(ctk.CTkFrame):
             self.display_professors_list()
             # Mettre à jour le compteur
             self.update_prof_count()
+            
+            # Vérifier si le professeur sélectionné existe encore
+            if hasattr(self, 'selected_prof') and self.selected_prof:
+                prof_id = self.selected_prof.get('id')
+                if prof_id:
+                    # Vérifier si le professeur existe encore dans la liste
+                    prof_exists = any(p.get('id') == prof_id for p in self.professors_data)
+                    if not prof_exists:
+                        print("⚠️ Professeur sélectionné n'existe plus, effacement des détails")
+                        self.clear_professor_details()
+                        self.selected_prof = None
+            
             print("✅ Vue des professeurs rafraîchie avec succès")
         except Exception as e:
             print(f"❌ Erreur lors du rafraîchissement: {e}")
@@ -1499,7 +1563,7 @@ class ProfessorsDashboard(ctk.CTkFrame):
 
         icon_label = ctk.CTkLabel(
             title_frame,
-            image=self.icon_cache.get("trending_up", load_icon("trending_up", 18)),
+            image=self.icon_cache.get("trending_up", load_icon("trending_up", 22)),
             text="",
             fg_color="transparent"
         )
@@ -1508,7 +1572,7 @@ class ProfessorsDashboard(ctk.CTkFrame):
         title_label = ctk.CTkLabel(
             title_frame,
             text="Salaires Calculés",
-            font=("Segoe UI", 16, "bold"),
+            font=("Segoe UI", 18, "bold"),
             text_color=TEXT,
             fg_color="transparent"
         )
@@ -1523,6 +1587,11 @@ class ProfessorsDashboard(ctk.CTkFrame):
         heures_par_session = float(prof.get('heures_par_session', 2) or 2)
         sessions_semaine = float(prof.get('sessions_semaine', 10) or 10)
         
+        print(f"🔍 Calculs financiers - Prof: {prof.get('nom', 'N/A')}")
+        print(f"   💰 Taux horaire: {taux_horaire}")
+        print(f"   ⏰ Heures/session: {heures_par_session}")
+        print(f"   📅 Sessions/semaine: {sessions_semaine}")
+        
         # Calculs automatiques
         heures_semaine = sessions_semaine * heures_par_session
         heures_mois = heures_semaine * 4.33  # Moyenne mensuelle
@@ -1531,6 +1600,8 @@ class ProfessorsDashboard(ctk.CTkFrame):
         salaire_semaine = heures_semaine * taux_horaire
         salaire_mois = heures_mois * taux_horaire
         salaire_annee = heures_annee_scolaire * taux_horaire
+        
+        print(f"   📊 Résultats: semaine={salaire_semaine:,.0f}, mois={salaire_mois:,.0f}")
 
         # Métriques en grille 2x2 compacte
         metrics_grid = ctk.CTkFrame(content_frame, fg_color="transparent")
@@ -1557,16 +1628,16 @@ class ProfessorsDashboard(ctk.CTkFrame):
             
             metric_icon = ctk.CTkLabel(
                 metric_header,
-                image=self.icon_cache.get(icon, load_icon(icon, 10)),
+                image=self.icon_cache.get(icon, load_icon(icon, 14)),
                 text="",
                 fg_color="transparent"
             )
-            metric_icon.pack(side="left", padx=(0, 4))
+            metric_icon.pack(side="left", padx=(0, 6))
             
             metric_title = ctk.CTkLabel(
                 metric_header,
                 text=title,
-                font=("Segoe UI", 9, "bold"),
+                font=("Segoe UI", 11, "bold"),
                 text_color=MUTED,
                 fg_color="transparent"
             )
@@ -1576,7 +1647,7 @@ class ProfessorsDashboard(ctk.CTkFrame):
             metric_value = ctk.CTkLabel(
                 metric_card,
                 text=value,
-                font=("Segoe UI", 10, "bold"),
+                font=("Segoe UI", 12, "bold"),
                 text_color=color,
                 fg_color="transparent"
             )
@@ -1599,7 +1670,7 @@ class ProfessorsDashboard(ctk.CTkFrame):
 
         icon_label = ctk.CTkLabel(
             title_frame,
-            image=self.icon_cache.get("settings", load_icon("settings", 18)),
+            image=self.icon_cache.get("settings", load_icon("settings", 22)),
             text="",
             fg_color="transparent"
         )
@@ -1608,7 +1679,7 @@ class ProfessorsDashboard(ctk.CTkFrame):
         title_label = ctk.CTkLabel(
             title_frame,
             text="Actions",
-            font=("Segoe UI", 16, "bold"),
+            font=("Segoe UI", 18, "bold"),
             text_color=TEXT,
             fg_color="transparent"
         )
@@ -1619,9 +1690,9 @@ class ProfessorsDashboard(ctk.CTkFrame):
         content_frame.pack(fill="x", padx=12, pady=(0, 12))
 
         actions = [
-            ("", "edit", lambda: self.edit_professor(prof.get('id'))),
-            ("", "analytics", lambda: self.show_professor_stats(prof.get('id'))),
-            ("", "email", lambda: self.contact_professor(prof.get('email')))
+            ("Modifier", "edit", lambda: self.edit_professor(prof.get('id'))),
+            ("Statistiques", "analytics", lambda: self.show_professor_stats(prof.get('id'))),
+            ("Contacter", "email", lambda: self.contact_professor(prof.get('email')))
         ]
 
         for i, (text, icon, command) in enumerate(actions):
@@ -1631,13 +1702,13 @@ class ProfessorsDashboard(ctk.CTkFrame):
             action_btn = ctk.CTkButton(
                 action_frame,
                 text=text,
-                image=self.icon_cache.get(icon, load_icon(icon, 18)),
-                font=("Segoe UI", 13, "bold"),
+                image=self.icon_cache.get(icon, load_icon(icon, 20)),
+                font=("Segoe UI", 14, "bold"),
                 fg_color="transparent",
                 hover_color=BG_SIDEBAR,
                 text_color=TEXT,
                 corner_radius=8,
-                height=40,
+                height=45,
                 border_width=1,
                 border_color=BORDER_COLOR,
                 command=command
@@ -1661,6 +1732,10 @@ class ProfessorsDashboard(ctk.CTkFrame):
             
             # Ouvrir le dialogue de modification
             dialog = ProfesseurDialog(self, "Modifier Professeur", prof_data)
+            
+            # Attendre que le formulaire soit fermé
+            self.wait_window(dialog)
+            
             if dialog.result:
                 # Mettre à jour le professeur
                 success = self.update_professeur(prof_id, dialog.result)
@@ -1671,9 +1746,15 @@ class ProfessorsDashboard(ctk.CTkFrame):
                     self.load_professors_data()
                     self.display_professors_list()
                     self.update_prof_count()
+                    
+                    # Attendre un peu pour que la base soit mise à jour
+                    import time
+                    time.sleep(0.1)
+                    
                     # Recharger les détails du professeur modifié
                     updated_prof = self.get_professeur_by_id(prof_id)
                     if updated_prof:
+                        print(f"📊 Données rechargées: taux={updated_prof.get('salaire_horaire', 0)}, heures={updated_prof.get('heures_par_session', 0)}")
                         self.display_professor_details(updated_prof)
                     print("✅ Données mises à jour après modification")
                 else:
@@ -1699,6 +1780,9 @@ class ProfessorsDashboard(ctk.CTkFrame):
                 success = self.delete_professeur(prof_id)
                 if success:
                     messagebox.showinfo("Succès", "Professeur supprimé avec succès")
+                    # Effacer les détails du professeur supprimé
+                    self.clear_professor_details()
+                    # Rafraîchir la liste
                     self.refresh_professors_view()
                 else:
                     messagebox.showerror("Erreur", "Échec de la suppression")
@@ -1726,8 +1810,16 @@ class ProfessorsDashboard(ctk.CTkFrame):
     def add_professor(self):
         """Ajoute un nouveau professeur"""
         try:
+            print("🔍 Ouverture du formulaire d'ajout...")
             dialog = ProfesseurDialog(self, "Ajouter Professeur")
+            
+            # Attendre que le formulaire soit fermé
+            self.wait_window(dialog)
+            
+            print(f"📊 Résultat du formulaire: {dialog.result}")
+            
             if dialog.result:
+                print("✅ Données reçues du formulaire, sauvegarde en cours...")
                 success = self.add_professeur(dialog.result)
                 if success:
                     messagebox.showinfo("Succès", "Professeur ajouté avec succès")
@@ -1739,7 +1831,11 @@ class ProfessorsDashboard(ctk.CTkFrame):
                     print("✅ Liste des professeurs mise à jour après ajout")
                 else:
                     messagebox.showerror("Erreur", "Échec de l'ajout")
+            else:
+                print("❌ Aucune donnée reçue du formulaire")
+                messagebox.showwarning("Attention", "Aucune donnée n'a été saisie")
         except Exception as e:
+            print(f"❌ Erreur lors de l'ajout: {e}")
             messagebox.showerror("Erreur", f"Erreur lors de l'ajout: {str(e)}")
 
     def get_professeur_by_id(self, prof_id):
@@ -1785,43 +1881,13 @@ class ProfessorsDashboard(ctk.CTkFrame):
 
     def add_professeur(self, data):
         """Ajoute un nouveau professeurs à la base de données avec calculs automatiques"""
-        conn = get_db_connection_direct()
-        if not conn: return False
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO professeurs (nom, prenom, email, telephone, specialite, statut, date_embauche, salaire_base, salaire_net, heures_mensuelles, salaire_horaire)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                data.get('nom', ''),
-                data.get('prenom', ''),
-                data.get('email', ''),
-                data.get('telephone', ''),
-                data.get('specialite', ''),
-                data.get('statut', 'Actif'),
-                data.get('date_embauche', datetime.now().strftime("%Y-%m-%d")),
-                data.get('salaire_base', 0),  # Calculé automatiquement
-                data.get('salaire_net', 0),   # Calculé automatiquement
-                data.get('heures_mensuelles', 173),
-                data.get('salaire_horaire', 0)  # Taux horaire
-            ))
-            conn.commit()
-            return True
-        except Exception as e:
-            print(f"Erreur lors de l'ajout: {e}")
-            return False
-        finally:
-            conn.close()
-
-    def update_professeur(self, prof_id, data):
-        """Met à jour un professeurs existant avec calculs automatiques"""
-        conn = get_db_connection_direct()
+        conn = get_db_connection()
         if not conn: return False
         try:
             cursor = conn.cursor()
             
             # Appliquer les calculs automatiques comme dans le formulaire
-            taux_horaire = float(data.get('salaire_horaire', 0))
+            taux_horaire = float(data.get('taux_horaire', 0))
             heures_par_session = float(data.get('heures_par_session', 2))
             sessions_semaine = float(data.get('sessions_semaine', 10))
             
@@ -1838,7 +1904,63 @@ class ProfessorsDashboard(ctk.CTkFrame):
             salaire_base = salaire_mois
             salaire_net = salaire_mois
             
-            rows_before = conn.total_changes
+            cursor.execute("""
+                INSERT INTO professeurs (
+                    nom, prenom, email, telephone, specialite, statut, date_embauche,
+                    heures_par_session, sessions_semaine, salaire_horaire, heures_mensuelles,
+                    salaire_base, salaire_net
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('nom', ''),
+                data.get('prenom', ''),
+                data.get('email', ''),
+                data.get('telephone', ''),
+                data.get('specialite', ''),
+                data.get('statut', 'Actif'),
+                data.get('date_embauche', datetime.now().strftime("%Y-%m-%d")),
+                heures_par_session,  # Heures par session
+                sessions_semaine,   # Sessions par semaine
+                taux_horaire,       # Taux horaire
+                int(heures_mois),   # Heures mensuelles calculées
+                salaire_base,       # Salaire de base calculé
+                salaire_net         # Salaire net calculé
+            ))
+            conn.commit()
+            print(f"✅ Professeur ajouté avec calculs automatiques")
+            print(f"   💰 Salaire mensuel: {salaire_mois:,.0f} GNF")
+            print(f"   ⏰ Heures/mois: {heures_mois:.0f}h")
+            return True
+        except Exception as e:
+            print(f"❌ Erreur lors de l'ajout: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def update_professeur(self, prof_id, data):
+        """Met à jour un professeurs existant avec calculs automatiques"""
+        conn = get_db_connection()
+        if not conn: return False
+        try:
+            cursor = conn.cursor()
+            
+            # Appliquer les calculs automatiques comme dans le formulaire
+            taux_horaire = float(data.get('taux_horaire', 0))
+            heures_par_session = float(data.get('heures_par_session', 2))
+            sessions_semaine = float(data.get('sessions_semaine', 10))
+            
+            # Calculs automatiques
+            heures_semaine = heures_par_session * sessions_semaine
+            heures_mois = heures_semaine * 4.33  # Moyenne mensuelle
+            heures_annee_scolaire = heures_mois * 9  # 9 mois de cours
+            
+            salaire_semaine = taux_horaire * heures_semaine
+            salaire_mois = taux_horaire * heures_mois
+            salaire_annee = taux_horaire * heures_annee_scolaire
+            
+            # Utiliser les valeurs calculées
+            salaire_base = salaire_mois
+            salaire_net = salaire_mois
+            
             cursor.execute("""
                 UPDATE professeurs SET 
                     nom=?, prenom=?, email=?, telephone=?, specialite=?, statut=?, 
@@ -1863,11 +1985,13 @@ class ProfessorsDashboard(ctk.CTkFrame):
                 prof_id
             ))
             conn.commit()
-            rows_after = conn.total_changes
-            updated = (rows_after - rows_before) > 0
+            
+            # Vérifier si des lignes ont été mises à jour (SQL Server)
+            updated = cursor.rowcount > 0
             print(f"✅ Professeur {prof_id} mis à jour avec calculs automatiques")
             print(f"   💰 Salaire mensuel: {salaire_mois:,.0f} GNF")
             print(f"   ⏰ Heures/mois: {heures_mois:.0f}h")
+            print(f"   📊 Lignes affectées: {cursor.rowcount}")
             return bool(updated)
         except Exception as e:
             print(f"❌ Erreur lors de la mise à jour: {e}")
@@ -1877,15 +2001,22 @@ class ProfessorsDashboard(ctk.CTkFrame):
 
     def delete_professeur(self, prof_id):
         """Supprime un professeurs de la base de données"""
-        conn = get_db_connection_direct()
-        if not conn: return False
+        conn = get_db_connection()
+        if not conn: 
+            print("❌ Impossible de se connecter à la base de données")
+            return False
         try:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM professeurs WHERE id_professeur=?", (prof_id,))
             conn.commit()
-            return True
+            
+            # Vérifier si des lignes ont été supprimées (SQL Server)
+            deleted = cursor.rowcount > 0
+            print(f"✅ Professeur {prof_id} supprimé")
+            print(f"   📊 Lignes affectées: {cursor.rowcount}")
+            return deleted
         except Exception as e:
-            print(f"Erreur lors de la suppression: {e}")
+            print(f"❌ Erreur lors de la suppression: {e}")
             return False
         finally:
             conn.close()
