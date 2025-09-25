@@ -287,7 +287,7 @@ class ProfesseurDialog(ctk.CTkToplevel):
             messagebox.showerror("Erreur", "La spécialité est obligatoire")
             return False
         return True
-
+        
     def save(self):
         """Sauvegarde les données avec validation complète et calculs automatiques"""
         print("🔍 Début de la sauvegarde...")
@@ -359,7 +359,7 @@ class ProfesseurDialog(ctk.CTkToplevel):
             self.result = data
             print("✅ Résultat défini, fermeture du formulaire...")
             self.destroy()
-        
+            
         except Exception as e:
             print(f"❌ Erreur lors de la sauvegarde: {e}")
             messagebox.showerror("Erreur", f"Erreur lors de la sauvegarde: {str(e)}")
@@ -797,7 +797,7 @@ class ProfessorsDashboard(ctk.CTkFrame):
         # Barre de recherche avec icône
         search_frame = ctk.CTkFrame(list_panel, fg_color="transparent")
         search_frame.pack(fill="x", padx=15, pady=(0, 15))
-
+        
         # Container pour icône et champ de recherche
         search_container = ctk.CTkFrame(search_frame, fg_color=BG_SIDEBAR, corner_radius=8)
         search_container.pack(fill="x")
@@ -969,7 +969,7 @@ class ProfessorsDashboard(ctk.CTkFrame):
             print("✅ Détails du professeur effacés")
         except Exception as e:
             print(f"❌ Erreur lors de l'effacement des détails: {e}")
-
+        
     def refresh_professors_view(self):
         """Actualise la vue des professeurs"""
         try:
@@ -1487,7 +1487,7 @@ class ProfessorsDashboard(ctk.CTkFrame):
         # Titre compact avec icône
         title_frame = ctk.CTkFrame(header, fg_color="transparent")
         title_frame.pack(fill="x", padx=12, pady=12)
-
+        
         icon_label = ctk.CTkLabel(
             title_frame,
             image=self.icon_cache.get(icon_name, load_icon(icon_name, 18)),
@@ -1495,7 +1495,7 @@ class ProfessorsDashboard(ctk.CTkFrame):
             fg_color="transparent"
         )
         icon_label.pack(side="left", padx=(0, 10))
-
+        
         title_label = ctk.CTkLabel(
             title_frame,
             text=title,
@@ -1504,7 +1504,7 @@ class ProfessorsDashboard(ctk.CTkFrame):
             fg_color="transparent"
         )
         title_label.pack(side="left")
-
+            
         # Contenu avec affichage horizontal
         content_frame = ctk.CTkFrame(section, fg_color="transparent")
         content_frame.pack(fill="x", padx=12, pady=(0, 12))
@@ -1564,18 +1564,18 @@ class ProfessorsDashboard(ctk.CTkFrame):
         icon_label = ctk.CTkLabel(
             title_frame,
             image=self.icon_cache.get("trending_up", load_icon("trending_up", 22)),
-            text="",
-            fg_color="transparent"
-        )
+                text="",
+                fg_color="transparent"
+            )
         icon_label.pack(side="left", padx=(0, 10))
 
         title_label = ctk.CTkLabel(
             title_frame,
             text="Salaires Calculés",
             font=("Segoe UI", 18, "bold"),
-            text_color=TEXT,
-            fg_color="transparent"
-        )
+                text_color=TEXT,
+                fg_color="transparent"
+            )
         title_label.pack(side="left")
 
         # Métriques optimisées
