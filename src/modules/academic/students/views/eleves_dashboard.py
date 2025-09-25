@@ -1053,19 +1053,16 @@ class DashboardEleves(ctk.CTkFrame):
                 ]
                 table_data.append(row)
         
-        # Créer le tableau CTkTable avec le thème complet
+        # Créer le tableau CTkTable avec le thème (arguments supportés uniquement)
         self.students_table = CTkTable(
             master=table_scroll_container,
             row=len(table_data),
             column=len(headers),
             values=table_data,
-            # Configuration du thème complet
+            # Configuration du thème avec arguments supportés
             header_color=BG_SIDEBAR,
-            header_text_color=TEXT_PRIMARY,
             colors=[BG_CARD, BG_MAIN],  # Alternance des couleurs de fond
             hover_color=ACCENT_BLUE,
-            selected_row_color=ACCENT_BLUE,
-            selected_row_text_color=WHITE,
             text_color=TEXT_PRIMARY,
             font=("Segoe UI", 12),
             corner_radius=8,
@@ -1077,78 +1074,79 @@ class DashboardEleves(ctk.CTkFrame):
         
         # Configurer la sélection de ligne
         self.students_table.bind("<Button-1>", self._on_student_table_select)
+        # Alternative: utiliser l'événement de sélection du tableau
+        self.students_table.bind("<<TreeviewSelect>>", self._on_student_table_select)
 
     def _on_student_table_select(self, event):
         """Gestionnaire de sélection dans le tableau des élèves"""
         try:
-            # Obtenir la ligne sélectionnée
-            selected_row_info = self.students_table.get_selected_row()
-            if selected_row_info is None:
-                print("⚠️ Aucune ligne sélectionnée")
-                return
+            # Approche simple : utiliser les coordonnées Y pour calculer l'index de ligne
+            widget = event.widget
             
-            print(f"🔍 Informations de sélection: {selected_row_info}")
+            # Calculer l'index de la ligne basé sur la position Y
+            # CTkTable a une hauteur de ligne approximative de 30px
+            line_height = 30
+            y_position = event.y
             
-            # Extraire l'index de la ligne sélectionnée
-            if isinstance(selected_row_info, dict):
-                selected_row_index = selected_row_info.get('row', 0)
-            else:
-                selected_row_index = selected_row_info
+            print(f"🔍 Position Y du clic: {y_position}")
             
-            # Récupérer les données de l'élève sélectionné (nom et prénom)
-            # CTkTable.get() retourne TOUTES les données du tableau
-            all_table_data = self.students_table.get(selected_row_info)
-            if not all_table_data or len(all_table_data) < 2:
-                print("⚠️ Données de tableau invalides")
-                return
+            # Soustraire la hauteur des en-têtes (environ 20px)
+            if y_position > 20:
+                row_index = (y_position - 20) // line_height
+                print(f"🔍 Position Y: {y_position}, Index calculé: {row_index}")
+                print(f"🔍 Calcul détaillé: ({y_position} - 20) // {line_height} = {row_index}")
                 
-            print(f"🔍 Données complètes du tableau: {len(all_table_data)} lignes")
-            print(f"🔍 Index de ligne sélectionnée: {selected_row_index}")
-            
-            # La première ligne (index 0) contient les en-têtes
-            # La ligne sélectionnée est à l'index selected_row_index + 1 (car on a ajouté les en-têtes)
-            if selected_row_index + 1 < len(all_table_data):
-                student_data = all_table_data[selected_row_index + 1]
-                print(f"🔍 Données de l'élève sélectionné: {student_data}")
-                
-                # Extraire nom et prénom (index 0 et 1 des données élève)
-                nom = str(student_data[0]) if student_data[0] else ""
-                prenom = str(student_data[1]) if student_data[1] else ""
-                if not nom or not prenom:
-                    print("⚠️ Nom ou prénom élève vide")
-                    return
+                # Récupérer toutes les données du tableau
+                all_data = self.students_table.get()
+                if all_data and len(all_data) > row_index + 1:  # +1 car la première ligne est les en-têtes
+                    student_data = all_data[row_index + 1]
+                    print(f"🔍 Données de la ligne {row_index + 1}: {student_data}")
                     
-                print(f"🎯 Sélection de l'élève: {prenom} {nom}")
-                
-                # Trouver l'élève dans les données par nom et prénom
-                selected_student = None
-                for eleve in self.eleves_data:
-                    if len(eleve) >= 7 and str(eleve[1]) == nom and str(eleve[2]) == prenom:
-                        _id, nom, prenom, genre, naissance, classe_id, classe_nom = eleve
-                        age = calculate_age(naissance)
-                        selected_student = {
-                            'id': _id,
-                            'nom': nom,
-                            'prenom': prenom,
-                            'genre': genre,
-                            'naissance': naissance,
-                            'age': age,
-                            'classe': classe_nom or "Non assigné"
-                        }
-                        break
-            
-            if selected_student:
-                self.selected_student = selected_student
-                print(f"✅ Élève sélectionné: {selected_student['prenom']} {selected_student['nom']}")
-                
-                # Forcer la mise à jour visuelle de la sélection
-                self.students_table.update()
-                self.students_table.see(selected_row_index + 1)  # +1 car la première ligne est les en-têtes
-                
-                # Note: show_student_details_from_table n'existe plus dans cette vue
-                # La sélection est juste stockée pour les boutons CRUD
+                    if len(student_data) >= 2:
+                        # Extraire nom et prénom
+                        nom = str(student_data[0]) if student_data[0] else ""
+                        prenom = str(student_data[1]) if student_data[1] else ""
+                        
+                        if nom and prenom:
+                            print(f"🎯 Sélection de l'élève: {prenom} {nom}")
+                            
+                            # Trouver l'élève dans les données
+                            selected_student = None
+                            for eleve in self.eleves_data:
+                                if len(eleve) >= 7 and str(eleve[1]) == nom and str(eleve[2]) == prenom:
+                                    _id, nom, prenom, genre, naissance, classe_id, classe_nom = eleve
+                                    age = calculate_age(naissance)
+                                    selected_student = {
+                                        'id': _id,
+                                        'nom': nom,
+                                        'prenom': prenom,
+                                        'genre': genre,
+                                        'naissance': naissance,
+                                        'age': age,
+                                        'classe': classe_nom or "Non assigné"
+                                    }
+                                    break
+                            
+                            if selected_student:
+                                self.selected_student = selected_student
+                                print(f"✅ Élève sélectionné: {selected_student['prenom']} {selected_student['nom']}")
+                                print(f"🔍 Données complètes: {selected_student}")
+                                return
+                            else:
+                                print(f"❌ Élève {prenom} {nom} non trouvé dans les données")
+                                return
+                        else:
+                            print("⚠️ Nom ou prénom vide")
+                            return
+                    else:
+                        print("⚠️ Données de ligne insuffisantes")
+                        return
+                else:
+                    print("⚠️ Index de ligne hors limites")
+                    return
             else:
-                print(f"❌ Élève {prenom} {nom} non trouvé dans les données")
+                print("⚠️ Clic sur les en-têtes, ignoré")
+                return
                 
         except Exception as e:
             print(f"❌ Erreur lors de la sélection d'un élève: {e}")
@@ -1201,6 +1199,7 @@ class DashboardEleves(ctk.CTkFrame):
         
         try:
             print(f"✏️ Modification de l'élève: {self.selected_student['prenom']} {self.selected_student['nom']}")
+            print(f"🔍 Données de l'élève sélectionné: {self.selected_student}")
             # Ouvrir le formulaire de modification
             self.formulaire_eleve("Modifier", self.selected_student)
             print("✅ Formulaire de modification ouvert")
@@ -1680,8 +1679,8 @@ class DashboardEleves(ctk.CTkFrame):
         # Créer la fenêtre de détails
         details_window = ctk.CTkToplevel(self)
         details_window.title(f"Détails - {eleve_data['nom']} {eleve_data['prenom']}")
-        details_window.geometry("700x600")
-        details_window.minsize(600, 500)
+        details_window.geometry("500x500")
+        details_window.minsize(400, 400)
         details_window.transient(self.winfo_toplevel())
         details_window.grab_set()
         details_window.configure(fg_color=BG_MAIN)
@@ -3124,8 +3123,8 @@ class DashboardEleves(ctk.CTkFrame):
         """Ouvre le formulaire d'élève avec design moderne"""
         popup = ctk.CTkToplevel(self)
         popup.title(f"{mode} Élève")
-        popup.geometry("700x500")  # Même taille que le login
-        popup.minsize(600, 400)
+        popup.geometry("650x650")  # Même dimensions que le formulaire salles
+        popup.minsize(600, 600)
         popup.transient(self.winfo_toplevel())
         popup.grab_set()
         popup.configure(fg_color=BG_MAIN)
@@ -3133,23 +3132,31 @@ class DashboardEleves(ctk.CTkFrame):
         # Centrer la fenêtre comme le login
         self._center_window(popup)
         
-        # Contenu principal
-        main_container = ctk.CTkFrame(popup, fg_color="transparent")
-        main_container.pack(fill="both", expand=True, padx=4, pady=4)
-        
-        # En-tête du formulaire
-        header = ctk.CTkFrame(main_container, fg_color=BG_CARD, corner_radius=12)
-        header.pack(fill="x", pady=(0, 4))
-        
-        title_text = "Nouveau Profil Élève" if mode == "Ajouter" else f"Modification de {eleves.get('nom','')} {eleves.get('prenom','')}"
-        ctk.CTkLabel(
-            header, 
-            text=title_text, text_color=ACCENT_BLUE
-        ).pack(pady=20)
+        # Container principal avec design moderne (style salles)
+        form_frame = ctk.CTkFrame(popup, fg_color=BG_CARD, corner_radius=20, 
+                                 border_color=BORDER_COLOR, border_width=1)
+        form_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-        # Corps du formulaire
-        body = ctk.CTkScrollableFrame(main_container, fg_color=BG_CARD, corner_radius=12)
-        body.pack(fill="both", expand=True, pady=(0, 4))
+        # En-tête du formulaire
+        header_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
+        header_frame.pack(fill="x", padx=20, pady=(20, 15))
+
+        # Titre du formulaire
+        title_text = "Nouveau Profil Élève" if mode == "Ajouter" else f"Modification de {eleves.get('nom','')} {eleves.get('prenom','')}"
+        title_label = ctk.CTkLabel(header_frame, text=title_text, 
+                                  font=ctk.CTkFont(size=20, weight="bold"), 
+                                  text_color=ACCENT_BLUE)
+        title_label.pack(side="left")
+
+        # Sous-titre
+        subtitle_label = ctk.CTkLabel(header_frame, text="Remplissez les informations ci-dessous", 
+                                     font=ctk.CTkFont(size=12), 
+                                     text_color=TEXT_SECONDARY)
+        subtitle_label.pack(side="left", padx=(10, 0))
+
+        # Champs du formulaire avec design amélioré
+        fields_frame = ctk.CTkScrollableFrame(form_frame, fg_color="transparent")
+        fields_frame.pack(fill="both", expand=True, padx=20, pady=(0, 15))
         
         # Champs du formulaire
         fields = [
@@ -3176,69 +3183,96 @@ class DashboardEleves(ctk.CTkFrame):
             row = i // 2
             col = i % 2
             
-            # Label
+            # Label moderne
             ctk.CTkLabel(
-                body, 
-                text=label, text_color=TEXT_PRIMARY
+                fields_frame, 
+                text=label, 
+                text_color=TEXT_PRIMARY,
+                font=ctk.CTkFont(size=12, weight="bold")
             ).grid(row=row*2, column=col, sticky="w", padx=10, pady=(10, 5))
             
-            # Champ de saisie
+            # Champ de saisie moderne
             if key in ["genre", "statut"]:
                 widget = ctk.CTkOptionMenu(
-                    body,
-                    values=["Masculin", "Féminin"] if key == "genre" else ["Actif", "Inactif"], fg_color=BG_CARD_HOVER,
+                    fields_frame,
+                    values=["Masculin", "Féminin"] if key == "genre" else ["Actif", "Inactif"], 
+                    fg_color=BG_CARD_HOVER,
                     button_color=ACCENT_BLUE,
                     button_hover_color=BORDER_ACCENT,
-                    height=35
+                    height=40,
+                    font=ctk.CTkFont(size=12),
+                    corner_radius=10
                 )
             elif key == "classe":
                 # Récupérer les classes disponibles depuis la base de données
                 classes_values = self.get_classes_list()
                 widget = ctk.CTkOptionMenu(
-                    body,
-                    values=classes_values, fg_color=BG_CARD_HOVER,
+                    fields_frame,
+                    values=classes_values, 
+                    fg_color=BG_CARD_HOVER,
                     button_color=ACCENT_BLUE,
                     button_hover_color=BORDER_ACCENT,
-                    height=35
+                    height=40,
+                    font=ctk.CTkFont(size=12),
+                    corner_radius=10
                 )
             else:
                 widget = ctk.CTkEntry(
-                    body, fg_color=BG_CARD_HOVER, border_color=BORDER_COLOR,
-                    height=35
+                    fields_frame, 
+                    fg_color=BG_CARD_HOVER, 
+                    border_color=BORDER_COLOR,
+                    height=40,
+                    font=ctk.CTkFont(size=12),
+                    corner_radius=10
                 )
             
-            widget.grid(row=row*2+1, column=col, sticky="ew", padx=10, pady=(0, 4))
+            widget.grid(row=row*2+1, column=col, sticky="ew", padx=10, pady=(0, 10))
             self.form_entries[key] = widget
         
         # Configuration des colonnes
-        body.grid_columnconfigure(0, weight=1)
-        body.grid_columnconfigure(1, weight=1)
+        fields_frame.grid_columnconfigure(0, weight=1)
+        fields_frame.grid_columnconfigure(1, weight=1)
 
-        # Boutons d'action
-        footer = ctk.CTkFrame(main_container, fg_color=BG_CARD, corner_radius=8)
-        footer.pack(fill="x")
+        # Boutons d'action modernes
+        buttons_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
+        buttons_frame.pack(fill="x", padx=20, pady=(0, 20))
         
         if mode == "Ajouter":
             ctk.CTkButton(
-                footer, 
+                buttons_frame, 
                 text="Enregistrer",
-                command=lambda: self.save_eleve(popup, mode), fg_color=SUCCESS_GREEN, hover_color="#059669",
+                command=lambda: self.save_eleve(popup, mode), 
+                fg_color=SUCCESS_GREEN, 
+                hover_color="#059669",
                 height=40,
-            ).pack(side="left", padx=(0, 4), pady=15)
+                font=ctk.CTkFont(size=12, weight="bold"),
+                corner_radius=10
+            ).pack(side="left", padx=(0, 10))
         elif mode == "Modifier":
             ctk.CTkButton(
-                footer, 
+                buttons_frame, 
                 text="Mettre à jour",
-                command=lambda: self.save_eleve(popup, mode, eleves.get('id_eleve')), fg_color=WARNING_ORANGE, hover_color="#d97706",
+                command=lambda: self.save_eleve(popup, mode, eleves.get('id')), 
+                fg_color=WARNING_ORANGE, 
+                hover_color="#d97706",
                 height=40,
-            ).pack(side="left", padx=(0, 4), pady=15)
+                font=ctk.CTkFont(size=12, weight="bold"),
+                corner_radius=10
+            ).pack(side="left", padx=(0, 10))
 
         ctk.CTkButton(
-            footer, 
-            text="Fermer", 
-            command=popup.destroy, fg_color=ERROR_RED, hover_color="#dc2626",
+            buttons_frame, 
+            text="Annuler", 
+            command=popup.destroy, 
+            fg_color="transparent",
+            text_color=TEXT_PRIMARY,
+            hover_color=BG_CARD_HOVER,
             height=40,
-        ).pack(side="right", pady=15)
+            font=ctk.CTkFont(size=12, weight="bold"),
+            corner_radius=10,
+            border_width=1,
+            border_color=BORDER_COLOR
+        ).pack(side="right")
 
         # Pré-remplissage si modification
         if isinstance(eleves, dict):

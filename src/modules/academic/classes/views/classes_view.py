@@ -501,43 +501,49 @@ class ClasseDialog(ctk.CTkToplevel):
     def setup_dialog(self, title):
         """Configure le dialogue"""
         self.title(title)
-        self.geometry("600x650")
+        self.geometry("500x500")  # Même dimensions que le formulaire salles
+        self.minsize(600, 600)
         self.configure(fg_color=DARK_BLUE)
         
-        # Container principal avec style carte
-        main_container = ctk.CTkFrame(self, fg_color=BG_CARD, corner_radius=20, border_width=2, border_color=BORDER_COLOR)
-        main_container.pack(fill="both", expand=True, padx=15, pady=15)
-        
-        # En-tête
-        header_frame = ctk.CTkFrame(main_container, fg_color="transparent")
-        header_frame.pack(fill="x", padx=25, pady=(25, 20))
-        
-        title_label = ctk.CTkLabel(
-            header_frame,
-            text=title,
-            font=("Segoe UI", 20, "bold"),
-            text_color=TEXT_PRIMARY
-        )
-        title_label.pack()
-        
-        # Formulaire
-        form_frame = ctk.CTkFrame(main_container, fg_color="transparent")
-        form_frame.pack(fill="x", padx=25, pady=(0, 20))
+        # Container principal avec design moderne (style salles)
+        form_frame = ctk.CTkFrame(self, fg_color=BG_CARD, corner_radius=20, 
+                                 border_color=BORDER_COLOR, border_width=1)
+        form_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # En-tête du formulaire
+        header_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
+        header_frame.pack(fill="x", padx=20, pady=(20, 15))
+
+        # Titre du formulaire
+        title_label = ctk.CTkLabel(header_frame, text=title, 
+                                  font=ctk.CTkFont(size=20, weight="bold"), 
+                                  text_color=TEXT_PRIMARY)
+        title_label.pack(side="left")
+
+        # Sous-titre
+        subtitle_label = ctk.CTkLabel(header_frame, text="Remplissez les informations ci-dessous", 
+                                     font=ctk.CTkFont(size=12), 
+                                     text_color=TEXT_SECONDARY)
+        subtitle_label.pack(side="left", padx=(10, 0))
+
+        # Champs du formulaire avec design amélioré
+        fields_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
+        fields_frame.pack(fill="both", expand=True, padx=20, pady=(0, 15))
         
         # Nom de la classe
         nom_label = ctk.CTkLabel(
-            form_frame, 
+            fields_frame, 
             text="Nom de la Classe", 
-            font=("Segoe UI", 14, "bold"), 
+            font=ctk.CTkFont(size=12, weight="bold"), 
             text_color=TEXT_PRIMARY
         )
         nom_label.pack(anchor="w", pady=(0, 5))
         
         self.nom_entry = ctk.CTkEntry(
-            form_frame, 
+            fields_frame, 
             placeholder_text="Ex: 6ème A, 11° SM, TSE",
-            font=("Segoe UI", 12),
-            fg_color=BG_CARD,
+            font=ctk.CTkFont(size=12),
+            fg_color=BG_CARD_HOVER,
             text_color=TEXT_PRIMARY,
             border_color=BORDER_COLOR,
             corner_radius=10,
@@ -547,18 +553,18 @@ class ClasseDialog(ctk.CTkToplevel):
         
         # Niveau
         niveau_label = ctk.CTkLabel(
-            form_frame, 
+            fields_frame, 
             text="Niveau", 
-            font=("Segoe UI", 14, "bold"), 
+            font=ctk.CTkFont(size=12, weight="bold"), 
             text_color=TEXT_PRIMARY
         )
         niveau_label.pack(anchor="w", pady=(0, 5))
         
         self.niveau_combo = ctk.CTkComboBox(
-            form_frame,
+            fields_frame,
             values=["Primaire", "Collège", "Lycée", "Terminale"],
-            font=("Segoe UI", 12),
-            fg_color=BG_CARD,
+            font=ctk.CTkFont(size=12),
+            fg_color=BG_CARD_HOVER,
             text_color=TEXT_PRIMARY,
             border_color=BORDER_COLOR,
             button_color=TEXT_ACCENT,
@@ -572,18 +578,18 @@ class ClasseDialog(ctk.CTkToplevel):
         
         # Capacité (Effectif)
         capacite_label = ctk.CTkLabel(
-            form_frame, 
+            fields_frame, 
             text="Capacité (Effectif)", 
-            font=("Segoe UI", 14, "bold"), 
+            font=ctk.CTkFont(size=12, weight="bold"), 
             text_color=TEXT_PRIMARY
         )
         capacite_label.pack(anchor="w", pady=(0, 5))
         
         self.capacite_entry = ctk.CTkEntry(
-            form_frame, 
+            fields_frame, 
             placeholder_text="Nombre maximum d'élèves (ex: 50)",
-            font=("Segoe UI", 12),
-            fg_color=BG_CARD,
+            font=ctk.CTkFont(size=12),
+            fg_color=BG_CARD_HOVER,
             text_color=TEXT_PRIMARY,
             border_color=BORDER_COLOR,
             corner_radius=10,
@@ -593,18 +599,18 @@ class ClasseDialog(ctk.CTkToplevel):
         
         # Statut
         statut_label = ctk.CTkLabel(
-            form_frame, 
+            fields_frame, 
             text="Statut", 
-            font=("Segoe UI", 14, "bold"), 
+            font=ctk.CTkFont(size=12, weight="bold"), 
             text_color=TEXT_PRIMARY
         )
         statut_label.pack(anchor="w", pady=(0, 5))
         
         self.statut_combo = ctk.CTkComboBox(
-            form_frame,
+            fields_frame,
             values=["active", "inactive", "archived"],
-            font=("Segoe UI", 12),
-            fg_color=BG_CARD,
+            font=ctk.CTkFont(size=12),
+            fg_color=BG_CARD_HOVER,
             text_color=TEXT_PRIMARY,
             border_color=BORDER_COLOR,
             button_color=TEXT_ACCENT,
@@ -619,18 +625,18 @@ class ClasseDialog(ctk.CTkToplevel):
         
         # Professeur Principal
         prof_label = ctk.CTkLabel(
-            form_frame, 
+            fields_frame, 
             text="Professeur Principal", 
-            font=("Segoe UI", 14, "bold"), 
+            font=ctk.CTkFont(size=12, weight="bold"), 
             text_color=TEXT_PRIMARY
         )
         prof_label.pack(anchor="w", pady=(0, 5))
         
         self.prof_combo = ctk.CTkComboBox(
-            form_frame,
+            fields_frame,
             values=["Aucun professeur assigné"],
-            font=("Segoe UI", 12),
-            fg_color=BG_CARD,
+            font=ctk.CTkFont(size=12),
+            fg_color=BG_CARD_HOVER,
             text_color=TEXT_PRIMARY,
             border_color=BORDER_COLOR,
             button_color=TEXT_ACCENT,
@@ -641,11 +647,11 @@ class ClasseDialog(ctk.CTkToplevel):
             state="readonly"
         )
         self.prof_combo.set("Aucun professeur assigné")
-        self.prof_combo.pack(fill="x", pady=(0, 25))
+        self.prof_combo.pack(fill="x", pady=(0, 15))
         
-        # Boutons
-        buttons_frame = ctk.CTkFrame(main_container, fg_color="transparent")
-        buttons_frame.pack(fill="x", padx=25, pady=(0, 25))
+        # Boutons modernes
+        buttons_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
+        buttons_frame.pack(fill="x", padx=20, pady=(0, 20))
         
         # Bouton Annuler
         cancel_btn = ctk.CTkButton(
@@ -655,12 +661,12 @@ class ClasseDialog(ctk.CTkToplevel):
             fg_color="transparent",
             text_color=TEXT_PRIMARY,
             hover_color=BG_CARD_HOVER,
-            corner_radius=12,
-            height=45,
+            corner_radius=10,
+            height=40,
             width=120,
-            border_width=2,
+            border_width=1,
             border_color=BORDER_COLOR,
-            font=("Segoe UI", 12, "bold")
+            font=ctk.CTkFont(size=12, weight="bold")
         )
         cancel_btn.pack(side="right", padx=(10, 0))
         
@@ -671,10 +677,10 @@ class ClasseDialog(ctk.CTkToplevel):
             command=self.save,
             fg_color=TEXT_ACCENT,
             hover_color=HOVER_SUCCESS,
-            corner_radius=12,
-            height=45,
+            corner_radius=10,
+            height=40,
             width=140,
-            font=("Segoe UI", 12, "bold")
+            font=ctk.CTkFont(size=12, weight="bold")
         )
         save_btn.pack(side="right")
         
