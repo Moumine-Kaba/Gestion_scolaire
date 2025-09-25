@@ -296,8 +296,8 @@ class ClassesManagerView(ctk.CTkFrame):
         
         # Afficher TOUTES les classes avec scroll
         for i, classe in enumerate(self.all_classes):
-            row = i // 6  # 6 cartes par ligne
-            col = i % 6   # Colonnes de 0 à 5
+            row = i // 4 # 6 cartes par ligne
+            col = i % 4  # Colonnes de 0 à 5
             
             card = self.create_classe_card(classe)
             card.grid(row=row, column=col, padx=8, pady=8, sticky="nsew")

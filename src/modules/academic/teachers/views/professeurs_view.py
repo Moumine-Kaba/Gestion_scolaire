@@ -46,7 +46,7 @@ class ProfesseurDialog(ctk.CTkToplevel):
         self.setup_dialog(professor_data)
         
     def setup_dialog(self, professor_data=None):
-        """Configure le dialog"""
+        """Configure le dialog avec tous les champs"""
         # Titre
         title_label = ctk.CTkLabel(
             self,
@@ -56,49 +56,150 @@ class ProfesseurDialog(ctk.CTkToplevel):
         )
         title_label.pack(pady=20)
         
-        # Formulaire
-        form_frame = ctk.CTkFrame(self, fg_color="transparent")
-        form_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        # Container principal avec scroll
+        main_container = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        main_container.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # === INFORMATIONS PERSONNELLES ===
+        personal_frame = ctk.CTkFrame(main_container, fg_color=CARD_BG, corner_radius=12, border_width=1, border_color=BORDER_COLOR)
+        personal_frame.pack(fill="x", pady=(0, 15))
+        
+        # En-tête section personnelle
+        personal_header = ctk.CTkFrame(personal_frame, fg_color=BG_SIDEBAR, corner_radius=12)
+        personal_header.pack(fill="x", padx=2, pady=2)
+        
+        personal_title = ctk.CTkLabel(
+            personal_header,
+            text="Informations Personnelles",
+            font=("Segoe UI", 16, "bold"),
+            text_color=TEXT
+        )
+        personal_title.pack(pady=12)
+        
+        # Contenu section personnelle
+        personal_content = ctk.CTkFrame(personal_frame, fg_color="transparent")
+        personal_content.pack(fill="x", padx=15, pady=15)
         
         # Nom
-        ctk.CTkLabel(form_frame, text="Nom:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
-        self.nom_entry = ctk.CTkEntry(form_frame, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT)
-        self.nom_entry.pack(fill="x", pady=(5, 15))
+        ctk.CTkLabel(personal_content, text="Nom *:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
+        self.nom_entry = ctk.CTkEntry(personal_content, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT, placeholder_text="Nom de famille")
+        self.nom_entry.pack(fill="x", pady=(5, 10))
         
         # Prénom
-        ctk.CTkLabel(form_frame, text="Prénom:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
-        self.prenom_entry = ctk.CTkEntry(form_frame, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT)
-        self.prenom_entry.pack(fill="x", pady=(5, 15))
+        ctk.CTkLabel(personal_content, text="Prénom *:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
+        self.prenom_entry = ctk.CTkEntry(personal_content, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT, placeholder_text="Prénom")
+        self.prenom_entry.pack(fill="x", pady=(5, 10))
         
         # Email
-        ctk.CTkLabel(form_frame, text="Email:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
-        self.email_entry = ctk.CTkEntry(form_frame, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT)
-        self.email_entry.pack(fill="x", pady=(5, 15))
+        ctk.CTkLabel(personal_content, text="Email *:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
+        self.email_entry = ctk.CTkEntry(personal_content, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT, placeholder_text="email@exemple.com")
+        self.email_entry.pack(fill="x", pady=(5, 10))
         
         # Téléphone
-        ctk.CTkLabel(form_frame, text="Téléphone:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
-        self.telephone_entry = ctk.CTkEntry(form_frame, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT)
-        self.telephone_entry.pack(fill="x", pady=(5, 15))
+        ctk.CTkLabel(personal_content, text="Téléphone:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
+        self.telephone_entry = ctk.CTkEntry(personal_content, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT, placeholder_text="+224 XXX XX XX XX")
+        self.telephone_entry.pack(fill="x", pady=(5, 10))
+        
+        
+        # === INFORMATIONS PROFESSIONNELLES ===
+        prof_frame = ctk.CTkFrame(main_container, fg_color=CARD_BG, corner_radius=12, border_width=1, border_color=BORDER_COLOR)
+        prof_frame.pack(fill="x", pady=(0, 15))
+        
+        # En-tête section professionnelle
+        prof_header = ctk.CTkFrame(prof_frame, fg_color=BG_SIDEBAR, corner_radius=12)
+        prof_header.pack(fill="x", padx=2, pady=2)
+        
+        prof_title = ctk.CTkLabel(
+            prof_header,
+            text="Informations Professionnelles",
+            font=("Segoe UI", 16, "bold"),
+            text_color=TEXT
+        )
+        prof_title.pack(pady=12)
+        
+        # Contenu section professionnelle
+        prof_content = ctk.CTkFrame(prof_frame, fg_color="transparent")
+        prof_content.pack(fill="x", padx=15, pady=15)
         
         # Spécialité
-        ctk.CTkLabel(form_frame, text="Spécialité:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
-        self.specialite_entry = ctk.CTkEntry(form_frame, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT)
-        self.specialite_entry.pack(fill="x", pady=(5, 15))
+        ctk.CTkLabel(prof_content, text="Spécialité *:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
+        self.specialite_entry = ctk.CTkEntry(prof_content, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT, placeholder_text="Matière enseignée")
+        self.specialite_entry.pack(fill="x", pady=(5, 10))
         
         # Statut
-        ctk.CTkLabel(form_frame, text="Statut:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
+        ctk.CTkLabel(prof_content, text="Statut *:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
         self.statut_combo = ctk.CTkComboBox(
-            form_frame,
-            values=["actif", "inactif", "Professeur principal"],
+            prof_content,
+            values=["Actif", "Inactif", "En congé", "Professeur principal"],
             font=FONT_SECONDARY,
             fg_color=BG_SIDEBAR,
             text_color=TEXT
         )
-        self.statut_combo.pack(fill="x", pady=(5, 20))
+        self.statut_combo.pack(fill="x", pady=(5, 10))
+        
+        # Date d'embauche
+        ctk.CTkLabel(prof_content, text="Date d'embauche:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
+        self.date_embauche_entry = ctk.CTkEntry(prof_content, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT, placeholder_text="YYYY-MM-DD")
+        self.date_embauche_entry.pack(fill="x", pady=(5, 10))
+        
+        # Heures mensuelles
+        ctk.CTkLabel(prof_content, text="Heures mensuelles:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
+        self.heures_mensuelles_entry = ctk.CTkEntry(prof_content, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT, placeholder_text="173")
+        self.heures_mensuelles_entry.pack(fill="x", pady=(5, 10))
+        
+        # === INFORMATIONS SALARIALES ===
+        salary_frame = ctk.CTkFrame(main_container, fg_color=CARD_BG, corner_radius=12, border_width=1, border_color=BORDER_COLOR)
+        salary_frame.pack(fill="x", pady=(0, 15))
+        
+        # En-tête section salariale
+        salary_header = ctk.CTkFrame(salary_frame, fg_color=BG_SIDEBAR, corner_radius=12)
+        salary_header.pack(fill="x", padx=2, pady=2)
+        
+        salary_title = ctk.CTkLabel(
+            salary_header,
+            text="Configuration Salariale",
+            font=("Segoe UI", 16, "bold"),
+            text_color=TEXT
+        )
+        salary_title.pack(pady=12)
+        
+        # Contenu section salariale
+        salary_content = ctk.CTkFrame(salary_frame, fg_color="transparent")
+        salary_content.pack(fill="x", padx=15, pady=15)
+        
+        # Taux horaire (prix par heure de cours)
+        ctk.CTkLabel(salary_content, text="Taux horaire (GNF/heure de cours):", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
+        self.taux_horaire_entry = ctk.CTkEntry(salary_content, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT, placeholder_text="Ex: 50000")
+        self.taux_horaire_entry.pack(fill="x", pady=(5, 10))
+        
+        # Heures par session de cours (généralement 2h)
+        ctk.CTkLabel(salary_content, text="Heures par session de cours:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
+        self.heures_par_session_entry = ctk.CTkEntry(salary_content, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT, placeholder_text="2")
+        self.heures_par_session_entry.pack(fill="x", pady=(5, 10))
+        
+        # Nombre de sessions par semaine
+        ctk.CTkLabel(salary_content, text="Sessions par semaine:", font=FONT_SECONDARY, text_color=TEXT).pack(anchor="w")
+        self.sessions_semaine_entry = ctk.CTkEntry(salary_content, font=FONT_SECONDARY, fg_color=BG_SIDEBAR, text_color=TEXT, placeholder_text="Ex: 10")
+        self.sessions_semaine_entry.pack(fill="x", pady=(5, 10))
+        
+        # Informations calculées (lecture seule)
+        calc_info_frame = ctk.CTkFrame(salary_content, fg_color=BG_SIDEBAR, corner_radius=8)
+        calc_info_frame.pack(fill="x", pady=10)
+        
+        ctk.CTkLabel(calc_info_frame, text="Calculs automatiques:", font=("Segoe UI", 12, "bold"), text_color=TEXT).pack(anchor="w", padx=10, pady=(10, 5))
+        
+        self.calc_info_label = ctk.CTkLabel(
+            calc_info_frame, 
+            text="Les salaires seront calculés automatiquement selon les heures de cours dispensées",
+            font=("Segoe UI", 10), 
+            text_color=MUTED,
+            wraplength=400
+        )
+        self.calc_info_label.pack(anchor="w", padx=10, pady=(0, 10))
         
         # Boutons
-        buttons_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
-        buttons_frame.pack(fill="x", pady=10)
+        buttons_frame = ctk.CTkFrame(main_container, fg_color="transparent")
+        buttons_frame.pack(fill="x", pady=20)
         
         # Bouton Annuler
         cancel_btn = ctk.CTkButton(
@@ -108,7 +209,9 @@ class ProfesseurDialog(ctk.CTkToplevel):
             fg_color=MUTED,
             hover_color=ACCENT,
             text_color=TEXT,
-            command=self.cancel
+            command=self.cancel,
+            width=120,
+            height=40
         )
         cancel_btn.pack(side="right", padx=(10, 0))
         
@@ -120,7 +223,9 @@ class ProfesseurDialog(ctk.CTkToplevel):
             fg_color=SUCCESS_GREEN,
             hover_color="#047857",
             text_color="white",
-            command=self.save
+            command=self.save,
+            width=120,
+            height=40
         )
         save_btn.pack(side="right")
         
@@ -129,30 +234,102 @@ class ProfesseurDialog(ctk.CTkToplevel):
             self.load_data(professor_data)
             
     def load_data(self, professor_data):
-        """Charge les données du professeur"""
-        self.nom_entry.insert(0, professor_data.get('nom', ''))
-        self.prenom_entry.insert(0, professor_data.get('prenom', ''))
-        self.email_entry.insert(0, professor_data.get('email', ''))
-        self.telephone_entry.insert(0, professor_data.get('telephone', ''))
-        self.specialite_entry.insert(0, professor_data.get('specialite', ''))
-        self.statut_combo.set(professor_data.get('statut', 'actif'))
+        """Charge les données du professeur dans tous les champs"""
+        try:
+            # Informations personnelles
+            if hasattr(self, 'nom_entry') and self.nom_entry:
+                self.nom_entry.insert(0, str(professor_data.get('nom', '') or ''))
+            if hasattr(self, 'prenom_entry') and self.prenom_entry:
+                self.prenom_entry.insert(0, str(professor_data.get('prenom', '') or ''))
+            if hasattr(self, 'email_entry') and self.email_entry:
+                self.email_entry.insert(0, str(professor_data.get('email', '') or ''))
+            if hasattr(self, 'telephone_entry') and self.telephone_entry:
+                self.telephone_entry.insert(0, str(professor_data.get('telephone', '') or ''))
+            
+            # Informations professionnelles
+            if hasattr(self, 'specialite_entry') and self.specialite_entry:
+                self.specialite_entry.insert(0, str(professor_data.get('specialite', '') or ''))
+            if hasattr(self, 'statut_combo') and self.statut_combo:
+                self.statut_combo.set(str(professor_data.get('statut', 'Actif') or 'Actif'))
+            if hasattr(self, 'date_embauche_entry') and self.date_embauche_entry:
+                self.date_embauche_entry.insert(0, str(professor_data.get('date_embauche', '') or ''))
+            if hasattr(self, 'heures_mensuelles_entry') and self.heures_mensuelles_entry:
+                self.heures_mensuelles_entry.insert(0, str(professor_data.get('heures_mensuelles', 173) or 173))
+            
+            # Configuration salariale (valeurs par défaut si pas en base)
+            if hasattr(self, 'taux_horaire_entry') and self.taux_horaire_entry:
+                self.taux_horaire_entry.insert(0, str(professor_data.get('salaire_horaire', 0) or 0))
+            if hasattr(self, 'heures_par_session_entry') and self.heures_par_session_entry:
+                self.heures_par_session_entry.insert(0, "2")  # Valeur par défaut
+            if hasattr(self, 'sessions_semaine_entry') and self.sessions_semaine_entry:
+                self.sessions_semaine_entry.insert(0, "10")   # Valeur par défaut
+                
+        except Exception as e:
+            print(f"❌ Erreur lors du chargement des données: {e}")
+            # Continuer même en cas d'erreur
         
     def save(self):
-        """Sauvegarde les données"""
+        """Sauvegarde les données avec validation complète et calculs automatiques"""
+        # Validation des champs obligatoires
+        if not self.nom_entry.get().strip():
+            messagebox.showerror("Erreur", "Le nom est obligatoire")
+            return
+        if not self.prenom_entry.get().strip():
+            messagebox.showerror("Erreur", "Le prénom est obligatoire")
+            return
+        if not self.email_entry.get().strip():
+            messagebox.showerror("Erreur", "L'email est obligatoire")
+            return
+        if not self.specialite_entry.get().strip():
+            messagebox.showerror("Erreur", "La spécialité est obligatoire")
+            return
+        
+        # Collecte des données
+        taux_horaire = float(self.taux_horaire_entry.get() or 0)
+        heures_par_session = float(self.heures_par_session_entry.get() or 2)
+        sessions_semaine = float(self.sessions_semaine_entry.get() or 10)
+        
+        # Calculs automatiques des salaires
+        heures_semaine = sessions_semaine * heures_par_session
+        heures_mois = heures_semaine * 4.33  # Moyenne mensuelle
+        heures_annee_scolaire = heures_mois * 9  # 9 mois de cours
+        
+        salaire_semaine = heures_semaine * taux_horaire
+        salaire_mois = heures_mois * taux_horaire
+        salaire_annee = heures_annee_scolaire * taux_horaire
+        
         data = {
-            'nom': self.nom_entry.get(),
-            'prenom': self.prenom_entry.get(),
-            'email': self.email_entry.get(),
-            'telephone': self.telephone_entry.get(),
-            'specialite': self.specialite_entry.get(),
-            'statut': self.statut_combo.get()
+            # Informations personnelles
+            'nom': self.nom_entry.get().strip(),
+            'prenom': self.prenom_entry.get().strip(),
+            'email': self.email_entry.get().strip(),
+            'telephone': self.telephone_entry.get().strip(),
+            
+            # Informations professionnelles
+            'specialite': self.specialite_entry.get().strip(),
+            'statut': self.statut_combo.get(),
+            'date_embauche': self.date_embauche_entry.get().strip() or datetime.now().strftime("%Y-%m-%d"),
+            'heures_mensuelles': int(self.heures_mensuelles_entry.get() or 173),
+            
+            # Configuration salariale
+            'taux_horaire': taux_horaire,
+            'heures_par_session': heures_par_session,
+            'sessions_semaine': sessions_semaine,
+            
+            # Salaires calculés automatiquement
+            'salaire_base': salaire_mois,  # Salaire de base = salaire mensuel
+            'salaire_net': salaire_mois,   # Salaire net = salaire mensuel (pas de déductions)
+            'salaire_horaire': taux_horaire,
+            
+            # Calculs pour affichage
+            'heures_semaine': heures_semaine,
+            'heures_mois': heures_mois,
+            'heures_annee_scolaire': heures_annee_scolaire,
+            'salaire_semaine': salaire_semaine,
+            'salaire_mois': salaire_mois,
+            'salaire_annee': salaire_annee
         }
         
-        # Validation simple
-        if not data['nom'] or not data['prenom']:
-            messagebox.showerror("Erreur", "Le nom et prénom sont obligatoires.")
-            return
-            
         self.result = data
         self.destroy()
         
@@ -317,82 +494,6 @@ except ImportError as e:
             converted_profs.append(converted_prof)
         return converted_profs
 
-    def add_professeur(data):
-        """Ajoute un nouveau professeurs à la base de données"""
-        conn = get_db_connection_direct()
-        if not conn: return False
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO professeurs (matricule, nom, prenom, date_naissance, 
-                                       adresse, telephone, email, specialite, date_embauche, statut)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                data.get('matricule', ''),
-                data.get('nom', ''),
-                data.get('prenom', ''),
-                data.get('date_naissance', ''),
-                data.get('adresse', ''),
-                data.get('telephone', ''),
-                data.get('email', ''),
-                data.get('specialite', ''),
-                data.get('date_embauche', ''),
-                data.get('statut', 'Actif')
-            ))
-            conn.commit()
-            return True
-        except Exception as e:
-            print(f"Erreur lors de l'ajout: {e}")
-            return False
-        finally:
-            conn.close()
-
-    def update_professeur(prof_id, data):
-        """Met à jour un professeurs existant"""
-        conn = get_db_connection_direct()
-        if not conn: return False
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE professeurs SET 
-                    matricule=?, nom=?, prenom=?, date_naissance=?,
-                    adresse=?, telephone=?, email=?, specialite=?, date_embauche=?, statut=?
-                WHERE id_professeur=?
-            """, (
-                data.get('matricule', ''),
-                data.get('nom', ''),
-                data.get('prenom', ''),
-                data.get('date_naissance', ''),
-                data.get('adresse', ''),
-                data.get('telephone', ''),
-                data.get('email', ''),
-                data.get('specialite', ''),
-                data.get('date_embauche', ''),
-                data.get('statut', 'Actif'),
-                prof_id
-            ))
-            conn.commit()
-            return True
-        except Exception as e:
-            print(f"Erreur lors de la mise à jour: {e}")
-            return False
-        finally:
-            conn.close()
-
-    def delete_professeur(prof_id):
-        """Supprime un professeurs de la base de données"""
-        conn = get_db_connection_direct()
-        if not conn: return False
-        try:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM professeurs WHERE id_professeur=?", (prof_id,))
-            conn.commit()
-            return True
-        except Exception as e:
-            print(f"Erreur lors de la suppression: {e}")
-            return False
-        finally:
-            conn.close()
 
     def get_professeur(prof_id):
         conn = get_db_connection_direct()
@@ -520,6 +621,18 @@ class ProfessorsDashboard(ctk.CTkFrame):
         self._create_widgets()
         self.update_data()
         
+    def destroy(self):
+        """Assure un arrêt propre (annule les callbacks after)"""
+        try:
+            if hasattr(self, "_search_after_id") and self._search_after_id:
+                try:
+                    self.after_cancel(self._search_after_id)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return super().destroy()
+        
     def _create_widgets(self):
         """Crée l'interface complète de gestion des professeurs avec salaires"""
         self.create_header()
@@ -527,8 +640,9 @@ class ProfessorsDashboard(ctk.CTkFrame):
         # Frame principal avec layout en 2 colonnes
         main_frame = ctk.CTkFrame(self, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
-        main_frame.grid_columnconfigure(0, weight=1)  # Liste des professeurs
-        main_frame.grid_columnconfigure(1, weight=2)  # Détails et salaires
+        # Conserver des dimensions stables pour les 2 colonnes (liste / détails)
+        main_frame.grid_columnconfigure(0, weight=1, minsize=550, uniform="cols")  # Liste (encore plus large pour boutons)
+        main_frame.grid_columnconfigure(1, weight=3, minsize=900, uniform="cols")  # Détails (stable)
         main_frame.grid_rowconfigure(0, weight=1)
         
         # Créer les panneaux
@@ -631,7 +745,7 @@ class ProfessorsDashboard(ctk.CTkFrame):
         # Titre du panneau
         panel_title = ctk.CTkLabel(
             panel_header, 
-            text="Liste des Professeurs", 
+            text="Listes", 
             font=FONT_TITLE, 
             text_color=TEXT
         )
@@ -647,22 +761,36 @@ class ProfessorsDashboard(ctk.CTkFrame):
         self.prof_count_label.pack(side="right")
 
         # Barre de recherche
+        # Barre de recherche avec icône
         search_frame = ctk.CTkFrame(list_panel, fg_color="transparent")
         search_frame.pack(fill="x", padx=15, pady=(0, 15))
-        
+
+        # Container pour icône et champ de recherche
+        search_container = ctk.CTkFrame(search_frame, fg_color=BG_SIDEBAR, corner_radius=8)
+        search_container.pack(fill="x")
+
+        # Icône de recherche
+        search_icon = ctk.CTkLabel(
+            search_container,
+            image=self.icon_cache.get("search", load_icon("search", 16)),
+            text="",
+            fg_color="transparent"
+        )
+        search_icon.pack(side="left", padx=10, pady=8)
+
+        # Champ de recherche
         search_entry = ctk.CTkEntry(
-            search_frame,
+            search_container,
             textvariable=self.search_var,
+            placeholder_text="Rechercher un professeur...",
             font=FONT_SECONDARY,
-            placeholder_text="🔍 Rechercher un professeur...",
-            fg_color=BG_SIDEBAR,
-            text_color=TEXT,
+            fg_color="transparent",
             border_width=1,
             border_color=BORDER_COLOR,
-            corner_radius=10,
+            text_color=TEXT,
             height=35
         )
-        search_entry.pack(fill="x")
+        search_entry.pack(fill="x", padx=(0, 10), pady=8)
         # Recherche avec debounce
         def on_key_release(event=None):
             try:
@@ -673,53 +801,49 @@ class ProfessorsDashboard(ctk.CTkFrame):
             self._search_after_id = self.after(300, self.filter_professors)
         search_entry.bind("<KeyRelease>", on_key_release)
 
-        # Filtres (statut, spécialité, principal)
+        # Filtres compacts
         filters_frame = ctk.CTkFrame(list_panel, fg_color="transparent")
         filters_frame.pack(fill="x", padx=15, pady=(0, 10))
 
-        statut_label = ctk.CTkLabel(filters_frame, text="Statut:", font=FONT_SECONDARY, text_color=TEXT)
-        statut_label.pack(side="left", padx=(0, 6))
-        statut_select = ctk.CTkOptionMenu(
-            filters_frame,
-            values=["Tous", "Actif", "Inactif"],
-            variable=self.filter_statut_var,
-            fg_color=BG_SIDEBAR,
-            button_color=ACCENT,
-            button_hover_color="#2563EB",
-            text_color=TEXT,
-            dropdown_fg_color=CARD_BG,
-            dropdown_text_color=TEXT,
-            width=120,
-        )
-        statut_select.pack(side="left")
+        # Filtre Statut
+        statut_container = ctk.CTkFrame(filters_frame, fg_color="transparent")
+        statut_container.pack(fill="x", pady=2)
 
-        spec_label = ctk.CTkLabel(filters_frame, text="Spécialité:", font=FONT_SECONDARY, text_color=TEXT)
-        spec_label.pack(side="left", padx=(12, 6))
-        spec_entry = ctk.CTkEntry(
-            filters_frame,
-            textvariable=self.filter_specialite_var,
-            font=FONT_SECONDARY,
-            placeholder_text="Toutes",
+        statut_label = ctk.CTkLabel(statut_container, text="Statut:", font=("Segoe UI", 10), text_color=MUTED)
+        statut_label.pack(side="left", padx=(0, 8))
+
+        statut_select = ctk.CTkComboBox(
+            statut_container,
+            values=["Tous", "Actif", "Inactif", "En congé"],
+            variable=self.filter_statut_var,
+            font=("Segoe UI", 10),
             fg_color=BG_SIDEBAR,
             text_color=TEXT,
             border_width=1,
             border_color=BORDER_COLOR,
-            corner_radius=10,
-            height=32,
-            width=140,
+            corner_radius=6,
+            width=100,
+            height=28
         )
-        spec_entry.pack(side="left")
+        statut_select.pack(side="right")
+
+
+        # Checkbox Professeur Principal
+        principal_container = ctk.CTkFrame(filters_frame, fg_color="transparent")
+        principal_container.pack(fill="x", pady=2)
 
         principal_chk = ctk.CTkCheckBox(
-            filters_frame,
-            text="Principal",
-            text_color=TEXT,
-            fg_color=ACCENT,
-            hover_color="#2563EB",
-            border_color=BORDER_COLOR,
+            principal_container,
+            text="Professeurs principaux",
             variable=self.filter_principal_var,
+            font=("Segoe UI", 10),
+            text_color=MUTED,
+            fg_color=ACCENT,
+            hover_color=HOVER_PRIMARY,
+            checkmark_color=BG_MAIN,
+            corner_radius=4
         )
-        principal_chk.pack(side="left", padx=(12, 0))
+        principal_chk.pack(side="left")
 
         # Réagir aux changements de filtres
         def on_filters_change(event=None):
@@ -728,7 +852,6 @@ class ProfessorsDashboard(ctk.CTkFrame):
             self.display_professors_list()
             self.update_prof_count()
         statut_select.configure(command=lambda _: on_filters_change())
-        spec_entry.bind("<KeyRelease>", lambda e: self.after(300, on_filters_change))
         principal_chk.configure(command=on_filters_change)
 
         # Contrôles pagination
@@ -797,9 +920,20 @@ class ProfessorsDashboard(ctk.CTkFrame):
         
     def refresh_professors_view(self):
         """Actualise la vue des professeurs"""
-        self.load_professors_data()
-        self.display_professors_list()
-        self.update_prof_count()
+        try:
+            print("🔄 Rafraîchissement de la vue des professeurs...")
+            # Réinitialiser l'offset pour revenir à la première page
+            self.current_offset = 0
+            # Recharger les données depuis la base
+            self.load_professors_data()
+            # Réafficher la liste
+            self.display_professors_list()
+            # Mettre à jour le compteur
+            self.update_prof_count()
+            print("✅ Vue des professeurs rafraîchie avec succès")
+        except Exception as e:
+            print(f"❌ Erreur lors du rafraîchissement: {e}")
+            messagebox.showerror("Erreur", f"Erreur lors du rafraîchissement: {e}")
         
     def load_professors_data(self):
         """Charge les données des professeurs"""
@@ -809,7 +943,7 @@ class ProfessorsDashboard(ctk.CTkFrame):
             statut = self.filter_statut_var.get()
             if statut == "Tous":
                 statut = None
-            specialite = (self.filter_specialite_var.get() or "").strip() or None
+            specialite = None  # Filtre spécialité supprimé
             principal = True if self.filter_principal_var.get() else None
             self.professors_data = get_professeurs_paginated(
                 limit=getattr(self, 'page_size', 50),
@@ -946,48 +1080,7 @@ class ProfessorsDashboard(ctk.CTkFrame):
         )
         name_label.pack(anchor="w", pady=(0, 2))
         
-        # Spécialité avec icône compacte
-        spec_container = ctk.CTkFrame(info_container, fg_color="transparent")
-        spec_container.pack(anchor="w", pady=(0, 3))
-        
-        spec_icon = ctk.CTkLabel(
-            spec_container,
-            image=self.icon_cache.get("book", load_icon("book", 12)),
-            text="",
-            fg_color="transparent"
-        )
-        spec_icon.pack(side="left", padx=(0, 6))
-        
-        spec_label = ctk.CTkLabel(
-            spec_container,
-            text=prof.get('specialite', 'Non spécifié'),
-            font=("Segoe UI", 11),
-            text_color=MUTED,
-            fg_color="transparent"
-        )
-        spec_label.pack(side="left")
-        
-        # Email compact (si disponible)
-        if prof.get('email'):
-            email_container = ctk.CTkFrame(info_container, fg_color="transparent")
-            email_container.pack(anchor="w")
-            
-            email_icon = ctk.CTkLabel(
-                email_container,
-                image=self.icon_cache.get("email", load_icon("email", 12)),
-                text="",
-                fg_color="transparent"
-            )
-            email_icon.pack(side="left", padx=(0, 6))
-            
-            email_label = ctk.CTkLabel(
-                email_container,
-                text=prof.get('email', ''),
-                font=("Segoe UI", 10),
-                text_color=MUTED,
-                fg_color="transparent"
-            )
-            email_label.pack(side="left")
+        # Informations supprimées pour une liste plus épurée
         
         # Section droite - Métriques et actions
         right_section = ctk.CTkFrame(main_container, fg_color="transparent")
@@ -1115,8 +1208,16 @@ class ProfessorsDashboard(ctk.CTkFrame):
         header_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
         header_frame.pack(fill="x")
         
-        # Avatar
-        avatar_frame = ctk.CTkFrame(header_frame, fg_color=BORDER_COLOR, corner_radius=50, width=100, height=100)
+        # Avatar - sans fond de couleur, juste un contour subtil
+        avatar_frame = ctk.CTkFrame(
+            header_frame,
+            fg_color="transparent",
+            corner_radius=50,
+            width=100,
+            height=100,
+            border_width=1,
+            border_color=BORDER_COLOR
+        )
         avatar_frame.pack(side="left", padx=(0, 20))
         avatar_frame.pack_propagate(False)
         
@@ -1160,325 +1261,634 @@ class ProfessorsDashboard(ctk.CTkFrame):
         location_label.pack(anchor="w")
 
     def create_professor_details_table(self, prof):
-        """Affiche une fiche professeur ultra-moderne avec design spectaculaire"""
+        """Affiche une fiche professeur ultra-moderne avec organisation parfaite et visibilité optimale"""
 
-        # === Container principal avec design premium ultra-moderne ===
+        # === Container principal compact ===
         container = ctk.CTkFrame(
             self.details_content_frame,
             fg_color=CARD_BG,
-            corner_radius=24,
+            corner_radius=16,
+            border_width=1,
+            border_color=BORDER_COLOR
+        )
+        container.pack(fill="both", expand=True, padx=6, pady=6)
+
+        # === Header horizontal avec avatar, infos et boutons CRUD ===
+        header_section = ctk.CTkFrame(container, fg_color=BG_SIDEBAR, corner_radius=12)
+        header_section.pack(fill="x", padx=16, pady=12)
+
+        # Container horizontal pour avatar, infos et boutons
+        header_content = ctk.CTkFrame(header_section, fg_color="transparent")
+        header_content.pack(fill="x", padx=12, pady=12)
+
+        # Avatar à gauche
+        avatar_container = ctk.CTkFrame(header_content, fg_color="transparent")
+        avatar_container.pack(side="left", padx=(0, 16))
+
+        avatar_frame = ctk.CTkFrame(
+            avatar_container,
+            width=70, height=70,
+            corner_radius=35,
+            fg_color="transparent",
             border_width=2,
             border_color=BORDER_COLOR
         )
-        container.pack(fill="both", expand=True, padx=8, pady=8)
+        avatar_frame.pack()
+        avatar_frame.pack_propagate(False)
 
-        # === Bande supérieure ultra-décorative ===
-        top_bar = ctk.CTkFrame(container, fg_color=ACCENT, corner_radius=24, height=6)
-        top_bar.pack(fill="x", pady=(0, 0))
-        top_bar.pack_propagate(False)
-
-        # === Zone avatar ultra-moderne ===
-        avatar_section = ctk.CTkFrame(container, fg_color="transparent")
-        avatar_section.pack(pady=12)
-
-        # Avatar avec triple bordure et effet de halo spectaculaire
-        avatar_outer = ctk.CTkFrame(
-            avatar_section,
-            width=100, height=100,
-            corner_radius=50,
-            fg_color=ACCENT,
-            border_width=2,
-            border_color=ACCENT
-        )
-        avatar_outer.pack()
-        avatar_outer.pack_propagate(False)
-
-        avatar_container = ctk.CTkFrame(
-            avatar_outer,
-            fg_color=CARD_BG,
-            corner_radius=48,
-            width=96, height=96
-        )
-        avatar_container.pack(expand=True, padx=2, pady=2)
-        avatar_container.pack_propagate(False)
-
-        # Icône de profil dans l'avatar
         avatar_label = ctk.CTkLabel(
-            avatar_container,
-            image=self.icon_cache.get("person", load_icon("person", 40)),
+            avatar_frame,
+            image=self.icon_cache.get("person", load_icon("person", 35)),
             text="",
             fg_color="transparent"
         )
         avatar_label.pack(expand=True)
 
-        # === Informations principales ultra-compactes ===
-        info_section = ctk.CTkFrame(container, fg_color="transparent")
-        info_section.pack(pady=(0, 12))
-
-        # Nom avec icône et style premium
-        name_container = ctk.CTkFrame(info_section, fg_color="transparent")
-        name_container.pack(pady=(0, 4))
-
-        name_icon = ctk.CTkLabel(
-            name_container,
-            image=self.icon_cache.get("user_avatar", load_icon("user_avatar", 18)),
-            text="",
-            fg_color="transparent"
-        )
-        name_icon.pack(side="left", padx=(0, 8))
+        # Infos utilisateur au centre
+        info_container = ctk.CTkFrame(header_content, fg_color="transparent")
+        info_container.pack(side="left", fill="x", expand=True)
 
         name_label = ctk.CTkLabel(
-            name_container,
+            info_container,
             text=f"{prof.get('nom','').title()} {prof.get('prenom','').title()}",
-            font=("Segoe UI", 20, "bold"),
+            font=("Segoe UI", 22, "bold"),
             text_color=TEXT,
             fg_color="transparent"
         )
-        name_label.pack(side="left")
+        name_label.pack(anchor="w")
 
-        # Spécialité avec icône compacte
-        spec_container = ctk.CTkFrame(info_section, fg_color="transparent")
-        spec_container.pack(pady=(0, 8))
-
-        spec_icon = ctk.CTkLabel(
-            spec_container,
-            image=self.icon_cache.get("book", load_icon("book", 14)),
-            text="",
-            fg_color="transparent"
-        )
-        spec_icon.pack(side="left", padx=(0, 8))
-
-        spec_label = ctk.CTkLabel(
-            spec_container,
-            text=f"{prof.get('specialite','').title() or 'Non spécifié'}",
-            font=("Segoe UI", 13),
+        specialty_label = ctk.CTkLabel(
+            info_container,
+            text=f"{prof.get('specialite','').title() or 'Professeur'}",
+            font=("Segoe UI", 16),
             text_color=MUTED,
             fg_color="transparent"
         )
-        spec_label.pack(side="left")
+        specialty_label.pack(anchor="w", pady=(4, 0))
 
-        # === Informations détaillées ultra-compactes ===
-        details_section = ctk.CTkFrame(container, fg_color="transparent")
-        details_section.pack(fill="x", padx=12, pady=(0, 12))
+        # Boutons CRUD à droite
+        crud_container = ctk.CTkFrame(header_content, fg_color="transparent")
+        crud_container.pack(side="right")
 
-        # Titre de section compact
-        section_title = ctk.CTkLabel(
-            details_section,
-            text="Informations Personnelles",
-            font=("Segoe UI", 14, "bold"),
+        # Bouton Modifier
+        edit_btn = ctk.CTkButton(
+            crud_container,
+            text="",
+            image=self.icon_cache.get("edit", load_icon("edit", 18)),
+            font=("Segoe UI", 12, "bold"),
+            fg_color="transparent",
+            hover_color=BG_SIDEBAR,
             text_color=TEXT,
-            fg_color="transparent"
+            corner_radius=8,
+            height=36,
+            width=36,
+            border_width=1,
+            border_color=BORDER_COLOR,
+            command=lambda: self.edit_professor(prof.get('id'))
         )
-        section_title.pack(anchor="w", pady=(0, 8))
+        edit_btn.pack(side="left", padx=4)
 
-        # Grille d'informations ultra-compacte
-        info_grid = ctk.CTkFrame(details_section, fg_color="transparent")
-        info_grid.pack(fill="x")
-        info_grid.grid_columnconfigure((0, 1), weight=1)
+        # Bouton Supprimer
+        delete_btn = ctk.CTkButton(
+            crud_container,
+            text="",
+            image=self.icon_cache.get("delete", load_icon("delete", 18)),
+            font=("Segoe UI", 12, "bold"),
+            fg_color="transparent",
+            hover_color=BG_SIDEBAR,
+            text_color=TEXT,
+            corner_radius=8,
+            height=36,
+            width=36,
+            border_width=1,
+            border_color=BORDER_COLOR,
+            command=lambda: self.delete_professor(prof.get('id'))
+        )
+        delete_btn.pack(side="left", padx=4)
 
-        def create_info_card(row, col, title, value, icon_name, color=TEXT):
-            card = ctk.CTkFrame(info_grid, fg_color=BG_SIDEBAR, corner_radius=10)
-            card.grid(row=row, column=col, padx=4, pady=4, sticky="ew")
-            
-            # Icône et titre ultra-compacts
-            header = ctk.CTkFrame(card, fg_color="transparent")
-            header.pack(fill="x", padx=10, pady=(8, 3))
-            
-            icon_label = ctk.CTkLabel(
-                header,
-                image=self.icon_cache.get(icon_name, load_icon(icon_name, 14)),
-                text="",
-                fg_color="transparent"
-            )
-            icon_label.pack(side="left", padx=(0, 6))
-            
-            title_label = ctk.CTkLabel(
-                header,
-                text=title,
-                font=("Segoe UI", 10, "bold"),
-                text_color=MUTED,
-                fg_color="transparent"
-            )
-            title_label.pack(side="left")
-            
-            # Valeur compacte
-            value_label = ctk.CTkLabel(
-                card,
-                text=value or "-",
-                font=("Segoe UI", 12, "bold"),
-                text_color=color,
-                fg_color="transparent"
-            )
-            value_label.pack(anchor="w", padx=10, pady=(0, 8))
 
-        # Informations de base ultra-compactes
-        create_info_card(0, 0, "ID Professeur", f"PROF{prof.get('id',0):04d}" if prof.get('id') else prof.get('matricule','-'), "target", ACCENT)
-        create_info_card(0, 1, "Email", prof.get('email',''), "email", TEXT)
-        create_info_card(1, 0, "Téléphone", prof.get('telephone',''), "phone", TEXT)
-        create_info_card(1, 1, "Taux Horaire", f"{prof.get('salaire_horaire',0):,.0f} GNF", "trending_up", SUCCESS_GREEN)
+        # === Sections optimisées en grille ===
+        sections_container = ctk.CTkFrame(container, fg_color="transparent")
+        sections_container.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+        sections_container.grid_columnconfigure((0, 1), weight=1)
 
-        # === Section paiement ultra-moderne ===
-        try:
-            current_month = datetime.now().month
-            current_year = datetime.now().year
-            total_month_hours = 0.0
-            total_week_hours = 0.0
-            salaire_horaire = float(prof.get('salaire_horaire') or 0)
+        # === Section 1: Informations Personnelles ===
+        personal_section = self._create_compact_info_section(
+            sections_container, 0, 0,
+            "Personnelles",
+            "person",
+            [
+                ("ID", f"PROF{prof.get('id',0):04d}" if prof.get('id') else prof.get('matricule','-'), "target"),
+                ("Email", prof.get('email','') or "-", "email"),
+                ("Téléphone", prof.get('telephone','') or "-", "phone"),
+                ("Statut", prof.get('statut','') or "-", "check_circle")
+            ]
+        )
 
-            if getattr(self, 'salary_controller', None):
-                hours = self.salary_controller.get_professor_hours(prof.get('id'), current_month, current_year) or []
-                total_month_hours = sum((h.get('nombre_heures') or 0) for h in hours)
+        # === Section 2: Informations Professionnelles ===
+        professional_section = self._create_compact_info_section(
+            sections_container, 0, 1,
+            "Professionnelles",
+            "briefcase",
+            [
+                ("Spécialité", prof.get('specialite','') or "-", "book"),
+                ("Date Embauche", prof.get('date_embauche','') or "-", "calendar"),
+                ("Heures/Mois", f"{prof.get('heures_mensuelles',0)}h" or "-", "clock"),
+                ("Taux Horaire", f"{prof.get('salaire_horaire',0):,.0f} GNF" or "-", "trending_up")
+            ]
+        )
 
-                today = datetime.now().date()
-                week_start = today - timedelta(days=today.weekday())
-                week_end = week_start + timedelta(days=6)
+        # === Section 3: Informations Financières ===
+        financial_section = self._create_compact_financial_section(
+            sections_container, 1, 0,
+            prof
+        )
 
-                def _pdate(d):
-                    try: return datetime.strptime(str(d), "%Y-%m-%d").date()
-                    except Exception:
-                        try: return datetime.fromisoformat(str(d)).date()
-                        except Exception: return None
+        # === Section 4: Actions Rapides ===
+        actions_section = self._create_compact_actions_section(
+            sections_container, 1, 1,
+            prof
+        )
 
-                for h in hours:
-                    d = _pdate(h.get('date_cours'))
-                    if d and week_start <= d <= week_end:
-                        total_week_hours += (h.get('nombre_heures') or 0)
+    def _create_compact_info_section(self, parent, row, col, title, icon_name, info_items):
+        """Crée une section d'informations avec affichage horizontal et design optimisé"""
+        section = ctk.CTkFrame(parent, fg_color=CARD_BG, corner_radius=12, border_width=1, border_color=BORDER_COLOR)
+        section.grid(row=row, column=col, padx=3, pady=3, sticky="nsew")
+        section.grid_columnconfigure(0, weight=1)
 
-            salaire_semaine = total_week_hours * salaire_horaire
-            salaire_mois = total_month_hours * salaire_horaire
+        # En-tête compact avec fond accentué
+        header = ctk.CTkFrame(section, fg_color=BG_SIDEBAR, corner_radius=12)
+        header.pack(fill="x", padx=2, pady=2)
 
-            # === Carte paiement ultra-moderne ===
-            payment_card = ctk.CTkFrame(container, fg_color=BG_SIDEBAR, corner_radius=14)
-            payment_card.pack(fill="x", padx=12, pady=(0, 12))
+        # Titre compact avec icône
+        title_frame = ctk.CTkFrame(header, fg_color="transparent")
+        title_frame.pack(fill="x", padx=12, pady=12)
 
-            # En-tête paiement ultra-compact
-            payment_header = ctk.CTkFrame(payment_card, fg_color="transparent")
-            payment_header.pack(fill="x", padx=12, pady=10)
-
-            # Titre avec icône compact
-            title_container = ctk.CTkFrame(payment_header, fg_color="transparent")
-            title_container.pack(side="left")
-
-            payment_icon = ctk.CTkLabel(
-                title_container,
-                image=self.icon_cache.get("trending_up", load_icon("trending_up", 16)),
-                text="",
-                fg_color="transparent"
-            )
-            payment_icon.pack(side="left", padx=(0, 8))
-
-            payment_title = ctk.CTkLabel(
-                title_container,
-                text="Informations de Paiement",
-                font=("Segoe UI", 14, "bold"),
-                text_color=TEXT,
-                fg_color="transparent"
-            )
-            payment_title.pack(side="left")
-
-            # Boutons d'action ultra-compacts
-            actions_container = ctk.CTkFrame(payment_header, fg_color="transparent")
-            actions_container.pack(side="right")
-
-            export_btn = ctk.CTkButton(
-                actions_container,
-                text="",
-                image=self.icon_cache.get("csv", load_icon("csv", 14)),
-                width=30,
-                height=30,
-                fg_color=ACCENT,
-                hover_color=HOVER_PRIMARY,
-                corner_radius=6,
-                command=lambda: messagebox.showinfo("Export", "Export salaire en cours...")
-            )
-            export_btn.pack(side="left", padx=3)
-
-            print_btn = ctk.CTkButton(
-                actions_container,
-                text="",
-                image=self.icon_cache.get("print", load_icon("print", 14)),
-                width=30,
-                height=30,
-                fg_color=ACCENT,
-                hover_color=HOVER_PRIMARY,
-                corner_radius=6,
-                command=lambda: messagebox.showinfo("Impression", "Impression de la fiche salaire...")
-            )
-            print_btn.pack(side="left", padx=3)
-
-            # Grille de métriques ultra-compactes
-            metrics_grid = ctk.CTkFrame(payment_card, fg_color="transparent")
-            metrics_grid.pack(fill="x", padx=12, pady=(0, 12))
-            metrics_grid.grid_columnconfigure((0, 1, 2, 3), weight=1)
-
-            def create_metric_card(col, title, value, icon_name, color=SUCCESS_GREEN):
-                metric_card = ctk.CTkFrame(metrics_grid, fg_color=CARD_BG, corner_radius=10)
-                metric_card.grid(row=0, column=col, padx=4, pady=4, sticky="ew")
-                
-                # Icône et titre ultra-compacts
-                metric_header = ctk.CTkFrame(metric_card, fg_color="transparent")
-                metric_header.pack(fill="x", padx=8, pady=(6, 2))
-                
-                metric_icon = ctk.CTkLabel(
-                    metric_header,
-                    image=self.icon_cache.get(icon_name, load_icon(icon_name, 12)),
-                    text="",
-                    fg_color="transparent"
-                )
-                metric_icon.pack(side="left", padx=(0, 6))
-                
-                metric_title = ctk.CTkLabel(
-                    metric_header,
-                    text=title,
-                    font=("Segoe UI", 9, "bold"),
-                    text_color=MUTED,
-                    fg_color="transparent"
-                )
-                metric_title.pack(side="left")
-                
-                # Valeur compacte
-                metric_value = ctk.CTkLabel(
-                    metric_card,
-                    text=value,
-                    font=("Segoe UI", 11, "bold"),
-                    text_color=color,
-                    fg_color="transparent"
-                )
-                metric_value.pack(anchor="w", padx=8, pady=(0, 6))
-
-            # Métriques de paiement ultra-compactes
-            create_metric_card(0, "Heures Semaine", f"{total_week_hours:.1f} h", "clock", TEXT)
-            create_metric_card(1, "Salaire Semaine", f"{salaire_semaine:,.0f} GNF", "trending_up", SUCCESS_GREEN)
-            create_metric_card(2, "Heures Mois", f"{total_month_hours:.1f} h", "calendar", TEXT)
-            create_metric_card(3, "Salaire Mois", f"{salaire_mois:,.0f} GNF", "trending_up", SUCCESS_GREEN)
-
-        except Exception as e:
-            print(f"⚠️ Erreur section paiement: {e}")
-
-        # === Footer ultra-moderne avec branding ===
-        footer = ctk.CTkFrame(container, fg_color=ACCENT, corner_radius=14, height=10)
-        footer.pack(fill="x", side="bottom")
-        footer.pack_propagate(False)
-
-        brand_container = ctk.CTkFrame(footer, fg_color="transparent")
-        brand_container.pack(expand=True)
-
-        brand_icon = ctk.CTkLabel(
-            brand_container,
-            image=self.icon_cache.get("logo", load_icon("logo", 14)),
+        icon_label = ctk.CTkLabel(
+            title_frame,
+            image=self.icon_cache.get(icon_name, load_icon(icon_name, 18)),
             text="",
             fg_color="transparent"
         )
-        brand_icon.pack(side="left", padx=(0, 6))
+        icon_label.pack(side="left", padx=(0, 10))
 
-        brand_text = ctk.CTkLabel(
-            brand_container,
-            text="EduManager+",
-            font=("Segoe UI", 11, "bold"),
+        title_label = ctk.CTkLabel(
+            title_frame,
+            text=title,
+            font=("Segoe UI", 16, "bold"),
             text_color=TEXT,
             fg_color="transparent"
         )
-        brand_text.pack(side="left")
+        title_label.pack(side="left")
+
+        # Contenu avec affichage horizontal
+        content_frame = ctk.CTkFrame(section, fg_color="transparent")
+        content_frame.pack(fill="x", padx=12, pady=(0, 12))
+
+        for i, (label, value, value_icon) in enumerate(info_items):
+            info_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+            info_frame.pack(fill="x", pady=5)
+
+            # Container horizontal pour label et valeur
+            horizontal_container = ctk.CTkFrame(info_frame, fg_color="transparent")
+            horizontal_container.pack(fill="x")
+
+            # Icône à gauche
+            icon_widget = ctk.CTkLabel(
+                horizontal_container,
+                image=self.icon_cache.get(value_icon, load_icon(value_icon, 14)),
+                text="",
+                fg_color="transparent"
+            )
+            icon_widget.pack(side="left", padx=(0, 10))
+
+            # Label
+            label_widget = ctk.CTkLabel(
+                horizontal_container,
+                text=f"{label}:",
+                font=("Segoe UI", 13, "bold"),
+                text_color=MUTED,
+                fg_color="transparent"
+            )
+            label_widget.pack(side="left", padx=(0, 10))
+
+            # Valeur
+            value_widget = ctk.CTkLabel(
+                horizontal_container,
+                text=value,
+                font=("Segoe UI", 14),
+                text_color=TEXT,
+                fg_color="transparent"
+            )
+            value_widget.pack(side="left")
+
+        return section
+
+    def _create_compact_financial_section(self, parent, row, col, prof):
+        """Crée la section financière optimisée avec cadre de fond"""
+        section = ctk.CTkFrame(parent, fg_color=CARD_BG, corner_radius=12, border_width=1, border_color=BORDER_COLOR)
+        section.grid(row=row, column=col, padx=3, pady=3, sticky="nsew")
+        section.grid_columnconfigure(0, weight=1)
+
+        # En-tête compact avec fond accentué
+        header = ctk.CTkFrame(section, fg_color=BG_SIDEBAR, corner_radius=12)
+        header.pack(fill="x", padx=2, pady=2)
+
+        title_frame = ctk.CTkFrame(header, fg_color="transparent")
+        title_frame.pack(fill="x", padx=12, pady=12)
+
+        icon_label = ctk.CTkLabel(
+            title_frame,
+            image=self.icon_cache.get("trending_up", load_icon("trending_up", 18)),
+            text="",
+            fg_color="transparent"
+        )
+        icon_label.pack(side="left", padx=(0, 10))
+
+        title_label = ctk.CTkLabel(
+            title_frame,
+            text="Salaires Calculés",
+            font=("Segoe UI", 16, "bold"),
+            text_color=TEXT,
+            fg_color="transparent"
+        )
+        title_label.pack(side="left")
+
+        # Métriques optimisées
+        content_frame = ctk.CTkFrame(section, fg_color="transparent")
+        content_frame.pack(fill="x", padx=12, pady=(0, 12))
+
+        # Calculs automatiques des salaires basés sur la configuration
+        taux_horaire = float(prof.get('salaire_horaire', 0) or 0)
+        heures_par_session = float(prof.get('heures_par_session', 2) or 2)
+        sessions_semaine = float(prof.get('sessions_semaine', 10) or 10)
+        
+        # Calculs automatiques
+        heures_semaine = sessions_semaine * heures_par_session
+        heures_mois = heures_semaine * 4.33  # Moyenne mensuelle
+        heures_annee_scolaire = heures_mois * 9  # 9 mois de cours
+        
+        salaire_semaine = heures_semaine * taux_horaire
+        salaire_mois = heures_mois * taux_horaire
+        salaire_annee = heures_annee_scolaire * taux_horaire
+
+        # Métriques en grille 2x2 compacte
+        metrics_grid = ctk.CTkFrame(content_frame, fg_color="transparent")
+        metrics_grid.pack(fill="x")
+        metrics_grid.grid_columnconfigure((0, 1), weight=1)
+
+        metrics = [
+            ("Taux/H", f"{taux_horaire:,.0f} GNF", "target", SUCCESS_GREEN),
+            ("Semaine", f"{salaire_semaine:,.0f} GNF", "target", ACCENT),
+            ("Mois", f"{salaire_mois:,.0f} GNF", "target", ACCENT),
+            ("Année (9m)", f"{salaire_annee:,.0f} GNF", "target", SUCCESS_GREEN)
+        ]
+
+        for i, (title, value, icon, color) in enumerate(metrics):
+            row_idx = i // 2
+            col_idx = i % 2
+            
+            metric_card = ctk.CTkFrame(metrics_grid, fg_color=CARD_BG, corner_radius=8)
+            metric_card.grid(row=row_idx, column=col_idx, padx=2, pady=2, sticky="ew")
+            
+            # En-tête métrique ultra-compact
+            metric_header = ctk.CTkFrame(metric_card, fg_color="transparent")
+            metric_header.pack(fill="x", padx=6, pady=(4, 2))
+            
+            metric_icon = ctk.CTkLabel(
+                metric_header,
+                image=self.icon_cache.get(icon, load_icon(icon, 10)),
+                text="",
+                fg_color="transparent"
+            )
+            metric_icon.pack(side="left", padx=(0, 4))
+            
+            metric_title = ctk.CTkLabel(
+                metric_header,
+                text=title,
+                font=("Segoe UI", 9, "bold"),
+                text_color=MUTED,
+                fg_color="transparent"
+            )
+            metric_title.pack(side="left")
+            
+            # Valeur métrique compacte
+            metric_value = ctk.CTkLabel(
+                metric_card,
+                text=value,
+                font=("Segoe UI", 10, "bold"),
+                text_color=color,
+                fg_color="transparent"
+            )
+            metric_value.pack(anchor="w", padx=6, pady=(0, 4))
+
+        return section
+
+    def _create_compact_actions_section(self, parent, row, col, prof):
+        """Crée la section d'actions optimisée avec cadre de fond"""
+        section = ctk.CTkFrame(parent, fg_color=CARD_BG, corner_radius=12, border_width=1, border_color=BORDER_COLOR)
+        section.grid(row=row, column=col, padx=3, pady=3, sticky="nsew")
+        section.grid_columnconfigure(0, weight=1)
+
+        # En-tête compact avec fond accentué
+        header = ctk.CTkFrame(section, fg_color=BG_SIDEBAR, corner_radius=12)
+        header.pack(fill="x", padx=2, pady=2)
+
+        title_frame = ctk.CTkFrame(header, fg_color="transparent")
+        title_frame.pack(fill="x", padx=12, pady=12)
+
+        icon_label = ctk.CTkLabel(
+            title_frame,
+            image=self.icon_cache.get("settings", load_icon("settings", 18)),
+            text="",
+            fg_color="transparent"
+        )
+        icon_label.pack(side="left", padx=(0, 10))
+
+        title_label = ctk.CTkLabel(
+            title_frame,
+            text="Actions",
+            font=("Segoe UI", 16, "bold"),
+            text_color=TEXT,
+            fg_color="transparent"
+        )
+        title_label.pack(side="left")
+
+        # Boutons d'action optimisés
+        content_frame = ctk.CTkFrame(section, fg_color="transparent")
+        content_frame.pack(fill="x", padx=12, pady=(0, 12))
+
+        actions = [
+            ("", "edit", lambda: self.edit_professor(prof.get('id'))),
+            ("", "analytics", lambda: self.show_professor_stats(prof.get('id'))),
+            ("", "email", lambda: self.contact_professor(prof.get('email')))
+        ]
+
+        for i, (text, icon, command) in enumerate(actions):
+            action_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+            action_frame.pack(fill="x", pady=4)
+
+            action_btn = ctk.CTkButton(
+                action_frame,
+                text=text,
+                image=self.icon_cache.get(icon, load_icon(icon, 18)),
+                font=("Segoe UI", 13, "bold"),
+                fg_color="transparent",
+                hover_color=BG_SIDEBAR,
+                text_color=TEXT,
+                corner_radius=8,
+                height=40,
+                border_width=1,
+                border_color=BORDER_COLOR,
+                command=command
+            )
+            action_btn.pack(fill="x")
+
+        return section
+
+    def edit_professor(self, prof_id):
+        """Ouvre le formulaire de modification"""
+        if not prof_id:
+            messagebox.showwarning("Attention", "Aucun professeur sélectionné")
+            return
+        
+        try:
+            # Récupérer les données du professeur
+            prof_data = self.get_professeur_by_id(prof_id)
+            if not prof_data:
+                messagebox.showerror("Erreur", "Professeur non trouvé")
+                return
+            
+            # Ouvrir le dialogue de modification
+            dialog = ProfesseurDialog(self, "Modifier Professeur", prof_data)
+            if dialog.result:
+                # Mettre à jour le professeur
+                success = self.update_professeur(prof_id, dialog.result)
+                if success:
+                    messagebox.showinfo("Succès", "Professeur modifié avec succès")
+                    # Forcer le rafraîchissement complet
+                    self.current_offset = 0  # Retour à la première page
+                    self.load_professors_data()
+                    self.display_professors_list()
+                    self.update_prof_count()
+                    # Recharger les détails du professeur modifié
+                    updated_prof = self.get_professeur_by_id(prof_id)
+                    if updated_prof:
+                        self.display_professor_details(updated_prof)
+                    print("✅ Données mises à jour après modification")
+                else:
+                    messagebox.showerror("Erreur", "Échec de la modification dans la base SQL Server")
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de la modification: {str(e)}")
+            print(f"Détails de l'erreur: {e}")
+
+    def delete_professor(self, prof_id):
+        """Supprime un professeur"""
+        if not prof_id:
+            messagebox.showwarning("Attention", "Aucun professeur sélectionné")
+            return
+        
+        # Confirmation de suppression
+        result = messagebox.askyesno(
+            "Confirmation", 
+            "Êtes-vous sûr de vouloir supprimer ce professeur ?\nCette action est irréversible."
+        )
+        
+        if result:
+            try:
+                success = self.delete_professeur(prof_id)
+                if success:
+                    messagebox.showinfo("Succès", "Professeur supprimé avec succès")
+                    self.refresh_professors_view()
+                else:
+                    messagebox.showerror("Erreur", "Échec de la suppression")
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur lors de la suppression: {str(e)}")
+
+    def _show_professors_view(self):
+        """Affiche la vue des professeurs sans ouvrir le formulaire"""
+        try:
+            # Créer et afficher la vue des professeurs
+            professors_view = ProfessorsDashboard(self.parent, self.icon_cache)
+            
+            # Nettoyer le contenu existant
+            for widget in self.parent.winfo_children():
+                if isinstance(widget, ctk.CTkFrame):
+                    widget.destroy()
+            
+            # Afficher la nouvelle vue
+            professors_view.pack(fill="both", expand=True)
+            
+        except Exception as e:
+            print(f"❌ Erreur lors de l'affichage de la vue professeurs: {e}")
+            messagebox.showerror("Erreur", f"Impossible d'afficher la vue professeurs: {str(e)}")
+
+    def add_professor(self):
+        """Ajoute un nouveau professeur"""
+        try:
+            dialog = ProfesseurDialog(self, "Ajouter Professeur")
+            if dialog.result:
+                success = self.add_professeur(dialog.result)
+                if success:
+                    messagebox.showinfo("Succès", "Professeur ajouté avec succès")
+                    # Forcer le rafraîchissement complet
+                    self.current_offset = 0  # Retour à la première page
+                    self.load_professors_data()
+                    self.display_professors_list()
+                    self.update_prof_count()
+                    print("✅ Liste des professeurs mise à jour après ajout")
+                else:
+                    messagebox.showerror("Erreur", "Échec de l'ajout")
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de l'ajout: {str(e)}")
+
+    def get_professeur_by_id(self, prof_id):
+        """Récupère un professeur par son ID avec tous les champs"""
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id_professeur, nom, prenom, email, telephone, specialite, statut,
+                       date_embauche, heures_par_session, sessions_semaine, salaire_horaire, 
+                       heures_mensuelles, salaire_base, salaire_net, date_creation, date_modification
+                FROM professeurs
+                WHERE id_professeur = ?
+            """, (prof_id,))
+            
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'id': row[0],
+                    'nom': row[1],
+                    'prenom': row[2],
+                    'email': row[3],
+                    'telephone': row[4],
+                    'specialite': row[5],
+                    'statut': row[6],
+                    'date_embauche': row[7],
+                    'heures_par_session': row[8],
+                    'sessions_semaine': row[9],
+                    'salaire_horaire': row[10],
+                    'heures_mensuelles': row[11],
+                    'salaire_base': row[12],
+                    'salaire_net': row[13],
+                    'date_creation': row[14],
+                    'date_modification': row[15]
+                }
+            return None
+        except Exception as e:
+            print(f"Erreur récupération professeur: {e}")
+            return None
+        finally:
+            if 'conn' in locals():
+                conn.close()
+
+    def add_professeur(self, data):
+        """Ajoute un nouveau professeurs à la base de données avec calculs automatiques"""
+        conn = get_db_connection_direct()
+        if not conn: return False
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO professeurs (nom, prenom, email, telephone, specialite, statut, date_embauche, salaire_base, salaire_net, heures_mensuelles, salaire_horaire)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data.get('nom', ''),
+                data.get('prenom', ''),
+                data.get('email', ''),
+                data.get('telephone', ''),
+                data.get('specialite', ''),
+                data.get('statut', 'Actif'),
+                data.get('date_embauche', datetime.now().strftime("%Y-%m-%d")),
+                data.get('salaire_base', 0),  # Calculé automatiquement
+                data.get('salaire_net', 0),   # Calculé automatiquement
+                data.get('heures_mensuelles', 173),
+                data.get('salaire_horaire', 0)  # Taux horaire
+            ))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"Erreur lors de l'ajout: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def update_professeur(self, prof_id, data):
+        """Met à jour un professeurs existant avec calculs automatiques"""
+        conn = get_db_connection_direct()
+        if not conn: return False
+        try:
+            cursor = conn.cursor()
+            
+            # Appliquer les calculs automatiques comme dans le formulaire
+            taux_horaire = float(data.get('salaire_horaire', 0))
+            heures_par_session = float(data.get('heures_par_session', 2))
+            sessions_semaine = float(data.get('sessions_semaine', 10))
+            
+            # Calculs automatiques
+            heures_semaine = heures_par_session * sessions_semaine
+            heures_mois = heures_semaine * 4.33  # Moyenne mensuelle
+            heures_annee_scolaire = heures_mois * 9  # 9 mois de cours
+            
+            salaire_semaine = taux_horaire * heures_semaine
+            salaire_mois = taux_horaire * heures_mois
+            salaire_annee = taux_horaire * heures_annee_scolaire
+            
+            # Utiliser les valeurs calculées
+            salaire_base = salaire_mois
+            salaire_net = salaire_mois
+            
+            rows_before = conn.total_changes
+            cursor.execute("""
+                UPDATE professeurs SET 
+                    nom=?, prenom=?, email=?, telephone=?, specialite=?, statut=?, 
+                    date_embauche=?, salaire_base=?, salaire_net=?, heures_mensuelles=?, 
+                    salaire_horaire=?, heures_par_session=?, sessions_semaine=?, date_modification=?
+                WHERE id_professeur=?
+            """, (
+                data.get('nom', ''),
+                data.get('prenom', ''),
+                data.get('email', ''),
+                data.get('telephone', ''),
+                data.get('specialite', ''),
+                data.get('statut', 'Actif'),
+                data.get('date_embauche', datetime.now().strftime("%Y-%m-%d")),
+                salaire_base,  # Utiliser la valeur calculée
+                salaire_net,   # Utiliser la valeur calculée
+                int(heures_mois),  # Utiliser la valeur calculée
+                taux_horaire,  # Taux horaire
+                heures_par_session,  # Heures par session
+                sessions_semaine,    # Sessions par semaine
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # Date de modification
+                prof_id
+            ))
+            conn.commit()
+            rows_after = conn.total_changes
+            updated = (rows_after - rows_before) > 0
+            print(f"✅ Professeur {prof_id} mis à jour avec calculs automatiques")
+            print(f"   💰 Salaire mensuel: {salaire_mois:,.0f} GNF")
+            print(f"   ⏰ Heures/mois: {heures_mois:.0f}h")
+            return bool(updated)
+        except Exception as e:
+            print(f"❌ Erreur lors de la mise à jour: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def delete_professeur(self, prof_id):
+        """Supprime un professeurs de la base de données"""
+        conn = get_db_connection_direct()
+        if not conn: return False
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM professeurs WHERE id_professeur=?", (prof_id,))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"Erreur lors de la suppression: {e}")
+            return False
+        finally:
+            conn.close()
 
 
     def create_contact_info_section(self, prof):
@@ -2021,15 +2431,6 @@ class ProfessorsDashboard(ctk.CTkFrame):
         )
         calc_btn.pack(side="left")
 
-    def edit_professor(self, prof):
-        """Modifie les informations du professeur"""
-        messagebox.showinfo("Modification", f"Fonctionnalité de modification pour {prof.get('nom', 'N/A')} {prof.get('prenom', 'N/A')}")
-
-    def delete_professor(self, prof):
-        """Supprime le professeur"""
-        result = messagebox.askyesno("Confirmation", f"Êtes-vous sûr de vouloir supprimer {prof.get('nom', 'N/A')} {prof.get('prenom', 'N/A')} ?")
-        if result:
-            messagebox.showinfo("Suppression", f"Professeur {prof.get('nom', 'N/A')} supprimé avec succès")
 
     def calculate_professor_salary(self, prof):
         """Calcule le salaire du professeur"""
@@ -2998,17 +3399,9 @@ class ProfessorsDashboard(ctk.CTkFrame):
         except Exception as e:
             print(f"❌ Erreur lors de la mise à jour des données: {e}")
             messagebox.showerror("Erreur", f"Erreur lors de la mise à jour: {e}")
+        # Empêche toute ouverture automatique d'une ancienne fenêtre d'ajout
+        return
     
-    def add_professor(self):
-        """Ouvre le formulaire d'ajout de professeur"""
-        try:
-            print("🔍 Debug: Ouverture du formulaire d'ajout de professeur")
-            self._simple_add_professor()
-        except Exception as e:
-            print(f"❌ Erreur lors de l'ouverture du formulaire d'ajout: {e}")
-            messagebox.showerror("Erreur", f"Erreur lors de l'ouverture du formulaire: {e}")
-    
-    def _simple_add_professor(self):
         """Ouvre une fenêtre professionnelle d'ajout de professeur"""
         try:
             # Créer une fenêtre professionnelle
@@ -3352,27 +3745,3 @@ class ProfessorsDashboard(ctk.CTkFrame):
             print(f"❌ Erreur lors de la création du formulaire: {e}")
             messagebox.showerror("Erreur", f"Erreur lors de la création du formulaire: {e}")
 
-    def edit_professor(self, prof):
-        """Ouvre le formulaire de modification d'un professeur"""
-        try:
-            print(f"🔍 Modification du professeur: {prof.get('nom', 'N/A')}")
-            messagebox.showinfo("Modification", f"Modification de {prof.get('nom', 'N/A')} {prof.get('prenom', 'N/A')}")
-        except Exception as e:
-            print(f"❌ Erreur lors de la modification: {e}")
-            messagebox.showerror("Erreur", f"Erreur lors de la modification: {e}")
-
-    def delete_professor(self, prof):
-        """Supprime un professeur après confirmation"""
-        try:
-            name = f"{prof.get('nom', 'N/A')} {prof.get('prenom', 'N/A')}"
-            result = messagebox.askyesno(
-                "Confirmation de suppression",
-                f"Êtes-vous sûr de vouloir supprimer le professeur {name} ?"
-            )
-            if result:
-                print(f"🗑️ Suppression du professeur: {name}")
-                messagebox.showinfo("Suppression", f"Professeur {name} supprimé avec succès")
-                self.update_data()  # Actualiser les données
-        except Exception as e:
-            print(f"❌ Erreur lors de la suppression: {e}")
-            messagebox.showerror("Erreur", f"Erreur lors de la suppression: {e}")
