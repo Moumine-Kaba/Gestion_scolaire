@@ -125,7 +125,7 @@ class MatieresView(ctk.CTkFrame):
         
         # Construire l'interface
         self._build_main_ui()
-        
+
         # Afficher le message initial
         self._show_no_selection_message()
     
@@ -138,8 +138,9 @@ class MatieresView(ctk.CTkFrame):
             self.niveaux = get_all_niveaux()
             print(f"✅ {len(self.niveaux)} niveaux chargés")
             
-            # Charger les classes
-            self.classes = get_all_classes()
+            # Charger les classes et les convertir en dictionnaire
+            classes_list = get_all_classes()
+            self.classes = {classe['id']: classe for classe in classes_list}
             print(f"✅ {len(self.classes)} classes chargées")
             
             # Charger les professeurs
@@ -203,8 +204,8 @@ class MatieresView(ctk.CTkFrame):
     def _build_main_ui(self):
         """Construit l'interface principale"""
         # Configuration de la grille
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(1, weight=3)
+        self.grid_columnconfigure(0, weight=0, minsize=350)  # Sidebar fixe
+        self.grid_columnconfigure(1, weight=1)  # Contenu principal
         self.grid_rowconfigure(0, weight=1)
         
         # Panneau gauche - Sélection et filtres
@@ -219,7 +220,7 @@ class MatieresView(ctk.CTkFrame):
         left_panel = ctk.CTkFrame(self, fg_color=BG_CARD, corner_radius=12)
         left_panel.grid(row=0, column=0, sticky="nsew", padx=(MARGIN_MEDIUM, MARGIN_SMALL), pady=MARGIN_MEDIUM)
         left_panel.grid_columnconfigure(0, weight=1)
-        left_panel.grid_rowconfigure(4, weight=1)
+        left_panel.grid_rowconfigure(5, weight=1)  # Ajusté pour les boutons CRUD
         
         # Titre
         title_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
@@ -247,13 +248,15 @@ class MatieresView(ctk.CTkFrame):
         
         ctk.CTkLabel(niveau_frame, text="Niveau:", font=F_TXT, text_color=TEXT_PRIMARY).grid(row=0, column=0, sticky="w")
         self.niveau_var = StringVar()
-        # Convertir les clés en string pour éviter les erreurs ljust
-        niveau_values = ["Tous les niveaux"] + [str(key) for key in self.niveaux.keys()]
+        # Utiliser les noms des niveaux au lieu des IDs
+        niveau_values = ["Tous les niveaux"] + [niveau_data['nom_niveau'] for niveau_data in self.niveaux.values()]
         self.niveau_dropdown = ctk.CTkComboBox(niveau_frame, variable=self.niveau_var, 
                                               values=niveau_values,
                                               command=self._on_niveau_selected, state="readonly")
         self.niveau_dropdown.grid(row=0, column=1, sticky="ew", padx=(MARGIN_SMALL, 0))
         self.niveau_dropdown.set("Tous les niveaux")
+        print(f"🔍 DEBUG: Dropdown niveau initialisé avec: {niveau_values}")
+        print(f"🔍 DEBUG: Valeur par défaut: {self.niveau_dropdown.get()}")
         
         # Filtre classe
         classe_frame = ctk.CTkFrame(filters_frame, fg_color="transparent")
@@ -266,20 +269,46 @@ class MatieresView(ctk.CTkFrame):
                                               values=["Toutes les classes"], command=self._on_classe_selected, state="readonly")
         self.classe_dropdown.grid(row=0, column=1, sticky="ew", padx=(MARGIN_SMALL, 0))
         self.classe_dropdown.set("Toutes les classes")
+        print(f"🔍 DEBUG: Dropdown classe initialisé avec: ['Toutes les classes']")
+        print(f"🔍 DEBUG: Valeur par défaut: {self.classe_dropdown.get()}")
         
-        # Actions
+        # Actions CRUD
         actions_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
         actions_frame.grid(row=2, column=0, sticky="ew", padx=MARGIN_MEDIUM, pady=MARGIN_SMALL)
         actions_frame.grid_columnconfigure(0, weight=1)
+        actions_frame.grid_columnconfigure(1, weight=1)
         
-        add_icon = load_icon('add', (20, 20))
-        add_btn = ctk.CTkButton(actions_frame, image=add_icon, text="Ajouter Matière",
-                               command=self._add_matiere, fg_color=SUCCESS_GREEN, hover_color="#80C7C5")
-        add_btn.grid(row=0, column=0, sticky="ew", pady=(0, MARGIN_SMALL))
+        # Bouton Ajouter
+        add_icon = load_icon('add', (16, 16))
+        add_btn = ctk.CTkButton(actions_frame, image=add_icon, text="Ajouter",
+                               command=self._add_matiere, fg_color=SUCCESS_GREEN, hover_color="#80C7C5",
+                               width=80, height=32, font=F_SMALL)
+        add_btn.grid(row=0, column=0, sticky="ew", padx=(0, MARGIN_SMALL), pady=(0, MARGIN_SMALL))
+        
+        # Bouton Modifier
+        edit_icon = load_icon('edit', (16, 16))
+        edit_btn = ctk.CTkButton(actions_frame, image=edit_icon, text="Modifier",
+                                command=self._edit_matiere, fg_color=ACCENT, hover_color="#4A90E2",
+                                width=80, height=32, font=F_SMALL)
+        edit_btn.grid(row=0, column=1, sticky="ew", padx=(MARGIN_SMALL, 0), pady=(0, MARGIN_SMALL))
+        
+        # Bouton Supprimer
+        delete_icon = load_icon('delete', (16, 16))
+        delete_btn = ctk.CTkButton(actions_frame, image=delete_icon, text="Supprimer",
+                                  command=self._delete_matiere, fg_color=ERROR_RED, hover_color="#D32F2F",
+                                  width=80, height=32, font=F_SMALL)
+        delete_btn.grid(row=1, column=0, sticky="ew", padx=(0, MARGIN_SMALL), pady=(0, MARGIN_SMALL))
+        
+        # Bouton Actualiser
+        refresh_icon = load_icon('refresh', (16, 16))
+        refresh_btn = ctk.CTkButton(actions_frame, image=refresh_icon, text="Actualiser",
+                                   command=self._refresh_all, fg_color=BORDER_COLOR, hover_color="#666666",
+                                   width=80, height=32, font=F_SMALL)
+        refresh_btn.grid(row=1, column=1, sticky="ew", padx=(MARGIN_SMALL, 0), pady=(0, MARGIN_SMALL))
         
         # Statistiques
         stats_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
-        stats_frame.grid(row=3, column=0, sticky="ew", padx=MARGIN_MEDIUM, pady=MARGIN_SMALL)
+        stats_frame.grid(row=4, column=0, sticky="ew", padx=MARGIN_MEDIUM, pady=MARGIN_SMALL)
         stats_frame.grid_columnconfigure(0, weight=1)
         
         self.stats_label = ctk.CTkLabel(stats_frame, text="Sélectionnez un niveau et une classe", 
@@ -306,29 +335,48 @@ class MatieresView(ctk.CTkFrame):
     
     def _on_niveau_selected(self, selected_niveau):
         """Gère la sélection d'un niveau"""
+        print(f"🔍 DEBUG: _on_niveau_selected appelé avec: '{selected_niveau}'")
+        
         if selected_niveau == "Tous les niveaux":
+            print("🔍 DEBUG: Sélection 'Tous les niveaux' - réinitialisation")
             self.selected_niveau = None
             # Réinitialiser la classe
             self.classe_dropdown.configure(values=["Toutes les classes"])
             self.classe_dropdown.set("Toutes les classes")
             self.selected_classe = None
         else:
+            print(f"🔍 DEBUG: Sélection niveau spécifique: '{selected_niveau}'")
             self.selected_niveau = selected_niveau
+            
             # Mettre à jour les classes disponibles
+            print(f"🔍 DEBUG: Appel get_classes_by_niveau('{selected_niveau}')")
             classes_niveau = get_classes_by_niveau(selected_niveau)
-            classe_values = ["Toutes les classes"] + [str(key) for key in classes_niveau.keys()]
+            print(f"🔍 DEBUG: get_classes_by_niveau retourne: {len(classes_niveau)} classes")
+            print(f"🔍 DEBUG: Contenu classes_niveau: {classes_niveau}")
+            
+            # Utiliser les noms des classes au lieu des IDs
+            classe_values = ["Toutes les classes"] + [classe_data['nom_classe'] for classe_data in classes_niveau.values()]
+            print(f"🔍 DEBUG: classe_values générées: {classe_values}")
+            
             self.classe_dropdown.configure(values=classe_values)
             self.classe_dropdown.set("Toutes les classes")
             self.selected_classe = None
+            
+            print(f"🔍 DEBUG: Dropdown configuré avec {len(classe_values)} valeurs")
+            print(f"🔍 DEBUG: Valeurs actuelles du dropdown: {self.classe_dropdown.cget('values')}")
         
         print(f"🔄 Niveau sélectionné: {selected_niveau}")
         self._filter_matieres()
     
     def _on_classe_selected(self, selected_classe):
         """Gère la sélection d'une classe"""
+        print(f"🔍 DEBUG: _on_classe_selected appelé avec: '{selected_classe}'")
+        
         if selected_classe == "Toutes les classes":
+            print("🔍 DEBUG: Sélection 'Toutes les classes' - réinitialisation")
             self.selected_classe = None
         else:
+            print(f"🔍 DEBUG: Sélection classe spécifique: '{selected_classe}'")
             self.selected_classe = selected_classe
         
         print(f"🔄 Classe sélectionnée: {selected_classe}")
@@ -336,25 +384,33 @@ class MatieresView(ctk.CTkFrame):
     
     def _filter_matieres(self):
         """Filtre les matières selon les sélections"""
+        print(f"🔍 DEBUG: _filter_matieres appelé - niveau: '{self.selected_niveau}', classe: '{self.selected_classe}'")
+        
         if not self.selected_niveau and not self.selected_classe:
+            print("🔍 DEBUG: Aucune sélection - affichage message")
             self._show_no_selection_message()
             return
         
         # Filtrer les associations
+        print(f"🔍 DEBUG: Filtrage de {len(self.classe_matieres)} associations")
         filtered = []
         for assoc in self.classe_matieres.values():
             if self.selected_niveau:
                 # Vérifier si la classe appartient au niveau sélectionné
                 classe_data = self.classes.get(assoc['id_classe'], {})
+                print(f"🔍 DEBUG: Classe {assoc['id_classe']} - niveau: {classe_data.get('niveau')} vs sélectionné: {self.selected_niveau}")
                 if classe_data.get('niveau') != self.selected_niveau:
                     continue
             
             if self.selected_classe:
                 # Vérifier si c'est la classe sélectionnée
-                if classe_data.get('nom_classe') != self.selected_classe:
+                print(f"🔍 DEBUG: Classe {assoc['id_classe']} - nom: {classe_data.get('nom')} vs sélectionné: {self.selected_classe}")
+                if classe_data.get('nom') != self.selected_classe:
                     continue
             
             filtered.append(assoc)
+        
+        print(f"🔍 DEBUG: {len(filtered)} associations après filtrage")
         
         # Trier par classe puis par matière
         filtered.sort(key=lambda x: (x['classe_nom'], x['matiere_nom']))
@@ -385,7 +441,7 @@ class MatieresView(ctk.CTkFrame):
         end_idx = start_idx + self.items_per_page
         matieres_page = matieres[start_idx:end_idx]
         
-        # En-têtes du tableau
+            # En-têtes du tableau
         headers = ["Classe", "Matière", "Coefficient", "Professeur", "Statut"]
         data = [headers]
         
@@ -403,7 +459,7 @@ class MatieresView(ctk.CTkFrame):
         # Créer le tableau
         try:
             table = CTkTable(self.table_frame, row=len(data), column=len(headers), values=data,
-                            header_color=ACCENT, header_text_color=BG_MAIN,
+                            header_color=ACCENT,
                             fg_color=BG_CARD, text_color=TEXT_PRIMARY,
                             font=F_TXT, corner_radius=8)
         except Exception as e:
@@ -446,13 +502,43 @@ class MatieresView(ctk.CTkFrame):
         """Va à la page précédente"""
         if self.current_page > 1:
             self.current_page -= 1
-            self._filter_matieres()
+            # Recharger les données filtrées
+            filtered = []
+            for assoc in self.classe_matieres.values():
+                if self.selected_niveau:
+                    classe_data = self.classes.get(assoc['id_classe'], {})
+                    if classe_data.get('niveau') != self.selected_niveau:
+                        continue
+                if self.selected_classe:
+                    classe_data = self.classes.get(assoc['id_classe'], {})
+                    if classe_data.get('nom') != self.selected_classe:
+                        continue
+                filtered.append(assoc)
+            
+            filtered.sort(key=lambda x: (x['classe_nom'], x['matiere_nom']))
+            self._update_matieres_table(filtered)
+            self._update_stats(len(filtered))
     
     def _go_to_next_page(self):
         """Va à la page suivante"""
         if self.current_page < self.total_pages:
             self.current_page += 1
-            self._filter_matieres()
+            # Recharger les données filtrées
+            filtered = []
+            for assoc in self.classe_matieres.values():
+                if self.selected_niveau:
+                    classe_data = self.classes.get(assoc['id_classe'], {})
+                    if classe_data.get('niveau') != self.selected_niveau:
+                        continue
+                if self.selected_classe:
+                    classe_data = self.classes.get(assoc['id_classe'], {})
+                    if classe_data.get('nom') != self.selected_classe:
+                        continue
+                filtered.append(assoc)
+            
+            filtered.sort(key=lambda x: (x['classe_nom'], x['matiere_nom']))
+            self._update_matieres_table(filtered)
+            self._update_stats(len(filtered))
     
     def _update_stats(self, count):
         """Met à jour les statistiques"""
@@ -506,7 +592,7 @@ class MatieresView(ctk.CTkFrame):
         
         self.form_modal = Toplevel(self)
         self.form_modal.title("Ajouter une Matière")
-        self.form_modal.geometry("500x600")
+        self.form_modal.geometry("650x800")
         self.form_modal.configure(bg=BG_MAIN)
         self.form_modal.resizable(False, False)
         
@@ -514,37 +600,68 @@ class MatieresView(ctk.CTkFrame):
         self.form_modal.transient(self)
         self.form_modal.grab_set()
         
-        # Frame principal
-        main_frame = ctk.CTkFrame(self.form_modal, fg_color=BG_CARD, corner_radius=12)
-        main_frame.pack(fill="both", expand=True, padx=MARGIN_MEDIUM, pady=MARGIN_MEDIUM)
-        main_frame.grid_columnconfigure(0, weight=1)
+        # Centrage automatique
+        self.form_modal.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() - 650) // 2
+        y = self.winfo_rooty() + (self.winfo_height() - 800) // 2
+        self.form_modal.geometry(f"+{x}+{y}")
         
-        # Titre
-        title_label = ctk.CTkLabel(main_frame, text="Nouvelle Matière", font=F_TITLE, text_color=TEXT_ACCENT)
-        title_label.grid(row=0, column=0, pady=(MARGIN_MEDIUM, MARGIN_LARGE))
+        # Frame principal avec design moderne
+        main_frame = ctk.CTkFrame(self.form_modal, fg_color=BG_CARD, corner_radius=20, 
+                                 border_color=BORDER_COLOR, border_width=1)
+        main_frame.pack(fill="both", expand=True, padx=16, pady=16)
         
-        # Formulaire
-        form_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        form_frame.grid(row=1, column=0, sticky="ew", padx=MARGIN_MEDIUM)
-        form_frame.grid_columnconfigure(1, weight=1)
+        # En-tête du formulaire
+        header_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        header_frame.pack(fill="x", padx=16, pady=(16, 12))
+        
+        # Icône du formulaire
+        try:
+            book_icon = load_icon('book', (32, 32))
+            icon_label = ctk.CTkLabel(header_frame, image=book_icon, text="")
+            icon_label.pack(side="left", padx=(0, 8))
+        except:
+            pass
+        
+        # Titre du formulaire
+        title_label = ctk.CTkLabel(header_frame, text="Ajouter une Matière", 
+                                  font=ctk.CTkFont(size=20, weight="bold"), 
+                                  text_color=ACCENT)
+        title_label.pack(side="left")
+        
+        # Sous-titre
+        subtitle_label = ctk.CTkLabel(header_frame, text=f"Niveau: {self.selected_niveau}", 
+                                     font=ctk.CTkFont(size=12), 
+                                     text_color=TEXT_SECONDARY)
+        subtitle_label.pack(side="left", padx=(8, 0))
+        
+        # Champs du formulaire
+        fields_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        fields_frame.pack(fill="x", padx=16, pady=12)
         
         # Nom de la matière
-        ctk.CTkLabel(form_frame, text="Nom de la matière:", font=F_TXT, text_color=TEXT_PRIMARY).grid(row=0, column=0, sticky="w", pady=(0, MARGIN_SMALL))
-        self.nom_var = StringVar()
-        nom_entry = ctk.CTkEntry(form_frame, textvariable=self.nom_var, font=F_TXT, placeholder_text="Ex: Mathématiques")
-        nom_entry.grid(row=0, column=1, sticky="ew", pady=(0, MARGIN_SMALL))
+        nom_label = ctk.CTkLabel(fields_frame, text="Nom de la matière", 
+                                font=ctk.CTkFont(size=14, weight="bold"), 
+                                text_color=TEXT_PRIMARY)
+        nom_label.pack(anchor="w", pady=(0, 4))
         
-        # Niveau (déjà sélectionné)
-        ctk.CTkLabel(form_frame, text="Niveau:", font=F_TXT, text_color=TEXT_PRIMARY).grid(row=1, column=0, sticky="w", pady=(0, MARGIN_SMALL))
-        niveau_label = ctk.CTkLabel(form_frame, text=self.selected_niveau, font=F_TXT, text_color=TEXT_ACCENT)
-        niveau_label.grid(row=1, column=1, sticky="w", pady=(0, MARGIN_SMALL))
+        self.nom_var = StringVar()
+        nom_entry = ctk.CTkEntry(fields_frame, textvariable=self.nom_var, 
+                                font=ctk.CTkFont(size=12), 
+                                placeholder_text="Ex: Mathématiques, Français, Sciences...",
+                                height=45, corner_radius=10,
+                                fg_color=BG_SIDEBAR, border_color=BORDER_COLOR)
+        nom_entry.pack(fill="x", pady=(0, 12))
         
         # Classes disponibles
-        ctk.CTkLabel(form_frame, text="Classes:", font=F_TXT, text_color=TEXT_PRIMARY).grid(row=2, column=0, sticky="nw", pady=(0, MARGIN_SMALL))
+        classes_label = ctk.CTkLabel(fields_frame, text="Classes concernées", 
+                                    font=ctk.CTkFont(size=14, weight="bold"), 
+                                    text_color=TEXT_PRIMARY)
+        classes_label.pack(anchor="w", pady=(0, 4))
         
-        classes_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
-        classes_frame.grid(row=2, column=1, sticky="ew", pady=(0, MARGIN_SMALL))
-        classes_frame.grid_columnconfigure(0, weight=1)
+        classes_frame = ctk.CTkScrollableFrame(fields_frame, fg_color=BG_SIDEBAR, 
+                                              corner_radius=10, height=120)
+        classes_frame.pack(fill="x", pady=(0, 12))
         
         # Liste des classes avec cases à cocher
         self.classes_selected = {}
@@ -552,40 +669,66 @@ class MatieresView(ctk.CTkFrame):
         
         for i, (classe_id, classe_data) in enumerate(classes_niveau.items()):
             var = ctk.BooleanVar()
-            checkbox = ctk.CTkCheckBox(classes_frame, text=classe_data['nom_classe'], variable=var, font=F_SMALL)
-            checkbox.grid(row=i, column=0, sticky="w", pady=2)
+            checkbox = ctk.CTkCheckBox(classes_frame, text=classe_data['nom_classe'], 
+                                      variable=var, font=ctk.CTkFont(size=12),
+                                      fg_color=ACCENT, hover_color="#4A90E2")
+            checkbox.pack(anchor="w", pady=5, padx=10)
             self.classes_selected[classe_id] = var
         
         # Coefficient
-        ctk.CTkLabel(form_frame, text="Coefficient:", font=F_TXT, text_color=TEXT_PRIMARY).grid(row=3, column=0, sticky="w", pady=(MARGIN_MEDIUM, MARGIN_SMALL))
+        coeff_label = ctk.CTkLabel(fields_frame, text="Coefficient", 
+                                  font=ctk.CTkFont(size=14, weight="bold"), 
+                                  text_color=TEXT_PRIMARY)
+        coeff_label.pack(anchor="w", pady=(0, 4))
+        
         self.coefficient_var = StringVar(value="1.0")
-        coefficient_entry = ctk.CTkEntry(form_frame, textvariable=self.coefficient_var, font=F_TXT, placeholder_text="1.0")
-        coefficient_entry.grid(row=3, column=1, sticky="ew", pady=(MARGIN_MEDIUM, MARGIN_SMALL))
+        coefficient_entry = ctk.CTkEntry(fields_frame, textvariable=self.coefficient_var, 
+                                        font=ctk.CTkFont(size=12), 
+                                        placeholder_text="1.0",
+                                        height=45, corner_radius=10,
+                                        fg_color=BG_SIDEBAR, border_color=BORDER_COLOR)
+        coefficient_entry.pack(fill="x", pady=(0, 12))
         
         # Professeur (optionnel)
-        ctk.CTkLabel(form_frame, text="Professeur:", font=F_TXT, text_color=TEXT_PRIMARY).grid(row=4, column=0, sticky="w", pady=(0, MARGIN_SMALL))
+        prof_label = ctk.CTkLabel(fields_frame, text="Professeur assigné", 
+                                 font=ctk.CTkFont(size=14, weight="bold"), 
+                                 text_color=TEXT_PRIMARY)
+        prof_label.pack(anchor="w", pady=(0, 4))
+        
         self.professeur_var = StringVar()
-        # Convertir les valeurs en string pour éviter les erreurs ljust
         professeur_values = ["Aucun"] + [str(f"{p['nom']} {p['prenom']}") for p in self.professeurs.values()]
-        professeur_dropdown = ctk.CTkComboBox(form_frame, variable=self.professeur_var,
+        professeur_dropdown = ctk.CTkComboBox(fields_frame, variable=self.professeur_var,
                                              values=professeur_values,
-                                             state="readonly")
-        professeur_dropdown.grid(row=4, column=1, sticky="ew", pady=(0, MARGIN_SMALL))
+                                             state="readonly", height=45, corner_radius=10,
+                                             font=ctk.CTkFont(size=12),
+                                             fg_color=BG_SIDEBAR, border_color=BORDER_COLOR)
+        professeur_dropdown.pack(fill="x", pady=(0, 16))
         professeur_dropdown.set("Aucun")
         
-        # Boutons
-        buttons_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        buttons_frame.grid(row=2, column=0, sticky="ew", padx=MARGIN_MEDIUM, pady=MARGIN_LARGE)
-        buttons_frame.grid_columnconfigure(0, weight=1)
-        buttons_frame.grid_columnconfigure(1, weight=1)
+        # Boutons d'action - Position fixe en bas
+        btn_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        btn_frame.pack(side="bottom", fill="x", padx=16, pady=(20, 16))
         
-        cancel_btn = ctk.CTkButton(buttons_frame, text="Annuler", command=self.form_modal.destroy,
-                                  fg_color=BORDER_COLOR, hover_color=ERROR_RED)
-        cancel_btn.grid(row=0, column=0, padx=(0, MARGIN_SMALL), sticky="ew")
+        # Bouton Enregistrer
+        save_btn = ctk.CTkButton(btn_frame, text="Enregistrer", 
+                                command=self._save_matiere,
+                                fg_color=SUCCESS_GREEN, hover_color="#80C7C5",
+                                text_color="white",
+                                height=50, corner_radius=12, width=150,
+                                font=ctk.CTkFont(size=14, weight="bold"))
+        save_btn.pack(side="left", padx=(0, 10))
         
-        save_btn = ctk.CTkButton(buttons_frame, text="Enregistrer", command=self._save_matiere,
-                                fg_color=SUCCESS_GREEN, hover_color="#80C7C5")
-        save_btn.grid(row=0, column=1, padx=(MARGIN_SMALL, 0), sticky="ew")
+        # Bouton Annuler
+        cancel_btn = ctk.CTkButton(btn_frame, text="Annuler", 
+                                  command=self.form_modal.destroy,
+                                  fg_color=ERROR_RED, hover_color="#D32F2F",
+                                  text_color="white",
+                                  height=50, corner_radius=12, width=150,
+                                  font=ctk.CTkFont(size=14, weight="bold"))
+        cancel_btn.pack(side="left")
+        
+        # Forcer l'affichage des boutons
+        self.form_modal.update_idletasks()
     
     def _save_matiere(self):
         """Sauvegarde la nouvelle matière"""
@@ -661,3 +804,289 @@ class MatieresView(ctk.CTkFrame):
         self._load_data()
         self._filter_matieres()
         print("✅ Données matières rafraîchies")
+    
+    def _edit_matiere(self):
+        """Modifie une matière sélectionnée"""
+        if not self.selected_niveau:
+            messagebox.showwarning("Sélection requise", "Veuillez d'abord sélectionner un niveau.")
+            return
+            
+        if not self.selected_classe:
+            messagebox.showwarning("Sélection requise", "Veuillez d'abord sélectionner une classe.")
+            return
+            
+        # Vérifier s'il y a des matières à modifier
+        filtered_matieres = []
+        for assoc in self.classe_matieres.values():
+            classe_data = self.classes.get(assoc['id_classe'], {})
+            if classe_data.get('niveau') == self.selected_niveau and classe_data.get('nom') == self.selected_classe:
+                filtered_matieres.append(assoc)
+        
+        if not filtered_matieres:
+            messagebox.showinfo("Information", f"Aucune matière trouvée pour la classe {self.selected_classe}.")
+            return
+        
+        # Ouvrir le sélecteur de matière
+        self._open_matiere_selector(filtered_matieres)
+    def _delete_matiere(self):
+        """Supprime une matière sélectionnée"""
+        if not self.selected_niveau:
+            messagebox.showwarning("Sélection requise", "Veuillez d'abord sélectionner un niveau.")
+            return
+        
+        # TODO: Implémenter la suppression
+        messagebox.showinfo("Suppression", "Fonction de suppression à implémenter")
+    
+    def _open_matiere_selector(self, matieres):
+        """Ouvre le sélecteur de matière pour modification"""
+        if self.form_modal:
+            self.form_modal.destroy()
+        
+        self.form_modal = Toplevel(self)
+        self.form_modal.title("Sélectionner une Matière")
+        self.form_modal.geometry("500x600")
+        self.form_modal.configure(bg=BG_MAIN)
+        self.form_modal.resizable(False, False)
+        
+        # Centrer la fenêtre
+        self.form_modal.transient(self)
+        self.form_modal.grab_set()
+        
+        # Frame principal
+        main_frame = ctk.CTkFrame(self.form_modal, fg_color=BG_CARD, corner_radius=16)
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        main_frame.grid_columnconfigure(0, weight=1)
+        
+        # Header
+        header_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        header_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 10))
+        header_frame.grid_columnconfigure(1, weight=1)
+        
+        # Icône
+        edit_icon = load_icon('edit', (32, 32))
+        icon_label = ctk.CTkLabel(header_frame, image=edit_icon, text="")
+        icon_label.grid(row=0, column=0, padx=(0, 15))
+        
+        # Titre
+        title_label = ctk.CTkLabel(header_frame, text="Sélectionner une Matière", 
+                                  font=ctk.CTkFont(size=24, weight="bold"), 
+                                  text_color=TEXT_ACCENT)
+        title_label.grid(row=0, column=1, sticky="w")
+        
+        subtitle_label = ctk.CTkLabel(header_frame, text=f"Classe: {self.selected_classe}", 
+                                     font=ctk.CTkFont(size=14), 
+                                     text_color=TEXT_SECONDARY)
+        subtitle_label.grid(row=1, column=1, sticky="w", pady=(5, 0))
+        
+        # Séparateur
+        separator = ctk.CTkFrame(main_frame, height=2, fg_color=BORDER_COLOR)
+        separator.grid(row=1, column=0, sticky="ew", padx=20, pady=10)
+        
+        # Liste des matières
+        list_frame = ctk.CTkScrollableFrame(main_frame, fg_color="transparent")
+        list_frame.grid(row=2, column=0, sticky="nsew", padx=20, pady=10)
+        list_frame.grid_columnconfigure(0, weight=1)
+        
+        # Boutons pour chaque matière
+        for i, matiere in enumerate(matieres):
+            matiere_btn = ctk.CTkButton(
+                list_frame,
+                text=f"{matiere['matiere_nom']} (Coeff: {matiere['coefficient_classe']})",
+                command=lambda m=matiere: self._open_edit_form(m),
+                fg_color=BG_MAIN,
+                hover_color=ACCENT,
+                height=40,
+                corner_radius=8,
+                font=ctk.CTkFont(size=14)
+            )
+            matiere_btn.grid(row=i, column=0, sticky="ew", pady=5)
+        
+        # Boutons
+        buttons_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        buttons_frame.grid(row=3, column=0, sticky="ew", padx=20, pady=(20, 20))
+        buttons_frame.grid_columnconfigure(0, weight=1)
+        
+        cancel_btn = ctk.CTkButton(buttons_frame, text="Annuler", 
+                                  command=self.form_modal.destroy,
+                                  fg_color=BORDER_COLOR, hover_color=ERROR_RED,
+                                  height=45, corner_radius=8,
+                                  font=ctk.CTkFont(size=14, weight="bold"))
+        cancel_btn.grid(row=0, column=0, sticky="ew")
+    
+    def _open_edit_form(self, matiere_data):
+        """Ouvre le formulaire de modification de matière"""
+        if self.form_modal:
+            self.form_modal.destroy()
+        
+        self.form_modal = Toplevel(self)
+        self.form_modal.title("Modifier une Matière")
+        self.form_modal.geometry("650x800")
+        self.form_modal.configure(bg=BG_MAIN)
+        self.form_modal.resizable(False, False)
+        
+        # Centrer la fenêtre
+        self.form_modal.transient(self)
+        self.form_modal.grab_set()
+        
+        # Centrage automatique
+        self.form_modal.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() - 650) // 2
+        y = self.winfo_rooty() + (self.winfo_height() - 650) // 2
+        self.form_modal.geometry(f"+{x}+{y}")
+        
+        # Frame principal avec design moderne
+        main_frame = ctk.CTkFrame(self.form_modal, fg_color=BG_CARD, corner_radius=20, 
+                                 border_color=BORDER_COLOR, border_width=1)
+        main_frame.pack(fill="both", expand=True, padx=16, pady=16)
+        
+        # En-tête du formulaire
+        header_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        header_frame.pack(fill="x", padx=16, pady=(16, 12))
+        
+        # Icône du formulaire
+        try:
+            edit_icon = load_icon('edit', (32, 32))
+            icon_label = ctk.CTkLabel(header_frame, image=edit_icon, text="")
+            icon_label.pack(side="left", padx=(0, 8))
+        except:
+            pass
+        
+        # Titre du formulaire
+        title_label = ctk.CTkLabel(header_frame, text="Modifier la Matière", 
+                                  font=ctk.CTkFont(size=20, weight="bold"), 
+                                  text_color=ACCENT)
+        title_label.pack(side="left")
+        
+        # Sous-titre
+        subtitle_label = ctk.CTkLabel(header_frame, text=f"{matiere_data['matiere_nom']} - {matiere_data['classe_nom']}", 
+                                     font=ctk.CTkFont(size=12), 
+                                     text_color=TEXT_SECONDARY)
+        subtitle_label.pack(side="left", padx=(8, 0))
+        
+        # Champs du formulaire
+        fields_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        fields_frame.pack(fill="x", padx=16, pady=12)
+        
+        # Nom de la matière (modifiable)
+        nom_label = ctk.CTkLabel(fields_frame, text="Nom de la matière", 
+                                font=ctk.CTkFont(size=14, weight="bold"), 
+                                text_color=TEXT_PRIMARY)
+        nom_label.pack(anchor="w", pady=(0, 4))
+        
+        self.nom_var = StringVar(value=matiere_data['matiere_nom'])
+        nom_entry = ctk.CTkEntry(fields_frame, textvariable=self.nom_var, 
+                                font=ctk.CTkFont(size=12), 
+                                placeholder_text="Ex: Mathématiques, Français, Sciences...",
+                                height=45, corner_radius=10,
+                                fg_color=BG_SIDEBAR, border_color=BORDER_COLOR)
+        nom_entry.pack(fill="x", pady=(0, 12))
+        
+        # Coefficient
+        coeff_label = ctk.CTkLabel(fields_frame, text="Coefficient", 
+                                  font=ctk.CTkFont(size=14, weight="bold"), 
+                                  text_color=TEXT_PRIMARY)
+        coeff_label.pack(anchor="w", pady=(0, 4))
+        
+        self.coefficient_var = StringVar(value=str(matiere_data['coefficient_classe']))
+        coefficient_entry = ctk.CTkEntry(fields_frame, textvariable=self.coefficient_var, 
+                                        font=ctk.CTkFont(size=12), 
+                                        placeholder_text="1.0",
+                                        height=45, corner_radius=10,
+                                        fg_color=BG_SIDEBAR, border_color=BORDER_COLOR)
+        coefficient_entry.pack(fill="x", pady=(0, 12))
+        
+        # Professeur
+        prof_label = ctk.CTkLabel(fields_frame, text="Professeur assigné", 
+                                 font=ctk.CTkFont(size=14, weight="bold"), 
+                                 text_color=TEXT_PRIMARY)
+        prof_label.pack(anchor="w", pady=(0, 4))
+        
+        self.professeur_var = StringVar()
+        professeur_values = ["Aucun"] + [str(f"{p['nom']} {p['prenom']}") for p in self.professeurs.values()]
+        professeur_dropdown = ctk.CTkComboBox(fields_frame, variable=self.professeur_var,
+                                             values=professeur_values,
+                                             state="readonly", height=45, corner_radius=10,
+                                             font=ctk.CTkFont(size=12),
+                                             fg_color=BG_SIDEBAR, border_color=BORDER_COLOR)
+        professeur_dropdown.pack(fill="x", pady=(0, 16))
+        professeur_dropdown.set(matiere_data['professeur_nom'] if matiere_data['professeur_nom'] != 'Non assigné' else "Aucun")
+        
+        # Boutons d'action - Position fixe en bas
+        btn_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        btn_frame.pack(side="bottom", fill="x", padx=16, pady=(20, 16))
+        
+        # Bouton Modifier
+        save_btn = ctk.CTkButton(btn_frame, text="Modifier", 
+                                command=lambda: self._update_matiere(matiere_data['id_classe_matiere']),
+                                fg_color=SUCCESS_GREEN, hover_color="#80C7C5",
+                                text_color="white",
+                                height=50, corner_radius=12, width=150,
+                                font=ctk.CTkFont(size=14, weight="bold"))
+        save_btn.pack(side="left", padx=(0, 10))
+        
+        # Bouton Annuler
+        cancel_btn = ctk.CTkButton(btn_frame, text="Annuler", 
+                                  command=self.form_modal.destroy,
+                                  fg_color=ERROR_RED, hover_color="#D32F2F",
+                                  text_color="white",
+                                  height=50, corner_radius=12, width=150,
+                                  font=ctk.CTkFont(size=14, weight="bold"))
+        cancel_btn.pack(side="left")
+        
+        # Forcer l'affichage des boutons
+        self.form_modal.update_idletasks()
+    
+    def _update_matiere(self, id_classe_matiere):
+        """Met à jour une matière"""
+        try:
+            # Validation des champs
+            nom_matiere = self.nom_var.get().strip()
+            if not nom_matiere:
+                messagebox.showerror("Erreur", "Le nom de la matière est obligatoire.")
+                return
+            
+            coefficient = float(self.coefficient_var.get())
+            professeur_nom = self.professeur_var.get()
+            
+            # Trouver l'ID du professeur
+            professeur_id = None
+            if professeur_nom != "Aucun":
+                for prof_id, prof_data in self.professeurs.items():
+                    if f"{prof_data['nom']} {prof_data['prenom']}" == professeur_nom:
+                        professeur_id = prof_id
+                        break
+            
+            # Mettre à jour en base
+            from database.connection import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Récupérer l'ID de la matière
+            cursor.execute("SELECT id_matiere FROM classe_matieres WHERE id_classe_matiere = ?", (id_classe_matiere,))
+            id_matiere = cursor.fetchone()[0]
+            
+            # Mettre à jour le nom de la matière
+            cursor.execute("""
+                UPDATE matieres 
+                SET nom_matiere = ?
+                WHERE id_matiere = ?
+            """, (nom_matiere, id_matiere))
+            
+            # Mettre à jour l'association classe-matière
+            cursor.execute("""
+                UPDATE classe_matieres 
+                SET coefficient_classe = ?, id_professeur = ?
+                WHERE id_classe_matiere = ?
+            """, (coefficient, professeur_id, id_classe_matiere))
+            
+            conn.commit()
+            conn.close()
+            
+            messagebox.showinfo("Succès", "Matière modifiée avec succès!")
+            self.form_modal.destroy()
+            self._refresh_all()
+            
+        except ValueError:
+            messagebox.showerror("Erreur", "Le coefficient doit être un nombre valide.")
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de la modification:\n{str(e)}")
