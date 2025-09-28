@@ -25,7 +25,7 @@ except ImportError as e:
 
 # Assurez-vous que ces chemins sont corrects pour votre structure de projet
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.modules.academic.grades.controllers.notes_controller import get_all_notes, add_note, update_note, delete_note, get_notes_by_eleve
+from src.modules.academic.grades.controllers.notes_controller import get_all_notes, add_note, update_note, delete_note, get_notes_by_eleve, get_notes_by_trimestre, get_notes_summary_by_eleve
 from src.modules.academic.students.controllers.eleve_controller import get_all_eleves
 from src.modules.academic.subjects.controllers.matiere_controller import get_all_matieres
 from src.modules.academic.classes.controllers.classe_controller import get_all_classes
@@ -92,6 +92,12 @@ class NotesView(ctk.CTkFrame):
         self.selected_item_data = None
         self.selected_eleve_data = None
         self.selected_note_id = None
+        self.selected_trimestre = "1er Trimestre"  # Valeur par défaut
+        
+        # Variables pour la pagination
+        self.current_page = 1
+        self.items_per_page = 10
+        self.total_pages = 1
         
         # Cache pour optimiser les performances
         self._data_cache = {}
@@ -201,7 +207,7 @@ class NotesView(ctk.CTkFrame):
         left_panel = ctk.CTkFrame(main_frame, fg_color=BG_CARD, corner_radius=12)
         left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         left_panel.grid_columnconfigure(0, weight=1)
-        left_panel.grid_rowconfigure(2, weight=1)
+        left_panel.grid_rowconfigure(3, weight=1)
         
         self._build_student_selection_panel(left_panel)
         
@@ -225,7 +231,7 @@ class NotesView(ctk.CTkFrame):
         
         student_icon = load_ctk_icon(ICON_MAP.get("student"), size=(20, 20))
         ctk.CTkLabel(title_frame, text="", image=student_icon).pack(side="left", padx=(0, 8))
-        ctk.CTkLabel(title_frame, text="NOTES DES ÉLÈVES", 
+        ctk.CTkLabel(title_frame, text="NOTES ÉLÈVES", 
                       font=(FONT, FONT_SIZE_HEADER, "bold"),
                       text_color=TEXT_PRIMARY).pack(side="left")
         
@@ -235,13 +241,23 @@ class NotesView(ctk.CTkFrame):
                       command=self._refresh_all).grid(row=0, column=1, sticky="e")
         
         selection_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
-        selection_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
-        selection_frame.grid_columnconfigure(0, weight=55)
-        selection_frame.grid_columnconfigure(1, weight=45)
+        selection_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=2)
+        selection_frame.grid_columnconfigure(0, weight=1)
+        selection_frame.grid_rowconfigure(0, weight=1)
+        selection_frame.grid_rowconfigure(1, weight=1)
+        
+        # Sélection de classe
+        classe_frame = ctk.CTkFrame(selection_frame, fg_color="transparent")
+        classe_frame.grid(row=0, column=0, sticky="ew", pady=1)
+        classe_frame.grid_columnconfigure(1, weight=1)
+        
+        ctk.CTkLabel(classe_frame, text="Classe:", 
+                     font=(FONT, FONT_SIZE_TEXT), 
+                     text_color=TEXT_PRIMARY).grid(row=0, column=0, sticky="w", padx=(0, 5))
         
         classe_options = ["Classe..."] + [c["nom"] for c in self.classes.values()]
         self.classe_dropdown = ctk.CTkComboBox(
-            selection_frame, values=classe_options,
+            classe_frame, values=classe_options,
             command=self._on_classe_selected,
             font=(FONT, FONT_SIZE_TEXT),
             fg_color=BG_CARD,
@@ -249,22 +265,63 @@ class NotesView(ctk.CTkFrame):
             dropdown_hover_color=BORDER_COLOR,
             border_color=BORDER_COLOR
         )
-        self.classe_dropdown.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        self.classe_dropdown.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+        
+        # Sélection de trimestre
+        trimestre_frame = ctk.CTkFrame(selection_frame, fg_color="transparent")
+        trimestre_frame.grid(row=1, column=0, sticky="ew", pady=1)
+        trimestre_frame.grid_columnconfigure(1, weight=1)
+        
+        ctk.CTkLabel(trimestre_frame, text="Trimestre:", 
+                     font=(FONT, FONT_SIZE_TEXT), 
+                     text_color=TEXT_PRIMARY).grid(row=0, column=0, sticky="w", padx=(0, 5))
+        
+        trimestre_options = ["Trimestres...", "1er Trimestre", "2ème Trimestre", "3ème Trimestre"]
+        self.trimestre_dropdown = ctk.CTkComboBox(
+            trimestre_frame, values=trimestre_options,
+            command=self._on_trimestre_selected,
+            font=(FONT, FONT_SIZE_TEXT),
+            fg_color=BG_CARD,
+            dropdown_fg_color=BG_CARD,
+            dropdown_hover_color=BORDER_COLOR,
+            border_color=BORDER_COLOR
+        )
+        self.trimestre_dropdown.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+        self.trimestre_dropdown.set("1er Trimestre")
+        
+        # Recherche d'élève
+        search_frame = ctk.CTkFrame(selection_frame, fg_color="transparent")
+        search_frame.grid(row=2, column=0, sticky="ew", pady=1)
+        search_frame.grid_columnconfigure(0, weight=1)
         
         self.search_entry = ctk.CTkEntry(
-            selection_frame, placeholder_text="Rechercher...",
+            search_frame, placeholder_text="Rechercher un élève...",
             font=(FONT, FONT_SIZE_TEXT),
             fg_color=BG_CARD,
             border_color=BORDER_COLOR
         )
-        self.search_entry.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+        self.search_entry.grid(row=0, column=0, sticky="ew")
         self.search_entry.bind("<KeyRelease>", self._filter_eleves)
         
-        self.eleve_list_frame = ctk.CTkScrollableFrame(parent_frame, fg_color="transparent")
-        self.eleve_list_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=(5, 10))
+        self.eleve_list_frame = ctk.CTkScrollableFrame(parent_frame, fg_color=BG_CARD)
+        self.eleve_list_frame.grid(row=3, column=0, sticky="nsew", padx=10, pady=(2, 10))
         
         self._setup_class_dropdown()
         self._update_eleve_list()
+
+    def _on_trimestre_selected(self, selected_trimestre):
+        """Gère la sélection d'un trimestre"""
+        if selected_trimestre == "Tous les trimestres":
+            self.selected_trimestre = None
+        else:
+            self.selected_trimestre = selected_trimestre
+        
+        print(f"🔄 Trimestre sélectionné: {selected_trimestre}")
+        print(f"🔍 Filtre trimestre appliqué: {self.selected_trimestre}")
+        
+        # Recharger les notes de l'élève sélectionné avec le filtre trimestre
+        if self.selected_eleve_data:
+            self.rafraichir_liste()
 
     def _build_notes_dashboard(self, parent_frame):
         top_dashboard = ctk.CTkFrame(parent_frame, fg_color="transparent")
@@ -329,6 +386,7 @@ class NotesView(ctk.CTkFrame):
 
     def _on_classe_selected(self, selected_class_name):
         self.selected_eleve_data = None
+        self.selected_trimestre = None
         self._clear_dashboard()
         
         # Recharger les élèves de la classe sélectionnée
@@ -409,7 +467,7 @@ class NotesView(ctk.CTkFrame):
             ]
 
         if not filtered_eleves:
-            no_students_frame = ctk.CTkFrame(self.eleve_list_frame, fg_color=BG_CARD, corner_radius=8)
+            no_students_frame = ctk.CTkFrame(self.eleve_list_frame, fg_color="transparent", corner_radius=8)
             no_students_frame.pack(fill="x", padx=5, pady=10)
             
             ctk.CTkLabel(no_students_frame, text="🔍 Aucun élève trouvé", 
@@ -420,7 +478,7 @@ class NotesView(ctk.CTkFrame):
             eleve_name = f"{eleves['nom']} {eleves['prenom']}"
             
             # Créer un frame pour chaque élève avec icône
-            eleve_frame = ctk.CTkFrame(self.eleve_list_frame, fg_color=BG_CARD, corner_radius=8)
+            eleve_frame = ctk.CTkFrame(self.eleve_list_frame, fg_color="transparent", corner_radius=8)
             eleve_frame.pack(fill="x", padx=5, pady=3)
             
             # Icône élève
@@ -474,6 +532,7 @@ class NotesView(ctk.CTkFrame):
             self._show_no_notes_message()
         else:
             self.notes_title.configure(text=f"Notes de : {eleve_data['prenom']} {eleve_data['nom']}")
+            print(f"🔍 Filtre trimestre avant rafraîchissement: {self.selected_trimestre}")
             self.rafraichir_liste()
 
     def _clear_dashboard(self):
@@ -552,7 +611,9 @@ class NotesView(ctk.CTkFrame):
         self.selected_item_data = None
         
         if self.selected_eleve_data:
-            notes = get_notes_by_eleve(self.selected_eleve_data.get("id_eleve"))
+            print(f"🔍 Récupération des notes pour l'élève {self.selected_eleve_data.get('id_eleve')} avec filtre trimestre: {self.selected_trimestre}")
+            notes = get_notes_by_eleve(self.selected_eleve_data.get("id_eleve"), trimestre=self.selected_trimestre)
+            print(f"📊 {len(notes)} notes récupérées")
             self._update_stats_display(notes)
             self._create_grade_evolution_chart(notes)
             self._update_notes_table(notes)
@@ -717,11 +778,17 @@ class NotesView(ctk.CTkFrame):
             self._create_empty_table()
             return
 
-        headers = ["Matière", "Note", "Coeff.", "Date", "Commentaire"]
+        # Calculer la pagination
+        self.total_pages = max(1, (len(notes) + self.items_per_page - 1) // self.items_per_page)
+        start_idx = (self.current_page - 1) * self.items_per_page
+        end_idx = start_idx + self.items_per_page
+        notes_page = notes[start_idx:end_idx]
+
+        headers = ["Matière", "Note", "Coeff.", "Date", "Trimestre", "Commentaire"]
         data = [headers]
         
-        # Ajouter les notes existantes
-        for note in notes:
+        # Ajouter les notes de la page actuelle
+        for note in notes_page:
             matiere_id = note.get("id_matiere")
             matiere_nom = self.matieres.get(matiere_id, {}).get("nom_matiere", "Inconnue")
             data.append([
@@ -729,14 +796,15 @@ class NotesView(ctk.CTkFrame):
                 str(note.get("note", "")),
                 str(note.get("coefficient", "")),
                 str(note.get("date_evaluation", "")),
+                str(note.get("trimestre", "Inconnu")),
                 str(note.get("commentaire", "Aucun"))
             ])
         
-        print(f"✅ Tableau mis à jour avec {len(data)-1} lignes de notes")
+        print(f"✅ Tableau mis à jour avec {len(data)-1} lignes de notes (page {self.current_page}/{self.total_pages})")
         
         # Compléter avec des lignes vides pour avoir toujours 10 lignes de données
         while len(data) < 11:  # 1 header + 10 lignes de données
-            data.append(["-", "-", "-", "-", "-"])
+            data.append(["-", "-", "-", "-", "-", "-"])
             
         self.note_table = CTkTable(
             self.table_container, 
@@ -752,7 +820,60 @@ class NotesView(ctk.CTkFrame):
         )
         self.note_table.pack(fill="both", expand=True, padx=5, pady=5)
         
+        # Ajouter les contrôles de pagination
+        self._add_pagination_controls()
+        
         self.notes_data = notes
+
+    def _add_pagination_controls(self):
+        """Ajoute les contrôles de pagination"""
+        pagination_frame = ctk.CTkFrame(self.table_container, fg_color="transparent")
+        pagination_frame.pack(fill="x", padx=10, pady=5)
+        
+        # Bouton précédent
+        prev_btn = ctk.CTkButton(
+            pagination_frame,
+            text="◀ Précédent",
+            width=100,
+            height=30,
+            command=self._go_to_previous_page,
+            state="normal" if self.current_page > 1 else "disabled"
+        )
+        prev_btn.pack(side="left", padx=5)
+        
+        # Informations de pagination
+        page_info = ctk.CTkLabel(
+            pagination_frame,
+            text=f"Page {self.current_page} sur {self.total_pages}",
+            font=(FONT, FONT_SIZE_TEXT),
+            text_color=TEXT_PRIMARY
+        )
+        page_info.pack(side="left", padx=20)
+        
+        # Bouton suivant
+        next_btn = ctk.CTkButton(
+            pagination_frame,
+            text="Suivant ▶",
+            width=100,
+            height=30,
+            command=self._go_to_next_page,
+            state="normal" if self.current_page < self.total_pages else "disabled"
+        )
+        next_btn.pack(side="left", padx=5)
+
+    def _go_to_previous_page(self):
+        """Va à la page précédente"""
+        if self.current_page > 1:
+            self.current_page -= 1
+            if hasattr(self, 'selected_eleve_data') and self.selected_eleve_data:
+                self.rafraichir_liste()
+
+    def _go_to_next_page(self):
+        """Va à la page suivante"""
+        if self.current_page < self.total_pages:
+            self.current_page += 1
+            if hasattr(self, 'selected_eleve_data') and self.selected_eleve_data:
+                self.rafraichir_liste()
 
     def _on_table_select(self, cell):
         self.selected_note_id = None
@@ -904,7 +1025,7 @@ class NotesView(ctk.CTkFrame):
             return
 
         eleve_id = self.selected_eleve_data.get("id_eleve")
-        notes = get_notes_by_eleve(eleve_id)
+        notes = get_notes_by_eleve(eleve_id, trimestre=self.selected_trimestre)
         if not notes:
             messagebox.showwarning("Exporter", "Aucune notes à exporter pour cet élève.")
             return

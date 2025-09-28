@@ -23,7 +23,7 @@ if project_root not in sys.path:
 
 from src.modules.academic.subjects.controllers.matieres_controller import get_all_matieres, get_all_niveaux, get_classes_by_niveau
 from src.modules.academic.classes.controllers.classe_controller import get_all_classes
-from src.modules.academic.teachers.controllers.professeur_controller import get_all_professeurs
+from src.modules.academic.professors.controllers.professeur_controller import get_all_professeurs
 
 # Import du thème global
 try:
@@ -90,7 +90,7 @@ def load_icon(icon_name, size=(20, 20)):
 
 class MatieresView(ctk.CTkFrame):
     """Vue des Matières avec formulaire structuré"""
-
+    
     def __init__(self, parent):
         super().__init__(parent, fg_color=BG_MAIN)
         
@@ -188,18 +188,18 @@ class MatieresView(ctk.CTkFrame):
                     'id_classe': row[1],
                     'id_matiere': row[2],
                     'id_professeur': row[3],
-                    'coefficient_classe': float(row[4]) if row[4] is not None else 1.0,
-                    'statut': row[5] if row[5] else 'active',
-                    'classe_nom': str(row[6]) if row[6] else 'Sans nom',
-                    'matiere_nom': str(row[7]) if row[7] else 'Sans nom',
-                    'professeur_nom': str(row[8]) if row[8] else 'Non assigné'
+                    'coefficient_classe': row[4],
+                    'statut': row[5],
+                    'classe_nom': row[6],
+                    'matiere_nom': row[7],
+                    'professeur_nom': row[8] if row[8] else 'Non assigné'
                 }
             
             print(f"✅ {len(self.classe_matieres)} associations classe-matière chargées")
             
         except Exception as e:
             print(f"❌ Erreur chargement associations: {e}")
-        
+    
     def _build_main_ui(self):
         """Construit l'interface principale"""
         # Configuration de la grille
@@ -247,10 +247,8 @@ class MatieresView(ctk.CTkFrame):
         
         ctk.CTkLabel(niveau_frame, text="Niveau:", font=F_TXT, text_color=TEXT_PRIMARY).grid(row=0, column=0, sticky="w")
         self.niveau_var = StringVar()
-        # Convertir les clés en string pour éviter les erreurs ljust
-        niveau_values = ["Tous les niveaux"] + [str(key) for key in self.niveaux.keys()]
         self.niveau_dropdown = ctk.CTkComboBox(niveau_frame, variable=self.niveau_var, 
-                                              values=niveau_values,
+                                              values=["Tous les niveaux"] + list(self.niveaux.keys()),
                                               command=self._on_niveau_selected, state="readonly")
         self.niveau_dropdown.grid(row=0, column=1, sticky="ew", padx=(MARGIN_SMALL, 0))
         self.niveau_dropdown.set("Tous les niveaux")
@@ -316,7 +314,7 @@ class MatieresView(ctk.CTkFrame):
             self.selected_niveau = selected_niveau
             # Mettre à jour les classes disponibles
             classes_niveau = get_classes_by_niveau(selected_niveau)
-            classe_values = ["Toutes les classes"] + [str(key) for key in classes_niveau.keys()]
+            classe_values = ["Toutes les classes"] + list(classes_niveau.keys())
             self.classe_dropdown.configure(values=classe_values)
             self.classe_dropdown.set("Toutes les classes")
             self.selected_classe = None
@@ -391,28 +389,19 @@ class MatieresView(ctk.CTkFrame):
         
         # Données du tableau
         for matiere in matieres_page:
-            # S'assurer que toutes les valeurs sont des strings
-            classe_nom = str(matiere.get('classe_nom', 'N/A'))
-            matiere_nom = str(matiere.get('matiere_nom', 'N/A'))
-            coefficient = str(matiere.get('coefficient_classe', '1.0'))
-            professeur = str(matiere.get('professeur_nom', 'Non assigné'))
-            statut = str(matiere.get('statut', 'active'))
-            
-            data.append([classe_nom, matiere_nom, coefficient, professeur, statut])
+            data.append([
+                matiere['classe_nom'],
+                matiere['matiere_nom'],
+                str(matiere['coefficient_classe']),
+                matiere['professeur_nom'],
+                matiere['statut']
+            ])
         
         # Créer le tableau
-        try:
-            table = CTkTable(self.table_frame, row=len(data), column=len(headers), values=data,
-                            header_color=ACCENT, header_text_color=BG_MAIN,
-                            fg_color=BG_CARD, text_color=TEXT_PRIMARY,
-                            font=F_TXT, corner_radius=8)
-        except Exception as e:
-            print(f"❌ Erreur création tableau: {e}")
-            # Fallback: afficher un message d'erreur
-            error_label = ctk.CTkLabel(self.table_frame, text=f"Erreur d'affichage: {str(e)}", 
-                                     font=F_TXT, text_color=ERROR_RED)
-            error_label.grid(row=0, column=0, pady=MARGIN_MEDIUM)
-            return
+        table = CTkTable(self.table_frame, row=len(data), column=len(headers), values=data,
+                        header_color=ACCENT, header_text_color=BG_MAIN,
+                        fg_color=BG_CARD, text_color=TEXT_PRIMARY,
+                        font=F_TXT, corner_radius=8)
         table.grid(row=0, column=0, sticky="nsew", padx=MARGIN_MEDIUM, pady=MARGIN_MEDIUM)
         
         # Ajouter la pagination
@@ -565,10 +554,8 @@ class MatieresView(ctk.CTkFrame):
         # Professeur (optionnel)
         ctk.CTkLabel(form_frame, text="Professeur:", font=F_TXT, text_color=TEXT_PRIMARY).grid(row=4, column=0, sticky="w", pady=(0, MARGIN_SMALL))
         self.professeur_var = StringVar()
-        # Convertir les valeurs en string pour éviter les erreurs ljust
-        professeur_values = ["Aucun"] + [str(f"{p['nom']} {p['prenom']}") for p in self.professeurs.values()]
         professeur_dropdown = ctk.CTkComboBox(form_frame, variable=self.professeur_var,
-                                             values=professeur_values,
+                                             values=["Aucun"] + [f"{p['nom']} {p['prenom']}" for p in self.professeurs.values()],
                                              state="readonly")
         professeur_dropdown.grid(row=4, column=1, sticky="ew", pady=(0, MARGIN_SMALL))
         professeur_dropdown.set("Aucun")

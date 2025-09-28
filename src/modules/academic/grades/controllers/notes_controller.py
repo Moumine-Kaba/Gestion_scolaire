@@ -58,17 +58,22 @@ def get_all_notes():
             print("⚠️ Table 'notes' n'existe pas dans SQL Server")
             return []
         
-        # Récupérer toutes les notes avec jointures
+        # Récupérer toutes les notes avec jointures et trimestre
         cursor.execute("""
             SELECT 
                 n.id_note, n.id_eleve, n.id_matiere, n.note, n.coefficient,
                 n.date_evaluation, n.type_evaluation, n.commentaire,
                 e.nom as eleve_nom, e.prenom as eleve_prenom,
-                m.nom_matiere as matiere_nom
+                m.nom_matiere as matiere_nom,
+                CASE 
+                    WHEN MONTH(n.date_evaluation) IN (9,10,11,12) THEN '1er Trimestre'
+                    WHEN MONTH(n.date_evaluation) IN (1,2,3) THEN '2ème Trimestre'
+                    ELSE '3ème Trimestre'
+                END as trimestre
             FROM notes n
             LEFT JOIN eleves e ON n.id_eleve = e.id_eleve
             LEFT JOIN matieres m ON n.id_matiere = m.id_matiere
-            ORDER BY n.date_evaluation DESC, n.id_note DESC
+            ORDER BY e.nom, e.prenom, n.date_evaluation DESC, n.id_note DESC
         """)
         
         rows = cursor.fetchall()
@@ -87,12 +92,13 @@ def get_all_notes():
                 'commentaire': row[7],  # commentaire
                 'eleve_nom': row[8],  # eleve_nom
                 'eleve_prenom': row[9],  # eleve_prenom
-                'matiere_nom': row[10]  # matiere_nom
+                'matiere_nom': row[10],  # matiere_nom
+                'trimestre': row[11]  # trimestre
             }
             notes.append(note_dict)
         
         conn.close()
-        print(f"✅ {len(notes)} notes récupérées depuis SQL Server")
+        print(f"✅ {len(notes)} notes récupérées depuis SQL Server avec trimestres")
         return notes
         
     except Exception as e:
@@ -187,25 +193,45 @@ def get_all_notes():
     
     return notes
 
-def get_notes_by_eleve(eleve_id, limit=50):
-    """Retourne les notes pour un élève donné sous forme de liste de dictionnaires (limité pour les performances)."""
+def get_notes_by_eleve(eleve_id, limit=50, trimestre=None):
+    """Retourne les notes pour un élève donné sous forme de liste de dictionnaires, optionnellement filtrées par trimestre."""
     conn = connect_db()
     cur = conn.cursor()
     
-    # Construire la requête avec la limite fixe (SQL Server ne supporte pas TOP ?)
-    query = f"""
+    # Construire la requête avec filtre trimestre optionnel
+    base_query = f"""
         SELECT TOP {limit} n.id_note, n.id_eleve, n.id_matiere, n.note, n.coefficient, 
                n.date_evaluation, n.type_evaluation, n.commentaire,
                e.nom + ' ' + e.prenom as eleve_nom,
-               m.nom_matiere
+               m.nom_matiere,
+               CASE 
+                   WHEN MONTH(n.date_evaluation) IN (9,10,11,12) THEN '1er Trimestre'
+                   WHEN MONTH(n.date_evaluation) IN (1,2,3) THEN '2ème Trimestre'
+                   ELSE '3ème Trimestre'
+               END as trimestre
         FROM notes n
         LEFT JOIN eleves e ON n.id_eleve = e.id_eleve
         LEFT JOIN matieres m ON n.id_matiere = m.id_matiere
         WHERE n.id_eleve = ?
-        ORDER BY n.date_evaluation DESC
     """
     
-    cur.execute(query, (eleve_id,))
+    if trimestre:
+        print(f"🔍 Filtrage par trimestre: {trimestre}")
+        if trimestre == "1er Trimestre":
+            base_query += " AND MONTH(n.date_evaluation) IN (9,10,11,12)"
+            print("📅 Filtre 1er Trimestre appliqué (Sept-Déc)")
+        elif trimestre == "2ème Trimestre":
+            base_query += " AND MONTH(n.date_evaluation) IN (1,2,3)"
+            print("📅 Filtre 2ème Trimestre appliqué (Jan-Mar)")
+        elif trimestre == "3ème Trimestre":
+            base_query += " AND MONTH(n.date_evaluation) IN (4,5,6)"
+            print("📅 Filtre 3ème Trimestre appliqué (Avr-Juin)")
+    else:
+        print("🔍 Aucun filtre trimestre appliqué")
+    
+    base_query += " ORDER BY n.date_evaluation DESC"
+    
+    cur.execute(base_query, (eleve_id,))
     rows = cur.fetchall()
     conn.close()
     
@@ -222,11 +248,141 @@ def get_notes_by_eleve(eleve_id, limit=50):
             'type_evaluation': row[6],
             'commentaire': row[7],
             'eleve_nom': row[8] if row[8] else 'Inconnu',
-            'matiere_nom': row[9] if row[9] else 'Inconnu'
+            'matiere_nom': row[9] if row[9] else 'Inconnu',
+            'trimestre': row[10] if row[10] else 'Inconnu'
         }
         notes.append(note_dict)
     
+    filter_msg = f" pour le {trimestre}" if trimestre else ""
+    print(f"✅ {len(notes)} notes récupérées pour l'élève {eleve_id}{filter_msg}")
+    
+    # Debug: afficher les trimestres des notes récupérées
+    if notes:
+        trimestres_trouves = set(note.get('trimestre', 'Inconnu') for note in notes)
+        print(f"📊 Trimestres trouvés dans les notes: {trimestres_trouves}")
+    
     return notes
+
+def get_notes_by_trimestre(trimestre):
+    """Récupère toutes les notes d'un trimestre spécifique."""
+    try:
+        conn = connect_db()
+        if not conn:
+            print("❌ Impossible de se connecter à la base de données")
+            return []
+        
+        cursor = conn.cursor()
+        
+        # Construire la requête avec filtre trimestre
+        base_query = """
+            SELECT 
+                n.id_note, n.id_eleve, n.id_matiere, n.note, n.coefficient,
+                n.date_evaluation, n.type_evaluation, n.commentaire,
+                e.nom as eleve_nom, e.prenom as eleve_prenom,
+                m.nom_matiere as matiere_nom,
+                CASE 
+                    WHEN MONTH(n.date_evaluation) IN (9,10,11,12) THEN '1er Trimestre'
+                    WHEN MONTH(n.date_evaluation) IN (1,2,3) THEN '2ème Trimestre'
+                    ELSE '3ème Trimestre'
+                END as trimestre
+            FROM notes n
+            LEFT JOIN eleves e ON n.id_eleve = e.id_eleve
+            LEFT JOIN matieres m ON n.id_matiere = m.id_matiere
+            WHERE 1=1
+        """
+        
+        if trimestre == "1er Trimestre":
+            base_query += " AND MONTH(n.date_evaluation) IN (9,10,11,12)"
+        elif trimestre == "2ème Trimestre":
+            base_query += " AND MONTH(n.date_evaluation) IN (1,2,3)"
+        elif trimestre == "3ème Trimestre":
+            base_query += " AND MONTH(n.date_evaluation) IN (4,5,6)"
+        
+        base_query += " ORDER BY e.nom, e.prenom, n.date_evaluation DESC"
+        
+        cursor.execute(base_query)
+        rows = cursor.fetchall()
+        
+        # Convertir les résultats en dictionnaires
+        notes = []
+        for row in rows:
+            note_dict = {
+                'id': row[0],  # id_note
+                'id_eleve': row[1],  # id_eleve
+                'id_matiere': row[2],  # id_matiere
+                'note': float(row[3]) if row[3] else 0.0,  # note
+                'coefficient': float(row[4]) if row[4] else 1.0,  # coefficient
+                'date_evaluation': row[5],  # date_evaluation
+                'type_evaluation': row[6],  # type_evaluation
+                'commentaire': row[7],  # commentaire
+                'eleve_nom': row[8],  # eleve_nom
+                'eleve_prenom': row[9],  # eleve_prenom
+                'matiere_nom': row[10],  # matiere_nom
+                'trimestre': row[11]  # trimestre
+            }
+            notes.append(note_dict)
+        
+        conn.close()
+        print(f"✅ {len(notes)} notes récupérées pour le {trimestre}")
+        return notes
+        
+    except Exception as e:
+        print(f"❌ Erreur get_notes_by_trimestre: {e}")
+        return []
+
+def get_notes_summary_by_eleve(eleve_id):
+    """Récupère un résumé des notes d'un élève par trimestre."""
+    try:
+        conn = connect_db()
+        if not conn:
+            print("❌ Impossible de se connecter à la base de données")
+            return {}
+        
+        cursor = conn.cursor()
+        
+        # Récupérer le résumé par trimestre
+        cursor.execute("""
+            SELECT 
+                CASE 
+                    WHEN MONTH(n.date_evaluation) IN (9,10,11,12) THEN '1er Trimestre'
+                    WHEN MONTH(n.date_evaluation) IN (1,2,3) THEN '2ème Trimestre'
+                    ELSE '3ème Trimestre'
+                END as trimestre,
+                COUNT(*) as nb_notes,
+                AVG(n.note) as moyenne_trimestre,
+                MIN(n.note) as note_min,
+                MAX(n.note) as note_max
+            FROM notes n
+            WHERE n.id_eleve = ?
+            GROUP BY 
+                CASE 
+                    WHEN MONTH(n.date_evaluation) IN (9,10,11,12) THEN '1er Trimestre'
+                    WHEN MONTH(n.date_evaluation) IN (1,2,3) THEN '2ème Trimestre'
+                    ELSE '3ème Trimestre'
+                END
+            ORDER BY trimestre
+        """, (eleve_id,))
+        
+        rows = cursor.fetchall()
+        
+        # Convertir en dictionnaire
+        summary = {}
+        for row in rows:
+            trimestre = row[0]
+            summary[trimestre] = {
+                'nb_notes': row[1],
+                'moyenne': round(float(row[2]), 2) if row[2] else 0.0,
+                'note_min': float(row[3]) if row[3] else 0.0,
+                'note_max': float(row[4]) if row[4] else 0.0
+            }
+        
+        conn.close()
+        print(f"✅ Résumé des notes récupéré pour l'élève {eleve_id}")
+        return summary
+        
+    except Exception as e:
+        print(f"❌ Erreur get_notes_summary_by_eleve: {e}")
+        return {}
 
 def get_notes_by_classe_and_matiere(classe_id, matiere_id):
     """
