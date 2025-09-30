@@ -41,7 +41,7 @@ def get_all_niveaux() -> Dict[int, Dict]:
         print(f"❌ Erreur get_all_niveaux: {e}")
         return {}
 
-def get_all_matieres() -> Dict[int, Dict]:
+def get_all_matieres() -> List[Dict]:
     """Récupère toutes les matières"""
     try:
         conn = get_db_connection()
@@ -60,23 +60,23 @@ def get_all_matieres() -> Dict[int, Dict]:
         rows = cursor.fetchall()
         conn.close()
         
-        matieres = {}
+        matieres = []
         for row in rows:
-            matieres[row[0]] = {
+            matieres.append({
                 'id_matiere': row[0],
                 'nom_matiere': row[1],
                 'coefficient': row[2],
                 'description': row[3],
                 'statut': row[4],
                 'date_creation': row[5]
-            }
+            })
         
         print(f"✅ {len(matieres)} matières récupérées depuis SQL Server")
         return matieres
         
     except Exception as e:
         print(f"❌ Erreur get_all_matieres: {e}")
-        return {}
+        return []
 
 def get_classes_by_niveau(niveau_nom: str) -> Dict[int, Dict]:
     """Récupère les classes d'un niveau donné"""

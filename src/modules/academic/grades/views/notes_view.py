@@ -25,9 +25,9 @@ except ImportError as e:
 
 # Assurez-vous que ces chemins sont corrects pour votre structure de projet
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.modules.academic.grades.controllers.notes_controller import get_all_notes, add_note, update_note, delete_note, get_notes_by_eleve, get_notes_by_trimestre, get_notes_summary_by_eleve
+from src.modules.academic.grades.controllers.notes_controller import get_all_notes, get_notes_by_eleve, get_notes_by_trimestre, get_notes_summary_by_eleve, add_note, update_note, delete_note
 from src.modules.academic.students.controllers.eleve_controller import get_all_eleves
-from src.modules.academic.subjects.controllers.matiere_controller import get_all_matieres
+from src.modules.academic.subjects.controllers.matieres_controller import get_all_matieres
 from src.modules.academic.classes.controllers.classe_controller import get_all_classes
 
 # Import du thème global
@@ -93,6 +93,8 @@ class NotesView(ctk.CTkFrame):
         self.selected_eleve_data = None
         self.selected_note_id = None
         self.selected_trimestre = "1er Trimestre"  # Valeur par défaut
+        self.selected_classe_id = None  # ID de la classe sélectionnée
+        self.classe_matieres = {}  # Matières de la classe sélectionnée
         
         # Variables pour la pagination
         self.current_page = 1
@@ -146,10 +148,19 @@ class NotesView(ctk.CTkFrame):
         self.matieres = {}
         try:
             matieres_data = get_all_matieres()
-            self.matieres = {m.get("id_matiere", m.get("id", 0)): m for m in matieres_data} if matieres_data else {}
-            print(f"✅ {len(self.matieres)} matières guinéennes chargées")
+            print(f"🔍 DEBUG: matieres_data = {matieres_data}")
+            if matieres_data:
+                self.matieres = {}
+                for m in matieres_data:
+                    matiere_id = m.get("id_matiere") or m.get("id", 0)
+                    if matiere_id:
+                        self.matieres[matiere_id] = m
+            else:
+                self.matieres = {}
+            print(f"✅ {len(self.matieres)} matières chargées")
         except Exception as e:
             print(f"⚠️ Erreur chargement matières: {e}")
+            self.matieres = {}
         
         # Charger les classes
         print("🏫 Chargement des classes...")
@@ -181,7 +192,7 @@ class NotesView(ctk.CTkFrame):
         }
         self._cache_timestamp = time.time()
         
-        print(f"✅ Données chargées: {len(self.eleves)} élèves, {len(self.classes)} classes, {len(self.matieres)} matières guinéennes")
+        print(f"✅ Données chargées: {len(self.eleves)} élèves, {len(self.classes)} classes, {len(self.matieres)} matières")
 
     def _refresh_all(self):
         """Rafraîchit toutes les données en invalidant le cache"""
@@ -393,7 +404,14 @@ class NotesView(ctk.CTkFrame):
         if selected_class_name != "Classe...":
             classe_id = next((cid for cid, cdata in self.classes.items() if cdata.get("nom") == selected_class_name), None)
             if classe_id:
+                self.selected_classe_id = classe_id
                 print(f"🔄 Chargement des élèves de la classe {selected_class_name} (ID: {classe_id})")
+                
+                # Charger les matières de cette classe
+                print(f"🔍 DEBUG: Avant _load_classe_matieres - classe_id = {classe_id}")
+                self._load_classe_matieres(classe_id)
+                print(f"🔍 DEBUG: Après _load_classe_matieres - self.classe_matieres = {self.classe_matieres}")
+                
                 try:
                     # Charger TOUS les élèves de cette classe spécifique
                     eleves_classe = get_all_eleves(classe_id=classe_id)
@@ -446,6 +464,52 @@ class NotesView(ctk.CTkFrame):
                     print(f"❌ Erreur lors du chargement des élèves de la classe: {e}")
         
         self._update_eleve_list()
+
+    def _load_classe_matieres(self, classe_id):
+        """Charge les matières spécifiques à une classe"""
+        try:
+            from database.connection import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            print(f"🔍 DEBUG: Requête SQL pour classe_id = {classe_id}")
+            
+            # Récupérer les matières de la classe via classe_matieres
+            cursor.execute("""
+                SELECT cm.id_classe_matiere, cm.id_matiere, cm.coefficient_classe, cm.id_professeur,
+                       m.nom_matiere, p.nom, p.prenom
+                FROM classe_matieres cm
+                JOIN matieres m ON cm.id_matiere = m.id_matiere
+                LEFT JOIN professeurs p ON cm.id_professeur = p.id_professeur
+                WHERE cm.id_classe = ? AND cm.statut = 'active'
+                ORDER BY m.nom_matiere
+            """, (classe_id,))
+            
+            matieres_data = cursor.fetchall()
+            conn.close()
+            
+            print(f"🔍 DEBUG: matieres_data récupérées = {matieres_data}")
+            
+            # Convertir en dictionnaire
+            self.classe_matieres = {}
+            for row in matieres_data:
+                matiere_info = {
+                    'id_classe_matiere': row[0],
+                    'id_matiere': row[1],
+                    'coefficient_classe': row[2],
+                    'id_professeur': row[3],
+                    'nom_matiere': row[4],
+                    'professeur_nom': f"{row[5]} {row[6]}" if row[5] and row[6] else "Non assigné"
+                }
+                self.classe_matieres[row[1]] = matiere_info
+                print(f"🔍 DEBUG: Matière ajoutée - ID: {row[1]}, Nom: {row[4]}")
+            
+            print(f"✅ {len(self.classe_matieres)} matières chargées pour la classe ID {classe_id}")
+            print(f"🔍 DEBUG: self.classe_matieres final = {self.classe_matieres}")
+            
+        except Exception as e:
+            print(f"❌ Erreur lors du chargement des matières de la classe: {e}")
+            self.classe_matieres = {}
 
     def _filter_eleves(self, event=None):
         self._update_eleve_list()
@@ -524,6 +588,14 @@ class NotesView(ctk.CTkFrame):
         statut_notes = eleve_data.get('statut_notes', 'Sans notes')
         print(f"🎯 Sélection de l'élève: {eleve_data.get('prenom', '')} {eleve_data.get('nom', '')} (ID: {eleve_data.get('id_eleve', '')}) - {statut_notes}")
         self.selected_eleve_data = eleve_data
+        
+        # 🔧 CORRECTION: Mettre à jour la classe et charger ses matières
+        classe_id = eleve_data.get('id_classe')
+        if classe_id and classe_id != self.selected_classe_id:
+            self.selected_classe_id = classe_id
+            print(f"🔄 Mise à jour de la classe de l'élève: ID {classe_id}")
+            self._load_classe_matieres(classe_id)
+            print(f"✅ Matières de la classe chargées: {len(self.classe_matieres)} matières")
         
         if statut_notes == 'Sans notes':
             self.notes_title.configure(text=f"Notes de : {eleve_data['prenom']} {eleve_data['nom']} (Aucune note)")
@@ -611,13 +683,24 @@ class NotesView(ctk.CTkFrame):
         self.selected_item_data = None
         
         if self.selected_eleve_data:
-            print(f"🔍 Récupération des notes pour l'élève {self.selected_eleve_data.get('id_eleve')} avec filtre trimestre: {self.selected_trimestre}")
-            notes = get_notes_by_eleve(self.selected_eleve_data.get("id_eleve"), trimestre=self.selected_trimestre)
-            print(f"📊 {len(notes)} notes récupérées")
+            eleve_id = self.selected_eleve_data.get("id_eleve")
+            print(f"🔍 Récupération des notes pour l'élève {eleve_id} avec filtre trimestre: {self.selected_trimestre}")
+            print(f"🔍 Type de selected_trimestre: {type(self.selected_trimestre)}")
+            
+            # Test direct de la fonction
+            try:
+                notes = get_notes_by_eleve(eleve_id, trimestre=self.selected_trimestre)
+                print(f"📊 {len(notes)} notes récupérées")
+                print(f"🔍 Première note (si existe): {notes[0] if notes else 'Aucune note'}")
+            except Exception as e:
+                print(f"❌ Erreur lors de la récupération des notes: {e}")
+                notes = []
+            
             self._update_stats_display(notes)
             self._create_grade_evolution_chart(notes)
             self._update_notes_table(notes)
         else:
+            print("⚠️ Aucun élève sélectionné")
             self._clear_dashboard()
 
     def _update_stats_display(self, notes):
@@ -699,7 +782,11 @@ class NotesView(ctk.CTkFrame):
         if not df.empty:
             colors = plt.cm.viridis(np.linspace(0, 1, len(df['id_matiere'].unique())))
             for i, (matiere_id, group) in enumerate(df.groupby('id_matiere')):
-                matiere_nom = self.matieres.get(matiere_id, {}).get("nom_matiere", "Inconnue")
+                # Chercher le nom de la matière dans les matières de la classe ou toutes les matières
+                if matiere_id in self.classe_matieres:
+                    matiere_nom = self.classe_matieres[matiere_id]['nom_matiere']
+                else:
+                    matiere_nom = self.matieres.get(matiere_id, {}).get("nom_matiere", "Inconnue")
                 ax.plot(group['date'], group['note'], marker='o', linestyle='-', label=matiere_nom, color=colors[i])
             
             # Ajout de la moyenne mobile
@@ -790,7 +877,11 @@ class NotesView(ctk.CTkFrame):
         # Ajouter les notes de la page actuelle
         for note in notes_page:
             matiere_id = note.get("id_matiere")
-            matiere_nom = self.matieres.get(matiere_id, {}).get("nom_matiere", "Inconnue")
+            # Chercher le nom de la matière dans les matières de la classe ou toutes les matières
+            if matiere_id in self.classe_matieres:
+                matiere_nom = self.classe_matieres[matiere_id]['nom_matiere']
+            else:
+                matiere_nom = self.matieres.get(matiere_id, {}).get("nom_matiere", "Inconnue")
             data.append([
                 matiere_nom,
                 str(note.get("note", "")),
@@ -953,19 +1044,36 @@ class NotesView(ctk.CTkFrame):
         eleve_display_name = f"{self.selected_eleve_data['nom']} {self.selected_eleve_data['prenom']}"
         create_form_entry(inner_form_frame, "Élève:", "entry", 0, default_value=eleve_display_name).configure(state="disabled")
 
-        matiere_options = [""] + [f"{m['id_matiere']} - {m['nom_matiere']}" for m in self.matieres.values()]
+        # Utiliser les matières de la classe sélectionnée
+        print(f"🔍 DEBUG: selected_classe_id = {self.selected_classe_id}")
+        print(f"🔍 DEBUG: classe_matieres = {self.classe_matieres}")
+        print(f"🔍 DEBUG: matieres = {self.matieres}")
+        
+        if self.selected_classe_id and self.classe_matieres:
+            matiere_options = [""] + [f"{m['id_matiere']} - {m['nom_matiere']}" for m in self.classe_matieres.values()]
+            print(f"🔍 DEBUG: Utilisation des matières de classe: {len(matiere_options)-1} matières")
+        else:
+            matiere_options = [""] + [f"{m['id_matiere']} - {m['nom_matiere']}" for m in self.matieres.values()]
+            print(f"🔍 DEBUG: Utilisation de toutes les matières: {len(matiere_options)-1} matières")
         matiere_combo = create_form_entry(inner_form_frame, "Matière:", "combo", 1, options=matiere_options)
         note_entry = create_form_entry(inner_form_frame, "Note:", "entry", 2)
-        coeff_entry = create_form_entry(inner_form_frame, "Coefficient:", "entry", 3)
+        type_eval_combo = create_form_entry(inner_form_frame, "Type d'évaluation:", "combo", 3, 
+                                          options=["Contrôle", "Devoir", "Examen", "Interrogation"])
         date_entry = create_form_entry(inner_form_frame, "Date (AAAA-MM-JJ):", "entry", 4)
         comment_entry = create_form_entry(inner_form_frame, "Commentaire:", "textbox", 5)
         
         if mode == "Modifier" and data:
-            if data.get("id_matiere") is not None and data["id_matiere"] in self.matieres:
-                matiere_info = self.matieres[data["id_matiere"]]
-                matiere_combo.set(f"{matiere_info['id_matiere']} - {matiere_info['nom_matiere']}")
-            note_entry.insert(0, str(data.get("notes", "")))
-            coeff_entry.insert(0, str(data.get("coefficient", "1")))
+            # Chercher la matière dans les matières de la classe ou toutes les matières
+            matiere_id = data.get("id_matiere")
+            if matiere_id is not None:
+                if matiere_id in self.classe_matieres:
+                    matiere_info = self.classe_matieres[matiere_id]
+                    matiere_combo.set(f"{matiere_info['id_matiere']} - {matiere_info['nom_matiere']}")
+                elif matiere_id in self.matieres:
+                    matiere_info = self.matieres[matiere_id]
+                    matiere_combo.set(f"{matiere_info['id_matiere']} - {matiere_info['nom_matiere']}")
+            note_entry.insert(0, str(data.get("note", "")))
+            type_eval_combo.set(data.get("type_evaluation", "Contrôle"))
             date_entry.insert(0, data.get("date_evaluation", ""))
             commentaire_text = data.get("commentaire", "")
             if commentaire_text is not None:
@@ -976,7 +1084,7 @@ class NotesView(ctk.CTkFrame):
                 matiere_str = matiere_combo.get()
                 matiere_id = int(matiere_str.split(" - ")[0]) if matiere_str and " - " in matiere_str else None
                 note_value = float(note_entry.get())
-                coefficient = float(coeff_entry.get())
+                type_evaluation = type_eval_combo.get()
                 date_note = date_entry.get()
                 commentaire = comment_entry.get("1.0", "end-1c")
                 
@@ -987,8 +1095,8 @@ class NotesView(ctk.CTkFrame):
                 note_data = {
                     "id_eleve": self.selected_eleve_data['id_eleve'],
                     "id_matiere": matiere_id,
-                    "notes": note_value,
-                    "coefficient": coefficient,
+                    "note": note_value,
+                    "type_evaluation": type_evaluation,
                     "date_evaluation": date_note,
                     "commentaire": commentaire
                 }
@@ -1044,7 +1152,12 @@ class NotesView(ctk.CTkFrame):
                 writer.writerow(["ID", "Élève", "Matière", "Note", "Coefficient", "Date", "Commentaire"])
                 for notes in notes:
                     eleve_name = f"{self.eleves.get(notes['id_eleve'], {}).get('nom', 'Inconnu')} {self.eleves.get(notes['id_eleve'], {}).get('prenom', '')}"
-                    matiere_name = self.matieres.get(notes["id_matiere"], {}).get("nom", "Inconnue")
+                    # Chercher le nom de la matière dans les matières de la classe ou toutes les matières
+                    matiere_id = notes["id_matiere"]
+                    if matiere_id in self.classe_matieres:
+                        matiere_name = self.classe_matieres[matiere_id]['nom_matiere']
+                    else:
+                        matiere_name = self.matieres.get(matiere_id, {}).get("nom_matiere", "Inconnue")
                     writer.writerow([
                         notes.get("id_note"),
                         eleve_name,

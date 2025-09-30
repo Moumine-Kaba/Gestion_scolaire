@@ -61,10 +61,11 @@ def get_all_notes():
         # Récupérer toutes les notes avec jointures et trimestre
         cursor.execute("""
             SELECT 
-                n.id_note, n.id_eleve, n.id_matiere, n.note, n.coefficient,
+                n.id_note, n.id_eleve, n.id_matiere, n.note, 
                 n.date_evaluation, n.type_evaluation, n.commentaire,
                 e.nom as eleve_nom, e.prenom as eleve_prenom,
                 m.nom_matiere as matiere_nom,
+                cm.coefficient_classe,
                 CASE 
                     WHEN MONTH(n.date_evaluation) IN (9,10,11,12) THEN '1er Trimestre'
                     WHEN MONTH(n.date_evaluation) IN (1,2,3) THEN '2ème Trimestre'
@@ -73,6 +74,7 @@ def get_all_notes():
             FROM notes n
             LEFT JOIN eleves e ON n.id_eleve = e.id_eleve
             LEFT JOIN matieres m ON n.id_matiere = m.id_matiere
+            LEFT JOIN classe_matieres cm ON n.id_matiere = cm.id_matiere AND e.id_classe = cm.id_classe
             ORDER BY e.nom, e.prenom, n.date_evaluation DESC, n.id_note DESC
         """)
         
@@ -86,13 +88,13 @@ def get_all_notes():
                 'id_eleve': row[1],  # id_eleve
                 'id_matiere': row[2],  # id_matiere
                 'note': float(row[3]) if row[3] else 0.0,  # note
-                'coefficient': float(row[4]) if row[4] else 1.0,  # coefficient
-                'date_evaluation': row[5],  # date_evaluation
-                'type_evaluation': row[6],  # type_evaluation
-                'commentaire': row[7],  # commentaire
-                'eleve_nom': row[8],  # eleve_nom
-                'eleve_prenom': row[9],  # eleve_prenom
-                'matiere_nom': row[10],  # matiere_nom
+                'date_evaluation': row[4],  # date_evaluation
+                'type_evaluation': row[5],  # type_evaluation
+                'commentaire': row[6],  # commentaire
+                'eleve_nom': row[7],  # eleve_nom
+                'eleve_prenom': row[8],  # eleve_prenom
+                'matiere_nom': row[9],  # matiere_nom
+                'coefficient': float(row[10]) if row[10] else 1.0,  # coefficient_classe
                 'trimestre': row[11]  # trimestre
             }
             notes.append(note_dict)
@@ -162,13 +164,15 @@ def get_all_notes():
     conn = connect_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT n.id_note, n.id_eleve, n.id_matiere, n.note, n.coefficient, 
+        SELECT n.id_note, n.id_eleve, n.id_matiere, n.note, 
                n.date_evaluation, n.type_evaluation, n.commentaire,
                e.nom + ' ' + e.prenom as eleve_nom,
-               m.nom_matiere
+               m.nom_matiere,
+               cm.coefficient_classe
         FROM notes n
         LEFT JOIN eleves e ON n.id_eleve = e.id_eleve
         LEFT JOIN matieres m ON n.id_matiere = m.id_matiere
+        LEFT JOIN classe_matieres cm ON n.id_matiere = cm.id_matiere AND e.id_classe = cm.id_classe
         ORDER BY n.date_evaluation DESC
     """)
     rows = cur.fetchall()
@@ -182,28 +186,32 @@ def get_all_notes():
             'id_eleve': row[1],
             'id_matiere': row[2],
             'note': row[3],
-            'coefficient': row[4],
-            'date_evaluation': row[5],
-            'type_evaluation': row[6],
-            'commentaire': row[7],
-            'eleve_nom': row[8] if row[8] else 'Inconnu',
-            'matiere_nom': row[9] if row[9] else 'Inconnu'
+            'date_evaluation': row[4],
+            'type_evaluation': row[5],
+            'commentaire': row[6],
+            'eleve_nom': row[7] if row[7] else 'Inconnu',
+            'matiere_nom': row[8] if row[8] else 'Inconnu',
+            'coefficient': float(row[9]) if row[9] else 1.0
         }
         notes.append(note_dict)
     
+    print(f"🔍 Notes converties: {len(notes)}")
     return notes
 
 def get_notes_by_eleve(eleve_id, limit=50, trimestre=None):
     """Retourne les notes pour un élève donné sous forme de liste de dictionnaires, optionnellement filtrées par trimestre."""
+    print(f"🔍 get_notes_by_eleve appelée avec eleve_id={eleve_id}, trimestre={trimestre}")
+    
     conn = connect_db()
     cur = conn.cursor()
     
     # Construire la requête avec filtre trimestre optionnel
     base_query = f"""
-        SELECT TOP {limit} n.id_note, n.id_eleve, n.id_matiere, n.note, n.coefficient, 
+        SELECT TOP {limit} n.id_note, n.id_eleve, n.id_matiere, n.note, 
                n.date_evaluation, n.type_evaluation, n.commentaire,
                e.nom + ' ' + e.prenom as eleve_nom,
                m.nom_matiere,
+               cm.coefficient_classe,
                CASE 
                    WHEN MONTH(n.date_evaluation) IN (9,10,11,12) THEN '1er Trimestre'
                    WHEN MONTH(n.date_evaluation) IN (1,2,3) THEN '2ème Trimestre'
@@ -212,6 +220,7 @@ def get_notes_by_eleve(eleve_id, limit=50, trimestre=None):
         FROM notes n
         LEFT JOIN eleves e ON n.id_eleve = e.id_eleve
         LEFT JOIN matieres m ON n.id_matiere = m.id_matiere
+        LEFT JOIN classe_matieres cm ON n.id_matiere = cm.id_matiere AND e.id_classe = cm.id_classe
         WHERE n.id_eleve = ?
     """
     
@@ -231,9 +240,14 @@ def get_notes_by_eleve(eleve_id, limit=50, trimestre=None):
     
     base_query += " ORDER BY n.date_evaluation DESC"
     
+    print(f"🔍 Requête SQL: {base_query}")
+    print(f"🔍 Paramètres: eleve_id={eleve_id}")
+    
     cur.execute(base_query, (eleve_id,))
     rows = cur.fetchall()
     conn.close()
+    
+    print(f"🔍 Nombre de lignes récupérées: {len(rows)}")
     
     # Conversion en liste de dictionnaires
     notes = []
@@ -243,12 +257,12 @@ def get_notes_by_eleve(eleve_id, limit=50, trimestre=None):
             'id_eleve': row[1],
             'id_matiere': row[2],
             'note': row[3],
-            'coefficient': row[4],
-            'date_evaluation': row[5],
-            'type_evaluation': row[6],
-            'commentaire': row[7],
-            'eleve_nom': row[8] if row[8] else 'Inconnu',
-            'matiere_nom': row[9] if row[9] else 'Inconnu',
+            'date_evaluation': row[4],
+            'type_evaluation': row[5],
+            'commentaire': row[6],
+            'eleve_nom': row[7] if row[7] else 'Inconnu',
+            'matiere_nom': row[8] if row[8] else 'Inconnu',
+            'coefficient': float(row[9]) if row[9] else 1.0,  # coefficient_classe
             'trimestre': row[10] if row[10] else 'Inconnu'
         }
         notes.append(note_dict)
