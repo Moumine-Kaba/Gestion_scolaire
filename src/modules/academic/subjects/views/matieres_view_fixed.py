@@ -678,3 +678,6 @@ class MatieresView(ctk.CTkFrame):
                 
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur lors de la suppression: {e}")
+
+
+

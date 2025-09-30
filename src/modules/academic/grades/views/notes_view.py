@@ -17,10 +17,10 @@ try:
         get_all_eleves_fast, get_all_classes_fast, get_all_matieres_fast, 
         get_notes_by_eleve_fast
     )
-    print("✅ Requêtes optimisées importées pour NotesView")
+    print("Requetes optimisees importees pour NotesView")
     USE_OPTIMIZED_QUERIES = False
 except ImportError as e:
-    print(f"⚠️ Requêtes optimisées non disponibles: {e}")
+    print(f"Requetes optimisees non disponibles: {e}")
     USE_OPTIMIZED_QUERIES = False
 
 # Assurez-vous que ces chemins sont corrects pour votre structure de projet
@@ -33,7 +33,7 @@ from src.modules.academic.classes.controllers.classe_controller import get_all_c
 # Import du thème global
 try:
     from resources.themes.theme import *
-    print("✅ Thème global importé pour les notes")
+    print("Theme global importe pour les notes")
 except ImportError as e:
     print(f"⚠️ Thème global non trouvé: {e}")
     # Thème de fallback
@@ -111,7 +111,7 @@ class NotesView(ctk.CTkFrame):
         # Chargement initial des données avec cache
         self._load_cached_data()
         
-        print("✅ Données NotesView chargées")
+        print("Donnees NotesView chargees")
         self._build_main_ui()
 
     def _load_cached_data(self):
@@ -157,7 +157,7 @@ class NotesView(ctk.CTkFrame):
                         self.matieres[matiere_id] = m
             else:
                 self.matieres = {}
-            print(f"✅ {len(self.matieres)} matières chargées")
+            print(f"{len(self.matieres)} matieres chargees")
         except Exception as e:
             print(f"⚠️ Erreur chargement matières: {e}")
             self.matieres = {}
@@ -168,7 +168,7 @@ class NotesView(ctk.CTkFrame):
         try:
             classes_data = get_all_classes()
             self.classes = {c.get("id", 0): c for c in classes_data} if classes_data else {}
-            print(f"✅ {len(self.classes)} classes chargées")
+            print(f"{len(self.classes)} classes chargees")
         except Exception as e:
             print(f"⚠️ Erreur chargement classes: {e}")
         
@@ -180,7 +180,7 @@ class NotesView(ctk.CTkFrame):
             # Limiter à 100 élèves pour éviter le blocage
             limited_eleves = eleves_data[:100] if eleves_data else []
             self.eleves = {e.get("id_eleve", e.get("id", 0)): e for e in limited_eleves}
-            print(f"✅ {len(self.eleves)} élèves chargés (limité à 100)")
+            print(f"{len(self.eleves)} eleves charges (limite a 100)")
         except Exception as e:
             print(f"⚠️ Erreur chargement élèves: {e}")
         
@@ -192,7 +192,7 @@ class NotesView(ctk.CTkFrame):
         }
         self._cache_timestamp = time.time()
         
-        print(f"✅ Données chargées: {len(self.eleves)} élèves, {len(self.classes)} classes, {len(self.matieres)} matières")
+        print(f"Donnees chargees: {len(self.eleves)} eleves, {len(self.classes)} classes, {len(self.matieres)} matieres")
 
     def _refresh_all(self):
         """Rafraîchit toutes les données en invalidant le cache"""
@@ -552,14 +552,10 @@ class NotesView(ctk.CTkFrame):
             
             # Nom de l'élève avec indication du statut des notes
             statut_notes = eleves.get('statut_notes', 'Sans notes')
-            if statut_notes == 'Sans notes':
-                eleve_name_display = f"{eleve_name} (Sans notes)"
-                text_color = TEXT_SECONDARY
-                font_size = FONT_SIZE_TEXT - 1
-            else:
-                eleve_name_display = eleve_name
-                text_color = TEXT_PRIMARY
-                font_size = FONT_SIZE_TEXT
+            # Afficher uniquement le nom, sans texte entre parenthèses
+            eleve_name_display = eleve_name
+            text_color = TEXT_PRIMARY if statut_notes == 'Avec notes' else TEXT_SECONDARY
+            font_size = FONT_SIZE_TEXT if statut_notes == 'Avec notes' else FONT_SIZE_TEXT - 1
                 
             name_label = ctk.CTkLabel(eleve_frame, text=eleve_name_display,
                                       font=(FONT, font_size),
@@ -598,7 +594,7 @@ class NotesView(ctk.CTkFrame):
             print(f"✅ Matières de la classe chargées: {len(self.classe_matieres)} matières")
         
         if statut_notes == 'Sans notes':
-            self.notes_title.configure(text=f"Notes de : {eleve_data['prenom']} {eleve_data['nom']} (Aucune note)")
+            self.notes_title.configure(text=f"Notes de : {eleve_data['prenom']} {eleve_data['nom']}")
             # Afficher un message pour les élèves sans notes
             self._clear_dashboard()
             self._show_no_notes_message()

@@ -92,7 +92,17 @@ class BulletinAdvancedModel:
     
     def __init__(self):
         self.connection = get_db_connection()
-        self.init_tables()
+        # Désactivation par défaut: on garde uniquement la table simple 'bulletins'
+        # Activez l'initialisation avancée uniquement si nécessaire
+        try:
+            use_advanced = os.environ.get('EDU_USE_ADVANCED_BULLETINS') == '1'
+            if use_advanced:
+                self.init_tables()
+            else:
+                print("Modele bulletins avances desactive (EDU_USE_ADVANCED_BULLETINS != '1')")
+        except Exception as _e:
+            # Ne bloque pas l'application si l'init échoue quand la fonctionnalité est désactivée
+            print(f"Initialisation bulletins avances ignoree: {_e}")
     
     def init_tables(self):
         """Initialise les tables nécessaires dans SQL Server"""
@@ -135,8 +145,8 @@ class BulletinAdvancedModel:
                     cree_par NVARCHAR(100) NOT NULL,
                     valide_par NVARCHAR(100),
                     date_validation DATETIME2,
-                    FOREIGN KEY (id_eleve) REFERENCES eleves (id),
-                    FOREIGN KEY (id_classe) REFERENCES classes (id),
+                    FOREIGN KEY (id_eleve) REFERENCES eleves (id_eleve),
+                    FOREIGN KEY (id_classe) REFERENCES classes (id_classe),
                     FOREIGN KEY (id_periode) REFERENCES periodes_scolaires (id)
                 )
             """)
@@ -153,7 +163,7 @@ class BulletinAdvancedModel:
                     appreciation NVARCHAR(MAX),
                     rang_matiere INT,
                     FOREIGN KEY (id_bulletin) REFERENCES bulletins_avances (id),
-                    FOREIGN KEY (id_matiere) REFERENCES matieres (id)
+                    FOREIGN KEY (id_matiere) REFERENCES matieres (id_matiere)
                 )
             """)
             

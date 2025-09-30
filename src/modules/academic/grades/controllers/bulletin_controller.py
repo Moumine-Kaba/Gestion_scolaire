@@ -5,7 +5,7 @@ def get_all_bulletins(eleve_id=None):
     try:
         conn = get_db_connection()
         if not conn:
-            print("❌ Impossible de se connecter à la base de données")
+            print("Impossible de se connecter a la base de donnees")
             return []
         
         cursor = conn.cursor()
@@ -20,7 +20,7 @@ def get_all_bulletins(eleve_id=None):
         table_exists = cursor.fetchone()[0] > 0
         
         if not table_exists:
-            print("⚠️ Table 'bulletins' n'existe pas dans SQL Server")
+            print("Table 'bulletins' n'existe pas dans SQL Server")
             return []
         
         # Construire la requête selon le paramètre
@@ -70,11 +70,11 @@ def get_all_bulletins(eleve_id=None):
             bulletins.append(bulletin_dict)
         
         conn.close()
-        print(f"✅ {len(bulletins)} bulletins dynamiques récupérés depuis SQL Server")
+        print(f"{len(bulletins)} bulletins dynamiques recuperes depuis SQL Server")
         return bulletins
         
     except Exception as e:
-        print(f"❌ Erreur get_all_bulletins: {e}")
+        print(f"Erreur get_all_bulletins: {e}")
         return []
 
 def add_bulletin(eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition):

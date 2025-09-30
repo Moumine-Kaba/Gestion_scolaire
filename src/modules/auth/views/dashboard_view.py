@@ -21,6 +21,7 @@ from src.core.paths import (
     print_paths
 )
 from src.core.view_registry import get_view_registry, register_all_views
+from src.core.views.view_preloader import get_view_preloader, preload_critical_views
 
 # Import du système d'optimisation
 try:
@@ -1381,6 +1382,14 @@ class MainApp(ctk.CTk):
         self.create_sidebar()
         self.create_dashboard()
 
+        # Enregistrer les factories de préchargement pour les vues
+        try:
+            preloader = get_view_preloader()
+            self._register_view_factories(preloader)
+            preload_critical_views()
+        except Exception as e:
+            print(f"⚠️ Préloader non initialisé: {e}")
+
         # Vue par défaut selon rôle
         default_key = self._default_view_for_role(self._get_user_role())
         idx = self.key_to_index.get(default_key, 0)
@@ -1419,6 +1428,11 @@ class MainApp(ctk.CTk):
                 from src.modules.academic.grades.views.notes_view import NotesView
                 return NotesView(parent, icons or self._default_class_icons())
             
+            # Factory pour BulletinsView
+            def create_bulletins_view(parent):
+                from src.modules.academic.grades.views.bulletins_view import BulletinsView
+                return BulletinsView(parent)
+
             # Factory pour ElevesView
             def create_eleves_view(parent, icons=None):
                 from src.modules.academic.students.views.eleves_dashboard import DashboardEleves
@@ -1428,6 +1442,7 @@ class MainApp(ctk.CTk):
             view_preloader.register_view_factory("classes", lambda parent=None: create_classes_view(parent or self, self._default_class_icons()))
             view_preloader.register_view_factory("cours", lambda parent=None: create_cours_view(parent or self, self._default_class_icons()))
             view_preloader.register_view_factory("notes", lambda parent=None: create_notes_view(parent or self, self._default_class_icons()))
+            view_preloader.register_view_factory("bulletins", lambda parent=None: create_bulletins_view(parent or self))
             view_preloader.register_view_factory("eleves", lambda parent=None: create_eleves_view(parent or self))
             
             print("✅ Factories de vues enregistrées")

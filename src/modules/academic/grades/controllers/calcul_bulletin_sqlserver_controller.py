@@ -107,25 +107,51 @@ class CalculBulletinController:
             return f"Élève en grande difficulté ! Moyenne de {moyenne:.2f}/20. Classé {rang}ème sur {total_eleves}. Un suivi particulier est nécessaire."
     
     def calculer_bulletin_complet(self, id_eleve: int, id_classe: int, id_periode: int) -> CalculBulletin:
-        """Calcule un bulletin complet pour un élève"""
+        """Calcule un bulletin complet pour un élève en utilisant les coefficients de classe_matieres et les dates de la période."""
         try:
             cursor = self.connection.cursor()
             
-            # Récupérer les notes de l'élève pour la période
+            # Récupérer les bornes de la période
             cursor.execute("""
-                SELECT n.id_matiere, m.nom, m.coefficient, n.note, n.type_evaluation
+                SELECT date_debut, date_fin
+                FROM periodes_scolaires
+                WHERE id = ?
+            """, (id_periode,))
+            periode_row = cursor.fetchone()
+            if not periode_row:
+                return CalculBulletin(
+                    moyenne_generale=0.0,
+                    matieres=[],
+                    rang_classe=0,
+                    rang_niveau=0,
+                    total_points=0.0,
+                    total_coefficients=0.0,
+                    appreciation_generale="Période introuvable"
+                )
+            date_debut, date_fin = periode_row[0], periode_row[1]
+
+            # Récupérer les notes de l'élève pour la période, et le coefficient par classe/matière
+            # Schéma adapté: eleves.id_eleve, classes.id_classe, matieres.id_matiere, matieres.nom_matiere, notes.date_evaluation
+            cursor.execute("""
+                SELECT 
+                    n.id_matiere,
+                    m.nom_matiere,
+                    COALESCE(cm.coefficient_classe, 1.0) AS coefficient_classe,
+                    n.note
                 FROM notes n
-                JOIN matieres m ON n.id_matiere = m.id
-                WHERE n.id_eleve = ? AND n.id_periode = ?
-                ORDER BY n.id_matiere, n.date_note
-            """, (id_eleve, id_periode))
-            
+                JOIN eleves e ON n.id_eleve = e.id_eleve
+                LEFT JOIN classe_matieres cm ON cm.id_classe = e.id_classe AND cm.id_matiere = n.id_matiere
+                LEFT JOIN matieres m ON m.id_matiere = n.id_matiere
+                WHERE n.id_eleve = ? AND n.date_evaluation BETWEEN ? AND ?
+                ORDER BY n.id_matiere, n.date_evaluation
+            """, (id_eleve, date_debut, date_fin))
+
             notes_data = cursor.fetchall()
             
             # Grouper les notes par matière
             matieres_dict = {}
             for row in notes_data:
-                id_matiere, nom_matiere, coefficient, note, type_eval = row
+                id_matiere, nom_matiere, coefficient, note = row
                 
                 if id_matiere not in matieres_dict:
                     matieres_dict[id_matiere] = {
@@ -134,7 +160,7 @@ class CalculBulletinController:
                         'notes': []
                     }
                 
-                matieres_dict[id_matiere]['notes'].append(note)
+                matieres_dict[id_matiere]['notes'].append(float(note))
             
             # Calculer les moyennes par matière
             matieres = []
@@ -189,22 +215,25 @@ class CalculBulletinController:
             )
     
     def calculer_rang_classe(self, id_eleve: int, id_classe: int, id_periode: int, moyenne_eleve: float) -> int:
-        """Calcule le rang de l'élève dans sa classe"""
+        """Calcule le rang de l'élève dans sa classe sur la période (moyenne simple des notes par élève)."""
         try:
             cursor = self.connection.cursor()
+            # Bornes de période
+            cursor.execute("SELECT date_debut, date_fin FROM periodes_scolaires WHERE id = ?", (id_periode,))
+            d1, d2 = cursor.fetchone()
             
             # Récupérer toutes les moyennes de la classe pour la période
             cursor.execute("""
-                SELECT DISTINCT e.id, 
+                SELECT e.id_eleve,
                        COALESCE((
-                           SELECT AVG(n.note) 
-                           FROM notes n 
-                           WHERE n.id_eleve = e.id AND n.id_periode = ?
-                       ), 0) as moyenne
+                           SELECT AVG(n.note)
+                           FROM notes n
+                           WHERE n.id_eleve = e.id_eleve AND n.date_evaluation BETWEEN ? AND ?
+                       ), 0) AS moyenne
                 FROM eleves e
                 WHERE e.id_classe = ?
                 ORDER BY moyenne DESC
-            """, (id_periode, id_classe))
+            """, (d1, d2, id_classe))
             
             moyennes = cursor.fetchall()
             
@@ -220,32 +249,35 @@ class CalculBulletinController:
             return 0
     
     def calculer_rang_niveau(self, id_eleve: int, id_classe: int, id_periode: int, moyenne_eleve: float) -> int:
-        """Calcule le rang de l'élève dans son niveau"""
+        """Calcule le rang de l'élève dans son niveau sur la période (moyenne simple)."""
         try:
             cursor = self.connection.cursor()
             
             # Récupérer le niveau de la classe
-            cursor.execute("SELECT niveau FROM classes WHERE id = ?", (id_classe,))
+            cursor.execute("SELECT niveau FROM classes WHERE id_classe = ?", (id_classe,))
             niveau_result = cursor.fetchone()
             
             if not niveau_result:
                 return 0
             
             niveau = niveau_result[0]
+            # Bornes de période
+            cursor.execute("SELECT date_debut, date_fin FROM periodes_scolaires WHERE id = ?", (id_periode,))
+            d1, d2 = cursor.fetchone()
             
             # Récupérer toutes les moyennes du niveau pour la période
             cursor.execute("""
-                SELECT DISTINCT e.id, 
+                SELECT DISTINCT e.id_eleve,
                        COALESCE((
-                           SELECT AVG(n.note) 
-                           FROM notes n 
-                           WHERE n.id_eleve = e.id AND n.id_periode = ?
-                       ), 0) as moyenne
+                           SELECT AVG(n.note)
+                           FROM notes n
+                           WHERE n.id_eleve = e.id_eleve AND n.date_evaluation BETWEEN ? AND ?
+                       ), 0) AS moyenne
                 FROM eleves e
-                JOIN classes c ON e.id_classe = c.id
+                JOIN classes c ON e.id_classe = c.id_classe
                 WHERE c.niveau = ?
                 ORDER BY moyenne DESC
-            """, (id_periode, niveau))
+            """, (d1, d2, niveau))
             
             moyennes = cursor.fetchall()
             

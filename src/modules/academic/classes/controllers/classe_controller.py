@@ -82,11 +82,11 @@ def get_all_classes():
             classes.append(classe_dict)
         
         conn.close()
-        print(f"✅ {len(classes)} classes récupérées depuis SQL Server")
+        print(f"{len(classes)} classes recuperees depuis SQL Server")
         return classes
         
     except Exception as e:
-        print(f"❌ Erreur get_all_classes: {e}")
+        print(f"Erreur get_all_classes: {e}")
         return []
 
 def add_class(nom, niveau, annee_scolaire, prof_id, salle_id):

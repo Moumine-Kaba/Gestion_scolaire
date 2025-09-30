@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Vue des Bulletins - Style Matières
-EduManager+ - Interface Adaptée au Style de la Vue des Matières
+Vue des Bulletins - Système Réorganisé
+EduManager+ - Interface Moderne avec Formulaire Structuré
 
-Cette vue présente les bulletins organisés par classe avec une interface
-similaire à la vue des matières (panneau gauche/droite).
+Cette vue présente les bulletins organisés par classe et période
+avec un formulaire modal stylisé et des menus déroulants dépendants.
 """
 
 import customtkinter as ctk
@@ -21,7 +21,20 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from src.modules.academic.grades.controllers.bulletin_controller import get_all_bulletins, add_bulletin, update_bulletin, delete_bulletin
+from src.modules.academic.grades.controllers.bulletins_sqlserver_controller import BulletinsController
+# Adapters vers le contrôleur simple des bulletins
+try:
+    from src.modules.academic.grades.controllers.bulletin_controller import (
+        get_all_bulletins as db_get_all_bulletins,
+        add_bulletin as db_add_bulletin,
+        update_bulletin as db_update_bulletin,
+        delete_bulletin as db_delete_bulletin,
+    )
+except Exception as _e:
+    db_get_all_bulletins = None
+    db_add_bulletin = None
+    db_update_bulletin = None
+    db_delete_bulletin = None
 from src.modules.academic.grades.controllers.notes_controller import get_notes_by_eleve, get_notes_summary_by_eleve
 from src.modules.academic.students.controllers.eleve_controller import get_all_eleves
 from src.modules.academic.classes.controllers.classe_controller import get_all_classes
@@ -29,9 +42,9 @@ from src.modules.academic.classes.controllers.classe_controller import get_all_c
 # Import du thème global
 try:
     from resources.themes.theme import *
-    print("✅ Thème global EduManager+ importé pour les bulletins")
+    print("Theme global EduManager+ importe pour les bulletins")
 except ImportError as e:
-    print(f"⚠️ Thème global non trouvé: {e}")
+    print(f"Theme global non trouve: {e}")
     # Thème de fallback
     BG_MAIN = "#233146"
     BG_CARD = "#2b2952"
@@ -44,629 +57,1099 @@ except ImportError as e:
     ERROR_RED = "#FF6363"
     ACCENT = "#64FFDA"
     BG_SIDEBAR = "#1E2332"
+    TEXT_SUCCESS = "#4CAF50"
+    TEXT_WARNING = "#FF9800"
+    TEXT_ERROR = "#F44336"
+    BG_SECONDARY = "#3A3F5C"
+    BG_CARD = "#2b2952"
+    FONT_SIZE_TEXT = 12
+    FONT_SIZE_HEADER = 18
     MARGIN_SMALL = 8
     MARGIN_MEDIUM = 12
     MARGIN_LARGE = 20
     FONT = "Segoe UI"
     FONT_SIZE_TITLE = 24
     FONT_SIZE_HEADER = 18
-    FONT_SIZE_TEXT = 14
-    FONT_SIZE_SMALL = 12
-    F_TITLE = (FONT, FONT_SIZE_TITLE, "bold")
-    F_SUB = (FONT, FONT_SIZE_HEADER, "bold")
-    F_TXT = (FONT, FONT_SIZE_TEXT)
-    F_SMALL = (FONT, FONT_SIZE_SMALL)
-    F_BOLD = (FONT, FONT_SIZE_TEXT, "bold")
+    FONT_SIZE_SUB = 14
+    FONT_SIZE_TXT = 12
+    FONT_SIZE_SMALL = 10
+    FONT_BOLD = "Segoe UI Bold"
 
+# Variables de police
+F_TITLE = (FONT, FONT_SIZE_TITLE, "bold")
+F_SUB = (FONT, FONT_SIZE_SUB, "bold")
+F_TXT = (FONT, FONT_SIZE_TXT)
+F_SMALL = (FONT, FONT_SIZE_SMALL)
+F_BOLD = (FONT, FONT_SIZE_TXT, "bold")
+
+# Icônes
 ICON_MAP = {
-    "add": "add.png", "edit": "edit.png", "delete": "delete.png",
-    "refresh": "refresh.png", "search": "search.png", "close": "close.png",
-    "newspaper": "newspaper.png", "grade": "grade.png", "stats": "analytics.png",
-    "class": "classroom.png", "sort": "sort.png", "person": "person.png"
+    'add': 'resources/icons/add.png',
+    'edit': 'resources/icons/edit.png',
+    'delete': 'resources/icons/delete.png',
+    'refresh': 'resources/icons/refresh.png',
+    'search': 'resources/icons/search.png',
+    'filter': 'resources/icons/filter.png',
+    'newspaper': 'resources/icons/newspaper.png',
+    'grade': 'resources/icons/grade.png',
+    'stats': 'resources/icons/analytics.png',
+    'class': 'resources/icons/classroom.png',
+    'person': 'resources/icons/person.png',
+    'school': 'resources/icons/classroom.png',
+    'calendar': 'resources/icons/calendar.png',
+    'chart': 'resources/icons/analytics.png',
+    'award': 'resources/icons/award.png',
+    'comment': 'resources/icons/assignment.png',
+    'export': 'resources/icons/upload.png',
+    'generate': 'resources/icons/autorenew.png',
+    'sort': 'resources/icons/sort.png',
+    'person': 'resources/icons/person.png'
 }
 
-def load_ctk_icon(icon_name, size=(20, 20)):
-    """Charge une icône pour CustomTkinter"""
+def load_icon(icon_name, size=(20, 20)):
+    """Charge une icône avec gestion d'erreur"""
     try:
-        from PIL import Image
-        # Chemin vers les icônes dans resources/icons
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))))
-        icon_path = os.path.join(project_root, "resources", "icons", icon_name)
-        
-        if os.path.exists(icon_path):
-            image = Image.open(icon_path).resize(size, Image.Resampling.LANCZOS)
-            return ctk.CTkImage(light_image=image, dark_image=image)
+        icon_path = ICON_MAP.get(icon_name)
+        if icon_path and os.path.exists(icon_path):
+            return ctk.CTkImage(Image.open(icon_path), size=size)
         else:
+            print(f"Icone '{icon_name}' non trouvee: {icon_path}")
             return None
     except Exception as e:
-        print(f"⚠️ Erreur chargement icône {icon_name}: {e}")
+        print(f"Erreur chargement icone '{icon_name}': {e}")
         return None
 
+# Compatibilité: certaines sections utilisent load_ctk_icon
+def load_ctk_icon(name_or_path, size=(20, 20)):
+    """Retourne une CTkImage à partir d'un nom logique ou d'un chemin.
+    - Si name_or_path est une clé d'ICON_MAP, utilise ce chemin
+    - Si c'est un nom de fichier *.png, cherche dans resources/icons
+    - Si c'est un chemin absolu/relatif existant, l'utilise tel quel
+    """
+    try:
+        candidate = None
+        if isinstance(name_or_path, str):
+            # Clé de l'ICON_MAP
+            if name_or_path in ICON_MAP:
+                candidate = ICON_MAP[name_or_path]
+            # Nom de fichier icône
+            elif name_or_path.endswith('.png') and not os.path.isabs(name_or_path):
+                candidate = os.path.join('resources', 'icons', name_or_path)
+            else:
+                candidate = name_or_path
+        if candidate and os.path.exists(candidate):
+            return ctk.CTkImage(Image.open(candidate), size=size)
+    except Exception as e:
+        print(f"Erreur load_ctk_icon '{name_or_path}': {e}")
+    return None
+
+# Adapters simples pour correspondre aux signatures locales
+def get_all_bulletins():
+    if db_get_all_bulletins:
+        return db_get_all_bulletins()
+    return []
+
+def add_bulletin(info: Dict):
+    """Adaptateur pour l'ajout d'un bulletin.
+    info attend: id_eleve, periode, moyenne_generale, rang, appreciation
+    Le contrôleur sous-jacent requiert: annee_scolaire, trimestre, remarque, date_edition
+    """
+    if not db_add_bulletin:
+        return False
+    try:
+        eleve_id = info.get('id_eleve')
+        annee_scolaire = str(datetime.now().year)
+        trimestre = info.get('periode') or ''
+        moyenne = float(info.get('moyenne_generale') or 0)
+        remarque = info.get('appreciation') or ''
+        date_edition = datetime.now().date()
+        db_add_bulletin(eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition)
+        return True
+    except Exception as e:
+        print(f"add_bulletin adapter error: {e}")
+        return False
+
+def update_bulletin(bulletin_id: int, info: Dict):
+    if not db_update_bulletin:
+        return False
+    try:
+        eleve_id = info.get('id_eleve')
+        annee_scolaire = str(datetime.now().year)
+        trimestre = info.get('periode') or ''
+        moyenne = float(info.get('moyenne_generale') or 0)
+        remarque = info.get('appreciation') or ''
+        date_edition = datetime.now().date()
+        db_update_bulletin(bulletin_id, eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition)
+        return True
+    except Exception as e:
+        print(f"update_bulletin adapter error: {e}")
+        return False
+
+def delete_bulletin(bulletin_id: int):
+    if not db_delete_bulletin:
+        return False
+    try:
+        db_delete_bulletin(bulletin_id)
+        return True
+    except Exception as e:
+        print(f"delete_bulletin adapter error: {e}")
+        return False
+
 class BulletinsView(ctk.CTkFrame):
-    """Vue des bulletins adaptée au style de la vue des matières"""
-        
-    def __init__(self, parent, icons=None):
+    """Vue des Bulletins avec formulaire structuré"""
+
+    def __init__(self, parent):
         super().__init__(parent, fg_color=BG_MAIN)
-        self.icons = icons
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
         
-        # Variables pour la sélection
+        # Variables de données
+        self.bulletins = []
+        self.classes = []
+        self.periodes = []
+        
+        # Variables de sélection
         self.selected_classe = None
         self.selected_periode = None
-        self.selected_bulletins = []
+        self.selected_bulletin = None
         
-        # Variables pour la pagination
+        # Variables de pagination
         self.current_page = 1
         self.items_per_page = 20
         self.total_pages = 1
         
-        # Référence au frame du tableau
-        self.table_frame = None
-        
-        # Cache pour optimiser les performances
+        # Cache des données
         self._data_cache = {}
-        self._cache_timestamp = 0
-        self._cache_duration = 30  # Cache valide pendant 30 secondes
+        self._cache_timestamp = None
+        self._cache_duration = 300  # 5 minutes
         
-        print("🚀 Chargement des données BulletinsView...")
+        # Interface
+        self.table_frame = None
+        self.form_modal = None
         
-        # Chargement initial des données avec cache
-        self._load_cached_data()
+        # Contrôleur des bulletins
+        self.bulletins_controller = BulletinsController()
         
-        print("✅ Données BulletinsView chargées")
+        # Charger les données
+        self._load_data()
+        
+        # Construire l'interface
         self._build_main_ui()
-        
-        # Initialiser le message de sélection après la construction de l'UI
-        if self.table_frame:
-            self._show_no_selection_message(self.table_frame)
+
+        # Afficher le message initial
+        self._show_no_selection_message()
     
-    def _load_cached_data(self):
-        """Charge les données avec système de cache pour optimiser les performances"""
-        import time
-        current_time = time.time()
-        
-        # Vérifier si le cache est encore valide
-        if (current_time - self._cache_timestamp) < self._cache_duration and self._data_cache:
-            print("📋 Utilisation du cache pour les données")
-            self.bulletins = self._data_cache.get('bulletins', [])
-            self.classes = self._data_cache.get('classes', [])
-            self.periodes = self._data_cache.get('periodes', [])
-            return
-        
-        print("🔄 Chargement des données depuis la base...")
+    def _load_data(self):
+        """Charge les données depuis la base"""
         try:
-            # Chargement progressif pour éviter le blocage
-            self._load_data_progressively()
+            print("Chargement des donnees bulletins...")
+            
+            # Charger les classes
+            classes_list = get_all_classes()
+            # Créer un dictionnaire avec l'ID comme clé et les données comme valeur
+            self.classes = {classe['id']: classe for classe in classes_list}
+            print(f"{len(self.classes)} classes chargees")
+            
+            # Charger les périodes
+            self.periodes = ["1er Trimestre", "2ème Trimestre", "3ème Trimestre"]
+            print(f"{len(self.periodes)} periodes chargees")
+            
+            # Charger les bulletins depuis la base de données
+            self.bulletins = get_all_bulletins()
+            print(f"{len(self.bulletins)} bulletins charges")
+            
+            print("Donnees bulletins chargees avec succes")
             
         except Exception as e:
-            print(f"⚠️ Erreur chargement données: {e}")
-            # Fallback avec données vides
-            self.bulletins = []
-            self.classes = []
-            self.periodes = []
-    
-    def _load_data_progressively(self):
-        """Charge les données de manière progressive pour éviter le blocage"""
-        import time
-        
-        # Charger les vraies classes depuis la base de données
-        print("🏫 Chargement des vraies classes...")
-        real_classes = get_all_classes()
-        self.classes = [cls['nom'] for cls in real_classes]
-        print(f"✅ {len(self.classes)} vraies classes chargées: {self.classes[:10]}...")
-        
-        # Charger les périodes
-        print("📅 Chargement des périodes...")
-        self.periodes = ["1er Trimestre", "2ème Trimestre", "3ème Trimestre"]
-        print(f"✅ {len(self.periodes)} périodes chargées")
-        
-        # Charger tous les bulletins
-        print("📊 Chargement des bulletins...")
-        self.bulletins = get_all_bulletins()
-        print(f"✅ {len(self.bulletins)} bulletins chargés")
-        
-        # Mise à jour du cache
-        self._data_cache = {
-            'bulletins': self.bulletins,
-            'classes': self.classes,
-            'periodes': self.periodes
-        }
-        self._cache_timestamp = time.time()
-        
-        print(f"✅ Données chargées: {len(self.bulletins)} bulletins, {len(self.classes)} classes, {len(self.periodes)} périodes")
+            print(f"Erreur chargement donnees: {e}")
+            messagebox.showerror("Erreur", f"Erreur lors du chargement des données:\n{str(e)}")
     
     def _build_main_ui(self):
-        """Construit l'interface principale avec panneau gauche et droite"""
-        main_frame = ctk.CTkFrame(self, fg_color=BG_MAIN)
-        main_frame.pack(fill="both", expand=True, padx=15, pady=15)
-        main_frame.grid_columnconfigure(1, weight=3)
-        main_frame.grid_columnconfigure(0, weight=1)
-        main_frame.grid_rowconfigure(0, weight=1)
-
-        # Panneau de gauche: Sélection par classe et période
-        left_panel = ctk.CTkFrame(main_frame, fg_color=BG_CARD, corner_radius=12)
-        left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
-        left_panel.grid_columnconfigure(0, weight=1)
-        left_panel.grid_rowconfigure(2, weight=1)
+        """Construit l'interface principale"""
+        # Configuration de la grille
+        self.grid_columnconfigure(0, weight=0, minsize=280)  # Sidebar réduite
+        self.grid_columnconfigure(1, weight=1)  # Contenu principal
+        self.grid_rowconfigure(0, weight=1)
         
-        self._build_selection_panel(left_panel)
+        # Panneau gauche - Sélection et filtres
+        self._build_selection_panel()
         
-        # Panneau de droite: Tableau des bulletins et statistiques
-        right_panel = ctk.CTkFrame(main_frame, fg_color=BG_MAIN)
-        right_panel.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
-        right_panel.grid_columnconfigure(0, weight=1)
-        right_panel.grid_rowconfigure(0, weight=1)
-        right_panel.grid_rowconfigure(1, weight=4)
-        
-        self._build_bulletins_dashboard(right_panel)
+        # Panneau droit - Tableau des bulletins
+        self._build_bulletins_dashboard()
     
-    def _build_selection_panel(self, parent_frame):
-        """Construit le panneau de sélection (gauche) avec design moderne"""
-        # Header avec gradient et icônes
-        header_frame = ctk.CTkFrame(parent_frame, fg_color=ACCENT, corner_radius=12)
-        header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 15))
-        header_frame.grid_columnconfigure(0, weight=1)
+    def _build_selection_panel(self):
+        """Construit le panneau de sélection gauche avec design épuré et moderne"""
+        # Frame principal du panneau gauche minimaliste
+        left_panel = ctk.CTkFrame(self, fg_color=BG_SIDEBAR, corner_radius=0)
+        left_panel.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        left_panel.grid_columnconfigure(0, weight=1)
+        left_panel.grid_rowconfigure(4, weight=1)
         
-        # Titre avec icône et style moderne
-        title_frame = ctk.CTkFrame(header_frame, fg_color=ACCENT)
-        title_frame.grid(row=0, column=0, sticky="w", padx=15, pady=15)
+        # En-tête ultra-minimaliste
+        header_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
+        header_frame.grid(row=0, column=0, sticky="ew", padx=25, pady=(30, 20))
         
-        bulletin_icon = load_ctk_icon(ICON_MAP.get("newspaper"), size=(24, 24))
-        if bulletin_icon:
-            ctk.CTkLabel(title_frame, text="", image=bulletin_icon, fg_color=ACCENT).pack(side="left", padx=(0, 10))
+        # Icône centrée
+        icon_container = ctk.CTkFrame(header_frame, fg_color="transparent")
+        icon_container.pack()
         
-        ctk.CTkLabel(title_frame, text="BULLETINS", 
-                      font=(FONT, FONT_SIZE_HEADER, "bold"),
-                      text_color=BG_MAIN, fg_color=ACCENT).pack(side="left")
+        newspaper_icon = load_icon('newspaper', (40, 40))
+        if newspaper_icon:
+            icon_label = ctk.CTkLabel(icon_container, image=newspaper_icon, text="")
+            icon_label.pack()
         
-        # Bouton refresh moderne
-        refresh_icon = load_ctk_icon(ICON_MAP.get("refresh"), size=(18, 18))
-        refresh_btn = ctk.CTkButton(header_frame, text="", image=refresh_icon, width=40, height=40,
-                      fg_color=BG_MAIN, hover_color=TEXT_SECONDARY,
-                      text_color=TEXT_PRIMARY, corner_radius=20,
-                      command=self._refresh_all)
-        refresh_btn.grid(row=0, column=1, sticky="e", padx=15, pady=15)
+        # Titre principal minimaliste
+        title_label = ctk.CTkLabel(header_frame, text="Bulletins", 
+                                  font=(FONT, 22, "bold"), text_color=TEXT_ACCENT)
+        title_label.pack(pady=(10, 0))
         
-        # Section des filtres avec design moderne
-        filters_section = ctk.CTkFrame(parent_frame, fg_color=BG_CARD, corner_radius=12)
-        filters_section.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
+        # Compteur de bulletins
+        total_bulletins = len(self.bulletins) if hasattr(self, 'bulletins') else 0
+        count_label = ctk.CTkLabel(header_frame, text=f"{total_bulletins} bulletins", 
+                                  font=(FONT, 11), text_color=TEXT_SECONDARY)
+        count_label.pack(pady=(5, 0))
+        
+        # Ligne de séparation fine
+        separator1 = ctk.CTkFrame(left_panel, height=1, fg_color=BORDER_COLOR)
+        separator1.grid(row=1, column=0, sticky="ew", padx=25, pady=(0, 20))
+        
+        # Section filtres minimaliste
+        filters_section = ctk.CTkFrame(left_panel, fg_color="transparent")
+        filters_section.grid(row=2, column=0, sticky="ew", padx=25, pady=(0, 20))
         filters_section.grid_columnconfigure(0, weight=1)
         
-        # Titre de la section filtres
-        filters_title = ctk.CTkLabel(filters_section, text="SÉLECTION OBLIGATOIRE", 
-                                   font=(FONT, FONT_SIZE_TEXT, "bold"),
-                                   text_color=TEXT_ACCENT, fg_color=BG_CARD)
-        filters_title.grid(row=0, column=0, sticky="w", padx=15, pady=(15, 10))
+        # Filtre classe épuré
+        ctk.CTkLabel(filters_section, text="Classe", font=(FONT, 11), 
+                    text_color=TEXT_SECONDARY).grid(row=0, column=0, sticky="w", pady=(0, 6))
         
-        # Sélection par classe avec style moderne
-        classe_frame = ctk.CTkFrame(filters_section, fg_color=BG_CARD)
-        classe_frame.grid(row=1, column=0, sticky="ew", padx=15, pady=5)
-        classe_frame.grid_columnconfigure(0, weight=1)
+        self.classe_var = StringVar()
+        classe_values = ["Toutes les classes"] + [classe['nom'] for classe in self.classes.values()]
+        self.classe_dropdown = ctk.CTkComboBox(filters_section, variable=self.classe_var, 
+                                              values=classe_values,
+                                              command=self._on_classe_selected, state="readonly",
+                                              font=(FONT, 12), dropdown_font=(FONT, 11),
+                                              corner_radius=8, border_width=0,
+                                              fg_color=BG_MAIN, button_color=BG_SECONDARY, 
+                                              button_hover_color=TEXT_ACCENT,
+                                              height=38)
+        self.classe_dropdown.grid(row=1, column=0, sticky="ew", pady=(0, 15))
+        self.classe_dropdown.set("Toutes les classes")
         
-        classe_label = ctk.CTkLabel(classe_frame, text="Classe:", 
-                                  font=(FONT, FONT_SIZE_SMALL, "bold"), 
-                                  text_color=TEXT_PRIMARY, fg_color=BG_CARD)
-        classe_label.grid(row=0, column=0, sticky="w", padx=(0, 5), pady=(10, 5))
+        # Filtre période épuré
+        ctk.CTkLabel(filters_section, text="Période", font=(FONT, 11), 
+                    text_color=TEXT_SECONDARY).grid(row=2, column=0, sticky="w", pady=(0, 6))
         
-        classe_options = ["Sélectionner une classe"] + self.classes
-        self.classe_dropdown = ctk.CTkComboBox(
-            classe_frame, values=classe_options,
-            command=self._on_classe_selected,
-            font=(FONT, FONT_SIZE_TEXT),
-            fg_color=BG_MAIN,
-            dropdown_fg_color=BG_CARD,
-            dropdown_hover_color=ACCENT,
-            text_color=TEXT_PRIMARY,
-            button_color=ACCENT,
-            button_hover_color=SUCCESS_GREEN,
-            border_color=ACCENT,
-            border_width=2,
-            corner_radius=10,
-            state="readonly"
-        )
-        self.classe_dropdown.grid(row=1, column=0, sticky="ew", padx=0, pady=(0, 15))
-        self.classe_dropdown.set("Sélectionner une classe")
-        
-        # Sélection par période avec style moderne
-        periode_frame = ctk.CTkFrame(filters_section, fg_color=BG_CARD)
-        periode_frame.grid(row=2, column=0, sticky="ew", padx=15, pady=5)
-        periode_frame.grid_columnconfigure(0, weight=1)
-        
-        periode_label = ctk.CTkLabel(periode_frame, text="Période:", 
-                                  font=(FONT, FONT_SIZE_SMALL, "bold"), 
-                                  text_color=TEXT_PRIMARY, fg_color=BG_CARD)
-        periode_label.grid(row=0, column=0, sticky="w", padx=(0, 5), pady=(10, 5))
-        
-        periode_options = ["Toutes les périodes"] + self.periodes
-        self.periode_dropdown = ctk.CTkComboBox(
-            periode_frame, values=periode_options,
-            command=self._on_periode_selected,
-            font=(FONT, FONT_SIZE_TEXT),
-            fg_color=BG_MAIN,
-            dropdown_fg_color=BG_CARD,
-            dropdown_hover_color=ACCENT,
-            text_color=TEXT_PRIMARY,
-            button_color=ACCENT,
-            button_hover_color=SUCCESS_GREEN,
-            border_color=ACCENT,
-            border_width=2,
-            corner_radius=10,
-            state="readonly"
-        )
-        self.periode_dropdown.grid(row=1, column=0, sticky="ew", padx=0, pady=(0, 15))
+        self.periode_var = StringVar()
+        periode_values = ["Toutes les périodes"] + self.periodes
+        self.periode_dropdown = ctk.CTkComboBox(filters_section, variable=self.periode_var,
+                                              values=periode_values, command=self._on_periode_selected, state="readonly",
+                                              font=(FONT, 12), dropdown_font=(FONT, 11),
+                                              corner_radius=8, border_width=0,
+                                              fg_color=BG_MAIN, button_color=BG_SECONDARY, 
+                                              button_hover_color=TEXT_ACCENT,
+                                              height=38)
+        self.periode_dropdown.grid(row=3, column=0, sticky="ew", pady=(0, 0))
         self.periode_dropdown.set("Toutes les périodes")
         
-        # Section des actions rapides
-        actions_section = ctk.CTkFrame(parent_frame, fg_color=BG_CARD, corner_radius=12)
-        actions_section.grid(row=3, column=0, sticky="ew", padx=10, pady=5)
+        # Ligne de séparation
+        separator2 = ctk.CTkFrame(left_panel, height=1, fg_color=BORDER_COLOR)
+        separator2.grid(row=3, column=0, sticky="ew", padx=25, pady=20)
+        
+        # Section actions minimaliste
+        actions_section = ctk.CTkFrame(left_panel, fg_color="transparent")
+        actions_section.grid(row=4, column=0, sticky="sew", padx=25, pady=(0, 25))
         actions_section.grid_columnconfigure(0, weight=1)
-        actions_section.grid_columnconfigure(1, weight=1)
         
-        # Titre de la section actions
-        actions_title = ctk.CTkLabel(actions_section, text="ACTIONS RAPIDES", 
-                                    font=(FONT, FONT_SIZE_TEXT, "bold"),
-                                    text_color=TEXT_ACCENT, fg_color=BG_CARD)
-        actions_title.grid(row=0, column=0, columnspan=2, sticky="w", padx=15, pady=(15, 10))
-        
+        # Boutons d'action empilés avec design épuré
         # Bouton Générer
-        add_icon = load_ctk_icon(ICON_MAP.get("add"), size=(16, 16))
-        add_btn = ctk.CTkButton(actions_section, text="Générer", image=add_icon,
-                               font=(FONT, FONT_SIZE_SMALL), fg_color=SUCCESS_GREEN,
-                               hover_color="#059669", text_color=BG_MAIN,
-                               corner_radius=10, height=35,
-                               command=self._add_bulletin)
-        add_btn.grid(row=1, column=0, sticky="ew", padx=(15, 5), pady=(0, 10))
+        generate_btn = ctk.CTkButton(actions_section, text="Générer les bulletins",
+                                    command=self._generate_bulletins, 
+                                    fg_color=SUCCESS_GREEN, hover_color="#80C7C5",
+                                    height=42, font=(FONT, 12, "bold"),
+                                    corner_radius=8, border_width=0)
+        generate_btn.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         
-        # Bouton Rechercher
-        search_icon = load_ctk_icon(ICON_MAP.get("search"), size=(16, 16))
-        search_btn = ctk.CTkButton(actions_section, text="Rechercher", image=search_icon,
-                                  font=(FONT, FONT_SIZE_SMALL), fg_color=ACCENT,
-                                  hover_color="#4DD0E1", text_color=BG_MAIN,
-                                  corner_radius=10, height=35,
-                                  command=self._show_search_dialog)
-        search_btn.grid(row=1, column=1, sticky="ew", padx=(5, 15), pady=(0, 10))
+        # Bouton Générer individuels
+        generate_individual_btn = ctk.CTkButton(actions_section, text="Générer individuels",
+                                               command=self._generate_individual_bulletins, 
+                                               fg_color=ACCENT, hover_color="#4A90E2",
+                                               text_color=BG_MAIN,
+                                               height=42, font=(FONT, 12, "bold"),
+                                               corner_radius=8, border_width=0)
+        generate_individual_btn.grid(row=1, column=0, sticky="ew", pady=(0, 10))
         
-        # Statistiques rapides avec design moderne
-        stats_section = ctk.CTkFrame(parent_frame, fg_color=BG_CARD, corner_radius=12)
-        stats_section.grid(row=4, column=0, sticky="ew", padx=10, pady=5)
-        stats_section.grid_columnconfigure(0, weight=1)
+        # Bouton Exporter Excel
+        export_btn = ctk.CTkButton(actions_section, text="Exporter Excel",
+                                  command=self._export_to_excel, 
+                                  fg_color=WARNING_YELLOW, hover_color="#E6B800",
+                                  text_color=BG_MAIN,
+                                  height=42, font=(FONT, 12, "bold"),
+                                  corner_radius=8, border_width=0)
+        export_btn.grid(row=2, column=0, sticky="ew", pady=(0, 10))
         
-        # Titre de la section stats
-        stats_title = ctk.CTkLabel(stats_section, text="STATISTIQUES", 
-                                  font=(FONT, FONT_SIZE_TEXT, "bold"),
-                                  text_color=TEXT_ACCENT, fg_color=BG_CARD)
-        stats_title.grid(row=0, column=0, sticky="w", padx=15, pady=(15, 10))
+        # Bouton Rafraîchir
+        refresh_all_btn = ctk.CTkButton(actions_section, text="Actualiser",
+                                       command=self._refresh_all, 
+                                       fg_color=BG_SECONDARY, hover_color=TEXT_ACCENT,
+                                       text_color=TEXT_PRIMARY,
+                                       height=42, font=(FONT, 12),
+                                       corner_radius=8, border_width=0)
+        refresh_all_btn.grid(row=3, column=0, sticky="ew", pady=(0, 0))
         
-        self.stats_label = ctk.CTkLabel(stats_section, text="Sélectionnez une classe pour voir les statistiques",
-                                       font=(FONT, FONT_SIZE_SMALL), text_color=TEXT_SECONDARY, fg_color=BG_CARD)
-        self.stats_label.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 15))
+        # Statistiques
+        stats_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
+        stats_frame.grid(row=4, column=0, sticky="ew", padx=MARGIN_MEDIUM, pady=MARGIN_SMALL)
+        stats_frame.grid_columnconfigure(0, weight=1)
         
-        self._update_stats()
+        self.stats_label = ctk.CTkLabel(stats_frame, text="Sélectionnez une classe et une période", 
+                                       font=F_SMALL, text_color=TEXT_SECONDARY)
+        self.stats_label.grid(row=0, column=0, sticky="ew")
     
-    def _build_bulletins_dashboard(self, parent_frame):
-        """Construit le tableau de bord des bulletins (droite)"""
-        # En-tête avec actions
-        header_frame = ctk.CTkFrame(parent_frame, fg_color=BG_CARD, corner_radius=12)
-        header_frame.grid(row=0, column=0, sticky="ew", padx=0, pady=(0, 10))
-        header_frame.grid_columnconfigure(1, weight=1)
-        header_frame.grid_rowconfigure(0, weight=1)
+    def _build_bulletins_dashboard(self):
+        """Construit le tableau des bulletins"""
+        # Frame principal du panneau droit
+        right_panel = ctk.CTkFrame(self, fg_color=BG_CARD, corner_radius=12)
+        right_panel.grid(row=0, column=1, sticky="nsew", padx=(MARGIN_SMALL, MARGIN_MEDIUM), pady=MARGIN_MEDIUM)
+        right_panel.grid_columnconfigure(0, weight=1)
+        right_panel.grid_rowconfigure(1, weight=1)
         
         # Titre du tableau
-        title_frame = ctk.CTkFrame(header_frame, fg_color=BG_CARD)
-        title_frame.grid(row=0, column=0, sticky="w", padx=15, pady=15)
+        table_title = ctk.CTkLabel(right_panel, text="Bulletins par Classe", font=F_SUB, text_color=TEXT_PRIMARY)
+        table_title.grid(row=0, column=0, sticky="ew", padx=MARGIN_MEDIUM, pady=(MARGIN_MEDIUM, MARGIN_SMALL))
         
-        grade_icon = load_ctk_icon(ICON_MAP.get("grade"), size=(20, 20))
-        ctk.CTkLabel(title_frame, text="", image=grade_icon, fg_color=BG_CARD).pack(side="left", padx=(0, 8))
-        ctk.CTkLabel(title_frame, text="TABLEAU DES BULLETINS", 
-                      font=(FONT, FONT_SIZE_HEADER, "bold"),
-                      text_color=TEXT_PRIMARY, fg_color=BG_CARD).pack(side="left")
-        
-        # Boutons d'action
-        actions_frame = ctk.CTkFrame(header_frame, fg_color=BG_CARD)
-        actions_frame.grid(row=0, column=1, sticky="e", padx=15, pady=15)
-        
-        add_icon = load_ctk_icon(ICON_MAP.get("add"), size=(16, 16))
-        ctk.CTkButton(actions_frame, text="Ajouter", image=add_icon,
-                      font=(FONT, FONT_SIZE_TEXT), fg_color=SUCCESS_GREEN,
-                      hover_color="#059669", text_color=BG_MAIN,
-                      command=self._add_bulletin).pack(side="right", padx=(5, 0))
-        
-        # Zone du tableau des bulletins
-        self.table_frame = ctk.CTkFrame(parent_frame, fg_color=BG_CARD, corner_radius=12)
+        # Frame du tableau
+        self.table_frame = ctk.CTkFrame(right_panel, fg_color=BG_CARD, corner_radius=12)
         self.table_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
         self.table_frame.grid_columnconfigure(0, weight=1)
         self.table_frame.grid_rowconfigure(0, weight=1)
-        
-        # Message initial sera affiché après la construction complète de l'UI
     
-    def _show_no_selection_message(self, parent_frame):
-        """Affiche le message quand aucune classe n'est sélectionnée"""
-        if parent_frame is None:
+    def _show_no_selection_message(self):
+        """Affiche un message quand aucune sélection"""
+        if not self.table_frame:
             return
-            
-        # Effacer le contenu existant
-        for widget in parent_frame.winfo_children():
+        
+        # Nettoyer le frame
+        for widget in self.table_frame.winfo_children():
             widget.destroy()
         
         # Message central
-        message_frame = ctk.CTkFrame(parent_frame, fg_color=BG_CARD)
-        message_frame.pack(expand=True, fill="both", padx=20, pady=20)
+        message_frame = ctk.CTkFrame(self.table_frame, fg_color="transparent")
+        message_frame.grid(row=0, column=0, sticky="nsew")
+        message_frame.grid_columnconfigure(0, weight=1)
+        message_frame.grid_rowconfigure(0, weight=1)
         
-        # Icône
-        class_icon = load_ctk_icon(ICON_MAP.get("class"), size=(64, 64))
-        if class_icon:
-            ctk.CTkLabel(message_frame, text="", image=class_icon, fg_color=BG_CARD).pack(pady=(50, 20))
+        # Icône et texte
+        newspaper_icon = load_icon('newspaper', (64, 64))
+        icon_label = ctk.CTkLabel(message_frame, image=newspaper_icon, text="")
+        icon_label.grid(row=0, column=0, pady=(0, MARGIN_MEDIUM))
         
-        # Titre
-        title_label = ctk.CTkLabel(message_frame, text="SÉLECTION REQUISE", 
-                                  font=(FONT, FONT_SIZE_HEADER, "bold"),
-                                  text_color=TEXT_ACCENT, fg_color=BG_CARD)
-        title_label.pack(pady=(0, 10))
+        title_label = ctk.CTkLabel(message_frame, text="Sélectionnez une classe et une période", 
+                                  font=F_SUB, text_color=TEXT_PRIMARY)
+        title_label.grid(row=1, column=0, pady=(0, MARGIN_SMALL))
         
-        # Message
-        message_label = ctk.CTkLabel(message_frame, 
-                                    text="Veuillez sélectionner une classe dans le panneau de gauche\npour afficher les bulletins et les notes par ordre de mérite.",
-                                    font=(FONT, FONT_SIZE_TEXT),
-                                    text_color=TEXT_SECONDARY, fg_color=BG_CARD,
-                                    justify="center")
-        message_label.pack(pady=(0, 30))
-        
-        # Indication
-        info_label = ctk.CTkLabel(message_frame, 
-                                 text="📊 Les bulletins seront affichés par ordre de mérite (du meilleur au moins bon)",
-                                 font=(FONT, FONT_SIZE_SMALL),
-                                 text_color=TEXT_ACCENT, fg_color=BG_CARD)
-        info_label.pack(pady=(0, 50))
+        desc_label = ctk.CTkLabel(message_frame, text="Choisissez une classe et une période pour afficher\nles bulletins générés automatiquement.",
+                                 font=F_SMALL, text_color=TEXT_SECONDARY)
+        desc_label.grid(row=2, column=0)
     
     def _on_classe_selected(self, selected_classe):
-        """Gestionnaire de sélection de classe"""
-        self.selected_classe = selected_classe if selected_classe != "Sélectionner une classe" else None
+        """Gère la sélection d'une classe"""
+        print(f"DEBUG: _on_classe_selected appele avec: '{selected_classe}'")
+        
+        if selected_classe == "Toutes les classes":
+            print("DEBUG: Selection 'Toutes les classes' - reinitialisation")
+            self.selected_classe = None
+        else:
+            print(f"DEBUG: Selection classe specifique: '{selected_classe}'")
+            self.selected_classe = selected_classe
+        
+        print(f"Classe selectionnee: {selected_classe}")
         self._filter_bulletins()
-
+    
     def _on_periode_selected(self, selected_periode):
-        """Gestionnaire de sélection de période"""
-        self.selected_periode = selected_periode if selected_periode != "Toutes les périodes" else None
+        """Gère la sélection d'une période"""
+        print(f"DEBUG: _on_periode_selected appele avec: '{selected_periode}'")
+        
+        if selected_periode == "Toutes les périodes":
+            print("DEBUG: Selection 'Toutes les periodes' - reinitialisation")
+            self.selected_periode = None
+        else:
+            print(f"DEBUG: Selection periode specifique: '{selected_periode}'")
+            self.selected_periode = selected_periode
+        
+        print(f"Periode selectionnee: {selected_periode}")
         self._filter_bulletins()
 
     def _filter_bulletins(self):
         """Filtre les bulletins selon les sélections"""
-        try:
-            print(f"🔍 Filtrage des bulletins - Classe: {self.selected_classe}, Période: {self.selected_periode}")
-            
-            if not self.selected_classe:
-                # Aucune classe sélectionnée - afficher le message
-                table_frame = self._get_table_frame()
-                if table_frame:
-                    self._show_no_selection_message(table_frame)
-                self._update_stats()
-                return
-            
-            # Filtrer par classe
-            filtered = [b for b in self.bulletins 
-                       if b.get('classe_nom', '') == self.selected_classe]
-            
-            print(f"📊 {len(filtered)} bulletins trouvés pour la classe {self.selected_classe}")
+        print(f"DEBUG: _filter_bulletins appele - classe: '{self.selected_classe}', periode: '{self.selected_periode}'")
+        
+        if not self.selected_classe and not self.selected_periode:
+            print("DEBUG: Aucune selection - affichage message")
+            self._show_no_selection_message()
+            return
+        
+        # Filtrer les bulletins selon les sélections
+        filtered_bulletins = []
+        
+        for bulletin in self.bulletins:
+            # Filtrer par classe si sélectionnée
+            if self.selected_classe and self.selected_classe != "Toutes les classes":
+                # Utiliser directement classe_nom du bulletin
+                bulletin_classe = bulletin.get('classe_nom', '')
+                if bulletin_classe != self.selected_classe:
+                    continue
             
             # Filtrer par période si sélectionnée
-            if self.selected_periode:
-                filtered = [b for b in filtered 
-                           if b.get('periode', '') == self.selected_periode]
-                print(f"📅 {len(filtered)} bulletins après filtrage par période {self.selected_periode}")
+            if self.selected_periode and self.selected_periode != "Toutes les périodes":
+                if bulletin.get('periode') != self.selected_periode:
+                    continue
             
-            # Trier par ordre de mérite (moyenne décroissante)
-            filtered.sort(key=lambda x: float(x.get('moyenne_generale', 0)), reverse=True)
-            
-            self.selected_bulletins = filtered
-            self.current_page = 1  # Réinitialiser à la première page
-            self.total_pages = max(1, (len(filtered) + self.items_per_page - 1) // self.items_per_page)
-            
-            print(f"✅ {len(self.selected_bulletins)} bulletins sélectionnés - Page {self.current_page}/{self.total_pages}")
-            
-            self._update_bulletins_table()
-            self._update_stats()
-            
-        except Exception as e:
-            print(f"❌ Erreur lors du filtrage : {e}")
-
-    def _update_bulletins_table(self):
-        """Met à jour le tableau des bulletins"""
+            filtered_bulletins.append(bulletin)
+        
+        print(f"DEBUG: {len(filtered_bulletins)} bulletins filtres sur {len(self.bulletins)} total")
+        
+        # Afficher les bulletins filtrés
+        self._display_bulletins(filtered_bulletins)
+    
+    def _get_eleve_classe_name(self, eleve_id):
+        """Récupère le nom de la classe d'un élève depuis les bulletins"""
         try:
-            table_frame = self._get_table_frame()
-            
-            if table_frame is None:
-                print("❌ Frame du tableau non trouvé")
-                return
-            
-            # Effacer le contenu existant
-            for widget in table_frame.winfo_children():
-            widget.destroy()
-        
-            if not self.selected_bulletins:
-                # Aucun bulletin trouvé
-                no_data_frame = ctk.CTkFrame(table_frame, fg_color=BG_CARD)
-                no_data_frame.pack(expand=True, fill="both", padx=20, pady=20)
-                
-                no_data_label = ctk.CTkLabel(no_data_frame, text="Aucun bulletin trouvé pour cette classe",
-                                           font=(FONT, FONT_SIZE_TEXT),
-                                           text_color=TEXT_SECONDARY, fg_color=BG_CARD)
-                no_data_label.pack(expand=True)
-            return
-        
-            # Calculer les indices pour la pagination
-            start_idx = (self.current_page - 1) * self.items_per_page
-            end_idx = start_idx + self.items_per_page
-            page_bulletins = self.selected_bulletins[start_idx:end_idx]
-            
-            # En-têtes du tableau
-            headers = ["Rang", "Nom", "Prénom", "Moyenne", "Période", "Mention"]
-            
-            # Données de la page actuelle
-            table_data = [headers]
-            for i, bulletin in enumerate(page_bulletins, start_idx + 1):
-                row = [
-                    str(bulletin.get('rang', i)),  # Rang dans la classe
-                    bulletin.get('eleve_nom', ''),
-                    bulletin.get('eleve_prenom', ''),
-                    f"{float(bulletin.get('moyenne_generale', 0)):.1f}",
-                    bulletin.get('periode', ''),
-                    bulletin.get('appreciation', '')  # Mention (Très Bien, Bien, etc.)
-                ]
-                table_data.append(row)
-            
-            # Créer le tableau
-            self.bulletins_table = CTkTable(
-                master=table_frame,
-                row=len(table_data),
-                column=len(headers),
-                values=table_data,
-                header_color=BORDER_COLOR,
-                colors=["#2b2952", "#233146"],
-                hover_color=BORDER_COLOR,
-                text_color=TEXT_PRIMARY,
-                font=(FONT, FONT_SIZE_SMALL),
-                corner_radius=8,
-                border_width=1,
-                border_color=BORDER_COLOR
-            )
-            
-            self.bulletins_table.pack(fill="both", expand=True, padx=10, pady=10)
-            
-            # Configurer la sélection de ligne
-            self.bulletins_table.bind("<Button-1>", self._on_table_select)
-            
-            # Ajouter les contrôles de pagination
-            self._add_pagination_controls(table_frame)
-            
+            # Chercher dans les bulletins existants pour trouver la classe
+            for bulletin in self.bulletins:
+                if bulletin.get('id_eleve') == eleve_id and 'classe_nom' in bulletin:
+                    return bulletin['classe_nom']
+            return ''
         except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour du tableau : {e}")
-
-    def _add_pagination_controls(self, parent_frame):
-        """Ajoute les contrôles de pagination"""
-        if self.total_pages <= 1:
+            print(f"Erreur recuperation classe eleve {eleve_id}: {e}")
+            return ''
+    
+    def _display_bulletins(self, bulletins):
+        """Affiche les bulletins dans l'interface avec CTkTable moderne"""
+        if not self.table_frame:
             return
         
-        # Frame pour les contrôles de pagination
-        pagination_frame = ctk.CTkFrame(parent_frame, fg_color=BG_CARD)
-        pagination_frame.pack(fill="x", padx=10, pady=(0, 10))
+        # Nettoyer le frame de manière sécurisée
+        try:
+            for widget in self.table_frame.winfo_children():
+                try:
+                    widget.destroy()
+                except Exception as e:
+                    print(f"Erreur destruction widget: {e}")
+                    continue
+        except Exception as e:
+            print(f"Erreur nettoyage frame: {e}")
+        
+        if not bulletins:
+            # Afficher un message si aucun bulletin
+            no_data_frame = ctk.CTkFrame(self.table_frame, fg_color="transparent")
+            no_data_frame.grid(row=0, column=0, sticky="nsew")
+            no_data_frame.grid_columnconfigure(0, weight=1)
+            no_data_frame.grid_rowconfigure(0, weight=1)
+            
+            # Icône pour aucun résultat
+            no_data_icon = load_icon('search', (48, 48))
+            if no_data_icon:
+                icon_label = ctk.CTkLabel(no_data_frame, image=no_data_icon, text="")
+                icon_label.grid(row=0, column=0, pady=(0, 10))
+            
+            ctk.CTkLabel(no_data_frame, text="Aucun bulletin trouvé", 
+                        font=(FONT, FONT_SIZE_HEADER), text_color=TEXT_SECONDARY).grid(row=1, column=0)
+            ctk.CTkLabel(no_data_frame, text="Sélectionnez une classe et une période pour afficher les bulletins", 
+                        font=(FONT, FONT_SIZE_TEXT), text_color=TEXT_SECONDARY).grid(row=2, column=0)
+            return
+        
+        # Préparer les données pour CTkTable
+        headers = ["Élève", "Classe", "Période", "Moyenne", "Rang", "Appréciation"]
+        table_data = [headers]  # Première ligne = en-têtes
+        
+        # Ajouter les données des bulletins avec pagination
+        start_idx = (self.current_page - 1) * self.items_per_page
+        end_idx = start_idx + self.items_per_page
+        paginated_bulletins = bulletins[start_idx:end_idx]
+        
+        for bulletin in paginated_bulletins:
+            eleve_nom = self._get_eleve_name(bulletin.get('id_eleve'))
+            classe_nom = self._get_eleve_classe_name(bulletin.get('id_eleve'))
+            moyenne = bulletin.get('moyenne_generale', 0)
+            rang = bulletin.get('rang', 0)
+            appreciation = bulletin.get('appreciation', '')
+            periode = bulletin.get('periode', '')
+            
+            row_data = [
+                eleve_nom,
+                classe_nom,
+                periode,
+                f"{moyenne:.2f}",
+                str(rang) if rang else "-",
+                appreciation
+            ]
+            table_data.append(row_data)
+        
+        # Créer le CTkTable avec design moderne
+        self.bulletins_table = CTkTable(
+            master=self.table_frame,
+            row=len(table_data),
+            column=len(headers),
+            values=table_data,
+            header_color=BG_SIDEBAR,
+            colors=[BG_CARD, BG_SECONDARY],  # Couleurs alternées
+            hover_color=TEXT_ACCENT,
+            corner_radius=8,
+            border_width=1,
+            border_color=BORDER_COLOR,
+            text_color=TEXT_PRIMARY,
+            font=(FONT, FONT_SIZE_TEXT),
+            command=self._on_table_click
+        )
+        
+        # Placer le tableau
+        self.bulletins_table.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        
+        # Configurer les colonnes du frame principal
+        self.table_frame.grid_columnconfigure(0, weight=1)
+        self.table_frame.grid_rowconfigure(0, weight=1)
+        
+        # Ajouter la pagination
+        self._add_pagination(len(bulletins))
+        
+        # Appliquer les couleurs spéciales pour les moyennes
+        self._apply_moyenne_colors()
+    
+    def _apply_moyenne_colors(self):
+        """Applique les couleurs spéciales pour les moyennes dans le tableau"""
+        if not hasattr(self, 'bulletins_table'):
+            return
+        
+        try:
+            # Parcourir les lignes de données (en commençant par la ligne 1, pas l'en-tête)
+            for row in range(1, self.bulletins_table.rows):
+                # La colonne 3 contient les moyennes
+                try:
+                    moyenne_text = self.bulletins_table.get(row=row, column=3)
+                    if moyenne_text:
+                        try:
+                            moyenne = float(moyenne_text)
+                            # Déterminer la couleur selon la moyenne
+                            if moyenne >= 12:
+                                color = "#4CAF50"  # Vert pour bonne moyenne
+                            elif moyenne >= 10:
+                                color = "#FF9800"  # Orange pour moyenne correcte
+                            else:
+                                color = "#F44336"  # Rouge pour faible moyenne
+                            
+                            # Appliquer la couleur via la méthode update
+                            self.bulletins_table.update_value(row, 3, moyenne_text)
+                        except (ValueError, TypeError):
+                            continue
+                except Exception as e:
+                    print(f"Erreur ligne {row}: {e}")
+                    continue
+        except Exception as e:
+            print(f"Erreur application couleurs moyennes: {e}")
+    
+    def _add_pagination(self, total_items):
+        """Ajoute la pagination sous le tableau"""
+        # Calculer le nombre total de pages
+        self.total_pages = max(1, (total_items + self.items_per_page - 1) // self.items_per_page)
+        
+        # Frame de pagination
+        pagination_frame = ctk.CTkFrame(self.table_frame, fg_color="transparent")
+        pagination_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
+        pagination_frame.grid_columnconfigure(1, weight=1)
         
         # Informations de pagination
-        info_text = f"Page {self.current_page} sur {self.total_pages} - {len(self.selected_bulletins)} bulletins au total"
-        info_label = ctk.CTkLabel(pagination_frame, text=info_text,
-                                 font=(FONT, FONT_SIZE_SMALL),
-                                 text_color=TEXT_SECONDARY, fg_color=BG_CARD)
-        info_label.pack(side="left", padx=10, pady=5)
+        start_item = (self.current_page - 1) * self.items_per_page + 1
+        end_item = min(self.current_page * self.items_per_page, total_items)
+        info_text = f"Affichage {start_item}-{end_item} sur {total_items} bulletins"
         
-        # Boutons de navigation
-        nav_frame = ctk.CTkFrame(pagination_frame, fg_color=BG_CARD)
-        nav_frame.pack(side="right", padx=10, pady=5)
+        info_label = ctk.CTkLabel(pagination_frame, text=info_text, 
+                                 font=(FONT, FONT_SIZE_SMALL), text_color=TEXT_SECONDARY)
+        info_label.grid(row=0, column=0, sticky="w")
+        
+        # Contrôles de pagination
+        controls_frame = ctk.CTkFrame(pagination_frame, fg_color="transparent")
+        controls_frame.grid(row=0, column=2, sticky="e")
         
         # Bouton précédent
-        prev_btn = ctk.CTkButton(nav_frame, text="◀ Précédent",
-                                font=(FONT, FONT_SIZE_SMALL),
-                                fg_color=PRIMARY_BLUE, hover_color="#1e40af",
-                                text_color=BG_MAIN, width=100,
-                                command=self._go_to_previous_page)
-        prev_btn.pack(side="left", padx=2)
+        prev_btn = ctk.CTkButton(controls_frame, text="◀", width=30, height=30,
+                                command=self._prev_page, fg_color=BG_SECONDARY,
+                                hover_color=TEXT_ACCENT, font=(FONT, 12))
+        prev_btn.grid(row=0, column=0, padx=2)
         
-        # Numéro de page actuelle
-        page_label = ctk.CTkLabel(nav_frame, text=f"{self.current_page}",
-                                 font=(FONT, FONT_SIZE_SMALL, "bold"),
-                                 text_color=TEXT_PRIMARY, fg_color=BG_CARD)
-        page_label.pack(side="left", padx=10)
+        # Numéro de page
+        page_label = ctk.CTkLabel(controls_frame, text=f"{self.current_page}/{self.total_pages}",
+                                 font=(FONT, FONT_SIZE_SMALL, "bold"), text_color=TEXT_ACCENT)
+        page_label.grid(row=0, column=1, padx=10)
         
         # Bouton suivant
-        next_btn = ctk.CTkButton(nav_frame, text="Suivant ▶",
-                                font=(FONT, FONT_SIZE_SMALL),
-                                fg_color=PRIMARY_BLUE, hover_color="#1e40af",
-                                text_color=BG_MAIN, width=100,
-                                command=self._go_to_next_page)
-        next_btn.pack(side="left", padx=2)
+        next_btn = ctk.CTkButton(controls_frame, text="▶", width=30, height=30,
+                                command=self._next_page, fg_color=BG_SECONDARY,
+                                hover_color=TEXT_ACCENT, font=(FONT, 12))
+        next_btn.grid(row=0, column=2, padx=2)
         
         # Désactiver les boutons si nécessaire
-        if self.current_page <= 1:
-            prev_btn.configure(state="disabled")
-        if self.current_page >= self.total_pages:
-            next_btn.configure(state="disabled")
-
-    def _go_to_previous_page(self):
-        """Va à la page précédente"""
+        prev_btn.configure(state="disabled" if self.current_page <= 1 else "normal")
+        next_btn.configure(state="disabled" if self.current_page >= self.total_pages else "normal")
+    
+    def _prev_page(self):
+        """Page précédente"""
         if self.current_page > 1:
             self.current_page -= 1
-            self._update_bulletins_table()
-
-    def _go_to_next_page(self):
-        """Va à la page suivante"""
+            self._filter_bulletins()
+    
+    def _next_page(self):
+        """Page suivante"""
         if self.current_page < self.total_pages:
             self.current_page += 1
-            self._update_bulletins_table()
-
-    def _get_table_frame(self):
-        """Récupère le frame du tableau"""
-        # Utiliser la référence directe au frame du tableau
-        if hasattr(self, 'table_frame') and self.table_frame is not None:
-            return self.table_frame
-        return None
-
-    def _update_stats(self):
-        """Met à jour les statistiques affichées"""
-        try:
-            if not self.selected_bulletins:
-                stats_text = "Sélectionnez une classe pour voir les statistiques"
-            else:
-                total_bulletins = len(self.selected_bulletins)
-                moyennes = [b.get('moyenne_generale', 0) for b in self.selected_bulletins if b.get('moyenne_generale')]
-                moyenne_generale = sum(moyennes) / len(moyennes) if moyennes else 0
-                meilleure_note = max(moyennes) if moyennes else 0
-                
-                stats_text = f"📊 {total_bulletins} bulletins • Moyenne: {moyenne_generale:.2f} • Meilleure: {meilleure_note:.2f}"
-            
-            self.stats_label.configure(text=stats_text)
-            
-        except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour des stats : {e}")
-
-    def _on_table_select(self, event):
-        """Gestionnaire de sélection dans le tableau"""
-        try:
-            # Récupérer la ligne sélectionnée
-            selected_row = self.bulletins_table.get_selected_row()
-            if selected_row and selected_row > 0:  # Ignorer l'en-tête
-                print(f"📊 Bulletin sélectionné: ligne {selected_row}")
-        except Exception as e:
-            print(f"❌ Erreur lors de la sélection : {e}")
-
-    def _refresh_all(self):
-        """Rafraîchit toutes les données en invalidant le cache"""
-        print("🔄 Rafraîchissement des données...")
-        self._cache_timestamp = 0  # Invalider le cache
-        self._load_cached_data()
-        
-        self.selected_classe = None
-        self.selected_periode = None
-        self.selected_bulletins = []
-        
-        self.classe_dropdown.set("Sélectionner une classe")
-        self.periode_dropdown.set("Toutes les périodes")
-        self._show_no_selection_message(self._get_table_frame())
-        self._update_stats()
-
-    def _add_bulletin(self):
-        """Génère automatiquement les bulletins à partir des notes"""
+            self._filter_bulletins()
+    
+    def _on_table_click(self, data):
+        """Gestionnaire de clic sur le tableau"""
+        if data["row"] > 0:  # Ignorer l'en-tête
+            print(f"Bulletin sélectionné: ligne {data['row']}, colonne {data['column']}")
+            # Ici vous pouvez ajouter la logique pour sélectionner/éditer un bulletin
+    
+    def _generate_individual_bulletins(self):
+        """Génère des bulletins individuels complets avec toutes les notes"""
         if not self.selected_classe:
-            messagebox.showwarning("Génération", "Sélectionnez d'abord une classe pour générer les bulletins.")
-            return
-        
-        if not self.selected_periode:
-            messagebox.showwarning("Génération", "Sélectionnez d'abord une période pour générer les bulletins.")
+            messagebox.showwarning("Sélection requise", "Veuillez d'abord sélectionner une classe.")
             return
         
         # Confirmer la génération
+        periode_text = self.selected_periode or "toutes les périodes"
+        if messagebox.askyesno("Génération des bulletins individuels", 
+                              f"Voulez-vous générer des bulletins individuels complets pour :\n\n"
+                              f"• Classe: {self.selected_classe}\n"
+                              f"• Période: {periode_text}\n\n"
+                              f"Cette action va créer des bulletins détaillés avec toutes les notes\n"
+                              f"et matières pour chaque élève."):
+            self._generate_detailed_bulletins()
+    
+    def _generate_detailed_bulletins(self):
+        """Génère des bulletins détaillés avec toutes les notes"""
+        try:
+            print(f"Generation des bulletins individuels pour {self.selected_classe} - {self.selected_periode or 'Toutes'}")
+            
+            # Récupérer l'ID de la classe
+            classes_list = get_all_classes()
+            classe_id = None
+            for classe in classes_list:
+                if classe['nom'] == self.selected_classe:
+                    classe_id = classe['id']
+                    break
+            
+            if not classe_id:
+                messagebox.showerror("Erreur", "Classe non trouvée.")
+                return
+            
+            # Récupérer tous les élèves de la classe
+            eleves_classe = get_all_eleves()
+            eleves_classe = [e for e in eleves_classe if e.get('id_classe') == classe_id]
+            
+            if not eleves_classe:
+                messagebox.showwarning("Génération", "Aucun élève trouvé dans cette classe.")
+                return
+            
+            print(f"{len(eleves_classe)} eleves trouves dans la classe {self.selected_classe}")
+            
+            bulletins_generes = 0
+            
+            for eleve in eleves_classe:
+                eleve_id = eleve.get("id_eleve")
+                eleve_nom = eleve.get("nom", "")
+                eleve_prenom = eleve.get("prenom", "")
+                
+                print(f"Traitement bulletin individuel de {eleve_prenom} {eleve_nom} (ID: {eleve_id})")
+                
+                # Récupérer toutes les notes de l'élève pour la période
+                notes_eleve = get_notes_by_eleve(eleve_id, trimestre=self.selected_periode)
+                
+                if not notes_eleve:
+                    print(f"Aucune note trouvee pour {eleve_prenom} {eleve_nom}")
+                    continue
+                
+                # Calculer la moyenne pondérée
+                total_points = 0
+                total_coefficients = 0
+                matieres_notes = {}
+                
+                for note in notes_eleve:
+                    note_value = float(note.get("note", 0))
+                    coefficient = float(note.get("coefficient", 1))
+                    matiere = note.get("nom_matiere", "Inconnue")
+                    
+                    if matiere not in matieres_notes:
+                        matieres_notes[matiere] = []
+                    matieres_notes[matiere].append(note_value)
+                    
+                    total_points += note_value * coefficient
+                    total_coefficients += coefficient
+                
+                if total_coefficients > 0:
+                    moyenne_generale = total_points / total_coefficients
+                    
+                    # Déterminer la mention
+                    if moyenne_generale >= 16:
+                        mention = "Très Bien"
+                    elif moyenne_generale >= 14:
+                        mention = "Bien"
+                    elif moyenne_generale >= 12:
+                        mention = "Assez Bien"
+                    elif moyenne_generale >= 10:
+                        mention = "Passable"
+                    else:
+                        mention = "Insuffisant"
+                    
+                    # Créer le bulletin détaillé
+                    bulletin_info = {
+                        "id_eleve": eleve_id,
+                        "periode": self.selected_periode or "Année complète",
+                        "moyenne_generale": round(moyenne_generale, 2),
+                        "rang": 0,  # Sera calculé après
+                        "appreciation": f"Bulletin individuel complet avec {len(matieres_notes)} matières. {mention}."
+                    }
+                    
+                    # Ajouter ou mettre à jour le bulletin
+                    success = add_bulletin(bulletin_info)
+                    if success:
+                        bulletins_generes += 1
+                        print(f"Bulletin individuel genere pour {eleve_prenom} {eleve_nom} - Moyenne: {moyenne_generale:.2f}")
+                    else:
+                        print(f"Erreur generation bulletin pour {eleve_prenom} {eleve_nom}")
+            
+            # Recalculer les rangs
+            self._recalculate_ranks()
+            
+            messagebox.showinfo("Génération terminée", 
+                              f"Génération des bulletins individuels terminée !\n\n"
+                              f"• {bulletins_generes} bulletins générés\n"
+                              f"• Classe: {self.selected_classe}\n"
+                              f"• Période: {self.selected_periode or 'Toutes'}")
+            
+            # Actualiser l'affichage
+            self._refresh_all()
+            
+        except Exception as e:
+            print(f"Erreur generation bulletins individuels: {e}")
+            messagebox.showerror("Erreur", f"Erreur lors de la génération des bulletins individuels:\n{str(e)}")
+    
+    def _recalculate_ranks(self):
+        """Recalcule les rangs des bulletins par classe et période"""
+        try:
+            # Recharger les bulletins depuis la base
+            self.bulletins = get_all_bulletins()
+            
+            # Grouper les bulletins par classe et période
+            bulletins_by_class_period = {}
+            
+            for bulletin in self.bulletins:
+                classe = bulletin.get('classe_nom', '')
+                periode = bulletin.get('periode', '')
+                key = f"{classe}_{periode}"
+                
+                if key not in bulletins_by_class_period:
+                    bulletins_by_class_period[key] = []
+                bulletins_by_class_period[key].append(bulletin)
+            
+            # Trier par moyenne décroissante et attribuer les rangs
+            for key, bulletins_group in bulletins_by_class_period.items():
+                bulletins_group.sort(key=lambda x: x.get('moyenne_generale', 0), reverse=True)
+                
+                for i, bulletin in enumerate(bulletins_group, 1):
+                    bulletin['rang'] = i
+                    # Mettre à jour dans la base de données
+                    try:
+                        update_bulletin(bulletin.get('id'), {'rang': i})
+                    except Exception as e:
+                        print(f"Erreur mise à jour rang pour bulletin {bulletin.get('id')}: {e}")
+            
+            print("Rangs recalcules avec succes")
+            
+        except Exception as e:
+            print(f"Erreur recalcul des rangs: {e}")
+    
+    def _export_to_excel(self):
+        """Exporte tous les bulletins au format Excel, regroupés par élève"""
+        try:
+            from tkinter import filedialog
+            import pandas as pd
+            from datetime import datetime
+            
+            if not self.bulletins:
+                messagebox.showwarning("Export", "Aucun bulletin à exporter.")
+                return
+            
+            # Demander le chemin de sauvegarde
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Fichiers Excel", "*.xlsx"), ("Tous les fichiers", "*.*")],
+                title="Exporter les bulletins vers Excel"
+            )
+            
+            if not filename:
+                return
+            
+            # Organiser les données par élève
+            eleves_data = {}
+            
+            for bulletin in self.bulletins:
+                eleve_id = bulletin.get('id_eleve')
+                eleve_nom = f"{bulletin.get('eleve_prenom', '')} {bulletin.get('eleve_nom', '')}"
+                
+                if eleve_id not in eleves_data:
+                    eleves_data[eleve_id] = {
+                        'nom': eleve_nom,
+                        'classe': bulletin.get('classe_nom', ''),
+                        'bulletins': []
+                    }
+                
+                eleves_data[eleve_id]['bulletins'].append({
+                    'periode': bulletin.get('periode', ''),
+                    'moyenne': bulletin.get('moyenne_generale', 0),
+                    'rang': bulletin.get('rang', 0),
+                    'appreciation': bulletin.get('appreciation', '')
+                })
+            
+            # Créer le fichier Excel avec plusieurs feuilles
+            with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+                # Feuille récapitulative
+                summary_data = []
+                for eleve_id, data in eleves_data.items():
+                    for bulletin in data['bulletins']:
+                        summary_data.append({
+                            'Élève': data['nom'],
+                            'Classe': data['classe'],
+                            'Période': bulletin['periode'],
+                            'Moyenne': bulletin['moyenne'],
+                            'Rang': bulletin['rang'],
+                            'Appréciation': bulletin['appreciation']
+                        })
+                
+                df_summary = pd.DataFrame(summary_data)
+                df_summary.to_excel(writer, sheet_name='Récapitulatif', index=False)
+                
+                # Feuille par élève
+                for eleve_id, data in eleves_data.items():
+                    eleve_df = pd.DataFrame(data['bulletins'])
+                    eleve_df.columns = ['Période', 'Moyenne', 'Rang', 'Appréciation']
+                    sheet_name = data['nom'][:30]  # Limiter la longueur du nom
+                    eleve_df.to_excel(writer, sheet_name=sheet_name, index=False)
+            
+            messagebox.showinfo("Export réussi", 
+                              f"Export terminé avec succès !\n\n"
+                              f"• Fichier: {filename}\n"
+                              f"• {len(eleves_data)} élèves exportés\n"
+                              f"• {len(self.bulletins)} bulletins au total")
+            
+        except ImportError:
+            messagebox.showerror("Erreur", "La bibliothèque pandas est requise pour l'export Excel.\nVeuillez l'installer avec: pip install pandas openpyxl")
+        except Exception as e:
+            print(f"Erreur export Excel: {e}")
+            messagebox.showerror("Erreur", f"Erreur lors de l'export Excel:\n{str(e)}")
+    
+    def _get_eleve_name(self, eleve_id):
+        """Récupère le nom complet d'un élève depuis les bulletins"""
+        try:
+            # Chercher dans les bulletins existants pour trouver le nom
+            for bulletin in self.bulletins:
+                if bulletin.get('id_eleve') == eleve_id:
+                    nom = bulletin.get('eleve_nom', '')
+                    prenom = bulletin.get('eleve_prenom', '')
+                    if nom and prenom:
+                        return f"{nom} {prenom}"
+                    elif nom:
+                        return nom
+            return f"Élève {eleve_id}"
+        except Exception as e:
+            print(f"Erreur recuperation nom eleve {eleve_id}: {e}")
+            return f"Élève {eleve_id}"
+    
+    def _show_generate_message(self):
+        """Affiche un message pour générer les bulletins"""
+        if not self.table_frame:
+            return
+        
+        # Nettoyer le frame
+        for widget in self.table_frame.winfo_children():
+            widget.destroy()
+        
+        # Message central
+        message_frame = ctk.CTkFrame(self.table_frame, fg_color="transparent")
+        message_frame.grid(row=0, column=0, sticky="nsew")
+        message_frame.grid_columnconfigure(0, weight=1)
+        message_frame.grid_rowconfigure(0, weight=1)
+        
+        # Icône et texte
+        add_icon = load_icon('add', (64, 64))
+        icon_label = ctk.CTkLabel(message_frame, image=add_icon, text="")
+        icon_label.grid(row=0, column=0, pady=(0, MARGIN_MEDIUM))
+        
+        title_label = ctk.CTkLabel(message_frame, text="Générer les bulletins", 
+                                  font=F_SUB, text_color=TEXT_PRIMARY)
+        title_label.grid(row=1, column=0, pady=(0, MARGIN_SMALL))
+        
+        desc_label = ctk.CTkLabel(message_frame, text=f"Classe: {self.selected_classe}\nPériode: {self.selected_periode or 'Toutes'}\n\nCliquez sur 'Générer' pour créer automatiquement les bulletins.",
+                                 font=F_SMALL, text_color=TEXT_SECONDARY)
+        desc_label.grid(row=2, column=0)
+        
+        # Bouton générer
+        generate_btn = ctk.CTkButton(message_frame, text="Générer les bulletins",
+                                   command=self._generate_bulletins,
+                                   fg_color=SUCCESS_GREEN, hover_color="#80C7C5",
+                                   font=F_TXT, height=40)
+        generate_btn.grid(row=3, column=0, pady=(MARGIN_MEDIUM, 0))
+
+    def _generate_bulletins(self):
+        """Génère automatiquement les bulletins pour la classe et période sélectionnées"""
+        if not self.selected_classe:
+            messagebox.showwarning("Sélection requise", "Veuillez d'abord sélectionner une classe.")
+            return
+        
+        # Confirmer la génération
+        periode_text = self.selected_periode or "toutes les périodes"
         if messagebox.askyesno("Génération des bulletins", 
-                              f"Voulez-vous générer automatiquement les bulletins pour la classe {self.selected_classe} - {self.selected_periode} ?\n\n"
-                              f"Cette action va calculer les moyennes à partir des notes existantes."):
+                              f"Voulez-vous générer automatiquement les bulletins pour :\n\n"
+                              f"• Classe: {self.selected_classe}\n"
+                              f"• Période: {periode_text}\n\n"
+                              f"Cette action va calculer les moyennes à partir des notes existantes\n"
+                              f"en utilisant les coefficients spécifiques à chaque classe."):
             self._generate_bulletins_from_notes()
+    
+    def _generate_bulletins_from_notes(self):
+        """Génère automatiquement les bulletins à partir des notes de la classe et période sélectionnées"""
+        try:
+            print(f"Generation des bulletins pour {self.selected_classe} - {self.selected_periode or 'Toutes'}")
+            
+            # Récupérer l'ID de la classe
+            classes_list = get_all_classes()
+            classe_id = None
+            for classe in classes_list:
+                if classe['nom_classe'] == self.selected_classe:
+                    classe_id = classe['id_classe']
+                    break
+            
+            if not classe_id:
+                messagebox.showerror("Erreur", "Classe non trouvée.")
+                return
+            
+            # Récupérer tous les élèves de la classe
+            eleves_classe = get_all_eleves()
+            eleves_classe = [e for e in eleves_classe if e.get('id_classe') == classe_id]
+            
+            if not eleves_classe:
+                messagebox.showwarning("Génération", "Aucun élève trouvé dans cette classe.")
+                return
+            
+            print(f"{len(eleves_classe)} eleves trouves dans la classe {self.selected_classe}")
+            
+            bulletins_generes = 0
+            
+            for eleve in eleves_classe:
+                eleve_id = eleve.get("id_eleve")
+                eleve_nom = eleve.get("nom", "")
+                eleve_prenom = eleve.get("prenom", "")
+                
+                print(f"Traitement de {eleve_prenom} {eleve_nom} (ID: {eleve_id})")
+                
+                # Récupérer les notes de l'élève pour la période sélectionnée
+                notes_eleve = get_notes_by_eleve(eleve_id, trimestre=self.selected_periode)
+                
+                if not notes_eleve:
+                    print(f"Aucune note trouvee pour {eleve_prenom} {eleve_nom} - {self.selected_periode or 'Toutes'}")
+                    continue
+                
+                print(f"{len(notes_eleve)} notes trouvees pour {eleve_prenom} {eleve_nom}")
+                
+                # Calculer la moyenne pondérée en utilisant les coefficients de classe_matieres
+                total_points = 0
+                total_coefficients = 0
+                
+                for note in notes_eleve:
+                    note_value = float(note.get("note", 0))
+                    coefficient = float(note.get("coefficient", 1))  # coefficient_classe depuis classe_matieres
+                    total_points += note_value * coefficient
+                    total_coefficients += coefficient
+                
+                if total_coefficients > 0:
+                    moyenne_generale = total_points / total_coefficients
+                    
+                    # Déterminer la mention
+                    if moyenne_generale >= 16:
+                        mention = "Très Bien"
+                    elif moyenne_generale >= 14:
+                        mention = "Bien"
+                    elif moyenne_generale >= 12:
+                        mention = "Assez Bien"
+                    elif moyenne_generale >= 10:
+                        mention = "Passable"
+                    else:
+                        mention = "Insuffisant"
+                    
+                    print(f"{eleve_prenom} {eleve_nom} - Moyenne: {moyenne_generale:.2f} ({mention})")
+                    
+                    # Créer le bulletin
+                    bulletin_data = {
+                        'id_eleve': eleve_id,
+                        'periode': self.selected_periode or 'Année complète',
+                        'moyenne_generale': moyenne_generale,
+                        'rang': 0,  # Sera calculé après
+                        'appreciation': mention,
+                        'date_creation': datetime.now()
+                    }
+                    
+                    # Sauvegarder le bulletin
+                    success = self.bulletins_controller.create_bulletin(bulletin_data)
+                    if success:
+                        bulletins_generes += 1
+                    else:
+                        print(f"Erreur lors de la creation du bulletin pour {eleve_prenom} {eleve_nom}")
+            
+            # Recalculer les rangs après génération
+            self._recalculate_ranks(classe_id, self.selected_periode or 'Année complète')
+            
+            # Rafraîchir l'affichage
+            self._refresh_all()
+            
+            messagebox.showinfo("Génération terminée", 
+                              f"{bulletins_generes} bulletins generes avec succes pour la classe {self.selected_classe}.\n\n"
+                              f"Les moyennes ont été calculées automatiquement à partir des notes existantes\n"
+                              f"en utilisant les coefficients spécifiques à chaque classe.")
+            
+        except Exception as e:
+            print(f"Erreur lors de la generation des bulletins: {e}")
+            messagebox.showerror("Erreur", f"Erreur lors de la génération des bulletins:\n{str(e)}")
+    
+    def _recalculate_ranks(self, classe_id, periode):
+        """Recalcule les rangs des élèves dans une classe pour une période donnée"""
+        try:
+            # Récupérer tous les bulletins de la classe et période, triés par moyenne décroissante
+            bulletins = self.bulletins_controller.get_bulletins_by_classe_and_periode(classe_id, periode)
+            
+            # Trier par moyenne décroissante
+            bulletins.sort(key=lambda x: x.get('moyenne_generale', 0), reverse=True)
+            
+            # Mettre à jour les rangs
+            for i, bulletin in enumerate(bulletins):
+                rang = i + 1
+                self.bulletins_controller.update_bulletin_rank(bulletin['id_bulletin'], rang)
+            
+            print(f"Rangs recalcules pour la classe {classe_id} - {periode}")
+            
+        except Exception as e:
+            print(f"Erreur lors du recalcul des rangs: {e}")
+
+    def _refresh_all(self):
+        """Rafraîchit toutes les données"""
+        print("Rafraichissement des donnees bulletins...")
+        self._load_data()
+        self._filter_bulletins()
+        print("Donnees bulletins rafraichies")
+
+    def _edit_bulletin(self):
+        """Modifie un bulletin sélectionné"""
+        messagebox.showinfo("Information", "Fonctionnalité de modification à implémenter.")
+    
+    def _delete_bulletin(self):
+        """Supprime un bulletin sélectionné"""
+        messagebox.showinfo("Information", "Fonctionnalité de suppression à implémenter.")
     
     def _generate_bulletins_from_notes(self):
         """Génère automatiquement les bulletins à partir des notes de la classe et période sélectionnées"""
@@ -692,7 +1175,7 @@ class BulletinsView(ctk.CTkFrame):
                 notes_eleve = get_notes_by_eleve(eleve_id, trimestre=self.selected_periode)
                 
                 if not notes_eleve:
-                    print(f"⚠️ Aucune note trouvée pour {eleve.get('nom')} {eleve.get('prenom')} - {self.selected_periode}")
+                    print(f"Aucune note trouvee pour {eleve.get('nom')} {eleve.get('prenom')} - {self.selected_periode}")
                     continue
                 
                 # Calculer la moyenne pondérée
@@ -739,14 +1222,14 @@ class BulletinsView(ctk.CTkFrame):
                             SET moyenne_generale = ?, appreciation = ?, date_creation = ?
                             WHERE id_eleve = ? AND periode = ?
                         """, (moyenne_generale, mention, datetime.now(), eleve_id, self.selected_periode))
-                        print(f"🔄 Bulletin mis à jour pour {eleve.get('nom')} {eleve.get('prenom')} - Moyenne: {moyenne_generale:.2f}")
+                        print(f"Bulletin mis a jour pour {eleve.get('nom')} {eleve.get('prenom')} - Moyenne: {moyenne_generale:.2f}")
                     else:
                         # Créer un nouveau bulletin
                         cursor.execute("""
                             INSERT INTO bulletins (id_eleve, periode, moyenne_generale, rang, appreciation, date_creation)
                             VALUES (?, ?, ?, 0, ?, ?)
                         """, (eleve_id, self.selected_periode, moyenne_generale, mention, datetime.now()))
-                        print(f"✅ Nouveau bulletin créé pour {eleve.get('nom')} {eleve.get('prenom')} - Moyenne: {moyenne_generale:.2f}")
+                        print(f"Nouveau bulletin cree pour {eleve.get('nom')} {eleve.get('prenom')} - Moyenne: {moyenne_generale:.2f}")
                     
                     bulletins_generes += 1
                     conn.commit()
@@ -759,12 +1242,15 @@ class BulletinsView(ctk.CTkFrame):
             self._refresh_all()
             
             messagebox.showinfo("Génération terminée", 
-                              f"✅ {bulletins_generes} bulletins générés avec succès pour la classe {self.selected_classe} - {self.selected_periode}.\n\n"
-                              f"Les moyennes ont été calculées automatiquement à partir des notes existantes.")
+                              f"{bulletins_generes} bulletins generes avec succes pour la classe {self.selected_classe} - {self.selected_periode}.\n\n"
+                              f"Les moyennes ont ete calculees automatiquement a partir des notes existantes.")
             
         except Exception as e:
-            print(f"❌ Erreur lors de la génération des bulletins: {e}")
-            messagebox.showerror("Erreur", f"Erreur lors de la génération des bulletins:\n{str(e)}")
+            import traceback
+            error_msg = str(e).encode('ascii', 'ignore').decode('ascii')
+            print(f"Erreur lors de la generation des bulletins: {error_msg}")
+            traceback.print_exc()
+            messagebox.showerror("Erreur", f"Erreur lors de la generation des bulletins:\n{error_msg}")
     
     def _recalculate_ranks(self, classe_id, periode):
         """Recalcule les rangs des élèves dans une classe pour une période donnée"""
@@ -793,10 +1279,10 @@ class BulletinsView(ctk.CTkFrame):
             
             conn.commit()
             conn.close()
-            print(f"✅ Rangs recalculés pour la classe {classe_id} - {periode}")
+            print(f"Rangs recalcules pour la classe {classe_id} - {periode}")
             
         except Exception as e:
-            print(f"❌ Erreur lors du recalcul des rangs: {e}")
+            print(f"Erreur lors du recalcul des rangs: {e}")
     
     def _open_bulletin_form(self, bulletin_data=None):
         """Ouvre le formulaire d'ajout/modification de bulletin"""
@@ -831,10 +1317,10 @@ class BulletinsView(ctk.CTkFrame):
         if add_icon:
             ctk.CTkLabel(title_frame, text="", image=add_icon, fg_color=ACCENT).pack(side="left", padx=(0, 10))
         else:
-            ctk.CTkLabel(title_frame, text="📊", font=(FONT, 24), 
+            ctk.CTkLabel(title_frame, text="", font=(FONT, 24), 
                         text_color=BG_MAIN, fg_color=ACCENT).pack(side="left", padx=(0, 10))
         
-        title_text = "➕ NOUVEAU BULLETIN" if not bulletin_data else "✏️ MODIFIER BULLETIN"
+        title_text = "NOUVEAU BULLETIN" if not bulletin_data else "MODIFIER BULLETIN"
         title = ctk.CTkLabel(title_frame, text=title_text,
                             font=(FONT, FONT_SIZE_HEADER, "bold"),
                             text_color=BG_MAIN, fg_color=ACCENT)
@@ -855,7 +1341,7 @@ class BulletinsView(ctk.CTkFrame):
         basic_section = ctk.CTkFrame(form_frame, fg_color=BG_CARD, corner_radius=8)
         basic_section.pack(fill="x", padx=15, pady=(15, 10))
         
-        basic_title = ctk.CTkLabel(basic_section, text="📝 INFORMATIONS DE BASE",
+        basic_title = ctk.CTkLabel(basic_section, text="INFORMATIONS DE BASE",
                                   font=(FONT, FONT_SIZE_TEXT, "bold"),
                                   text_color=TEXT_ACCENT, fg_color=BG_CARD)
         basic_title.pack(anchor="w", padx=15, pady=(15, 10))
@@ -930,7 +1416,7 @@ class BulletinsView(ctk.CTkFrame):
         app_section = ctk.CTkFrame(form_frame, fg_color=BG_CARD, corner_radius=8)
         app_section.pack(fill="x", padx=15, pady=10)
         
-        app_title = ctk.CTkLabel(app_section, text="💬 APPRÉCIATION",
+        app_title = ctk.CTkLabel(app_section, text="APPRECIATION",
                                 font=(FONT, FONT_SIZE_TEXT, "bold"),
                                 text_color=TEXT_ACCENT, fg_color=BG_CARD)
         app_title.pack(anchor="w", padx=15, pady=(15, 10))
@@ -954,14 +1440,14 @@ class BulletinsView(ctk.CTkFrame):
         buttons_frame.grid_columnconfigure(0, weight=1)
         buttons_frame.grid_columnconfigure(1, weight=1)
         
-        cancel_btn = ctk.CTkButton(buttons_frame, text="❌ Annuler", 
+        cancel_btn = ctk.CTkButton(buttons_frame, text="Annuler", 
                                   font=(FONT, FONT_SIZE_TEXT, "bold"), 
                                   fg_color=ERROR_RED, hover_color="#DC2626", 
                                   text_color=BG_MAIN, height=40, corner_radius=10,
                                   command=form_window.destroy)
         cancel_btn.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         
-        save_btn = ctk.CTkButton(buttons_frame, text="✅ Enregistrer", 
+        save_btn = ctk.CTkButton(buttons_frame, text="Enregistrer", 
                                 font=(FONT, FONT_SIZE_TEXT, "bold"), 
                                 fg_color=SUCCESS_GREEN, hover_color="#059669", 
                                 text_color=BG_MAIN, height=40, corner_radius=10,
@@ -1063,7 +1549,7 @@ class BulletinsView(ctk.CTkFrame):
         if search_icon:
             ctk.CTkLabel(title_frame, text="", image=search_icon, fg_color=BG_CARD).pack(side="left", padx=(0, 10))
         else:
-            ctk.CTkLabel(title_frame, text="🔍", font=(FONT, 20), 
+            ctk.CTkLabel(title_frame, text="", font=(FONT, 20), 
                         text_color=TEXT_ACCENT, fg_color=BG_CARD).pack(side="left", padx=(0, 10))
         
         ctk.CTkLabel(title_frame, text="RECHERCHE AVANCÉE", 
@@ -1090,7 +1576,7 @@ class BulletinsView(ctk.CTkFrame):
                      font=(FONT, FONT_SIZE_TEXT), text_color=TEXT_PRIMARY, fg_color=BG_CARD).pack(anchor="w", pady=(0, 5))
         
         var_search_classe = ctk.StringVar()
-        classe_combo = ctk.CTkComboBox(form_frame, values=["Toutes"] + self.classes,
+        classe_combo = ctk.CTkComboBox(form_frame, values=["Toutes"] + [classe['nom'] for classe in self.classes.values()],
                                       variable=var_search_classe, font=(FONT, FONT_SIZE_TEXT),
                                       fg_color=BG_MAIN, text_color=TEXT_PRIMARY,
                                       border_color=BORDER_COLOR, dropdown_fg_color=BG_CARD)

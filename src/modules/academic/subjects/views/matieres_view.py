@@ -757,8 +757,8 @@ class MatieresView(ctk.CTkFrame):
                                     text_color=TEXT_PRIMARY)
         classes_label.pack(anchor="w", pady=(0, 5))
         
-        classes_frame = ctk.CTkFrame(content_frame, fg_color=BG_SIDEBAR, 
-                                    corner_radius=8, height=80)
+        classes_frame = ctk.CTkScrollableFrame(content_frame, fg_color=BG_SIDEBAR,
+                                    corner_radius=8, height=160)
         classes_frame.pack(fill="x", pady=(0, 15))
         
         # Liste des classes avec cases à cocher - HORIZONTAL
@@ -773,9 +773,11 @@ class MatieresView(ctk.CTkFrame):
                                                font=ctk.CTkFont(size=12), text_color=TEXT_SECONDARY)
                 no_classes_label.pack(anchor="w", pady=5, padx=10)
             else:
-                # Créer un frame horizontal pour les checkboxes
-                checkboxes_frame = ctk.CTkFrame(classes_frame, fg_color="transparent")
-                checkboxes_frame.pack(fill="x", padx=10, pady=10)
+                # Zone cases à cocher scrollable en grille (wrap automatique)
+                classes_frame.grid_columnconfigure(0, weight=1)
+                classes_frame.grid_columnconfigure(1, weight=1)
+                classes_frame.grid_columnconfigure(2, weight=1)
+                classes_frame.grid_columnconfigure(3, weight=1)
                 
                 for i, (classe_id, classe_data) in enumerate(classes_niveau.items()):
                     # Vérifier le nombre de matières existantes pour cette classe
@@ -796,11 +798,13 @@ class MatieresView(ctk.CTkFrame):
                     # Texte avec indication du nombre de matières
                     classe_text = f"{classe_data['nom_classe']} ({nb_matieres}/10)"
                     
-                    checkbox = ctk.CTkCheckBox(checkboxes_frame, text=classe_text, 
+                    checkbox = ctk.CTkCheckBox(classes_frame, text=classe_text,
                                       variable=var, font=ctk.CTkFont(size=12),
                                       fg_color=ACCENT, hover_color="#4A90E2",
                                       state="disabled" if is_disabled else "normal")
-                    checkbox.pack(side="left", padx=(0, 15), pady=5)
+                    row_idx = i // 4
+                    col_idx = i % 4
+                    checkbox.grid(row=row_idx, column=col_idx, padx=(10, 10), pady=6, sticky="w")
                     self.classes_selected[classe_id] = var
                     
                     # Ajouter un tooltip ou indication visuelle si saturée
@@ -920,7 +924,7 @@ class MatieresView(ctk.CTkFrame):
                     else:
                         for prof_data in self.professeurs:
                             if f"{prof_data['nom']} {prof_data['prenom']}" == professeur_nom:
-                                professeur_id = prof_data.get('id')  # ✅ CORRECTION: 'id' au lieu de 'id_professeur'
+                                professeur_id = prof_data.get('id')  # 'id' si liste d'objets
                                 break
                 except Exception as e:
                     print(f"❌ Erreur lors de la recherche du professeur: {e}")
@@ -1498,7 +1502,7 @@ class MatieresView(ctk.CTkFrame):
                             prof_full_name = f"{prof_data['nom']} {prof_data['prenom']}"
                             print(f"🔍 DEBUG: Comparaison - '{prof_full_name}' vs '{professeur_nom}'")
                             if prof_full_name == professeur_nom:
-                                professeur_id = prof_data.get('id')  # ✅ CORRECTION: 'id' au lieu de 'id_professeur'
+                                professeur_id = prof_data.get('id')
                                 print(f"🔍 DEBUG: Professeur trouvé - ID: {professeur_id}")
                                 break
                 except Exception as e:

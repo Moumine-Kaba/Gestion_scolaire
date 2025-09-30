@@ -40,7 +40,7 @@ class ViewPreloader:
         # Démarrer les threads de chargement
         self._start_loading_threads()
         
-        print("✅ Préchargeur de vues initialisé")
+        print("Prechargeur de vues initialise")
     
     def _start_loading_threads(self):
         """Démarre les threads de chargement en arrière-plan"""
@@ -60,7 +60,7 @@ class ViewPreloader:
                 priority, view_key, factory_func, args, kwargs = self._loading_queue.get(timeout=1)
                 
                 start_time = time.time()
-                print(f"🔄 Préchargement: {view_key} (priorité {priority})")
+                print(f"Prechargement: {view_key} (priorite {priority})")
                 
                 try:
                     # Créer la vue
@@ -79,33 +79,22 @@ class ViewPreloader:
                     self._loading_stats["preloaded"] += 1
                     self._loading_stats["loading_time"] += loading_time
                     
-                    print(f"✅ Vue préchargée: {view_key} ({loading_time:.2f}s)")
+                    print(f"Vue prechargee: {view_key} ({loading_time:.2f}s)")
                     
                 except Exception as e:
-                    print(f"⚠️ Erreur préchargement {view_key}: {e}")
+                    print(f"Erreur prechargement {view_key}: {e}")
                 
                 self._loading_queue.task_done()
                 
             except queue.Empty:
                 continue
             except Exception as e:
-                print(f"⚠️ Erreur worker thread: {e}")
+                print(f"Erreur worker thread: {e}")
     
     def register_view_factory(self, view_key: str, factory_func: Callable):
         """Enregistre une factory pour créer une vue"""
         self._view_factories[view_key] = factory_func
-        print(f"📝 Factory enregistrée: {view_key}")
-        
-        # Vérifier si déjà dans le pool
-        if view_key in self._view_pool:
-            print(f"📋 Vue déjà en pool: {view_key}")
-            return True
-        
-        # Ajouter à la queue de chargement
-        factory_func = self._view_factories[view_key]
-        self._loading_queue.put((priority.value, view_key, factory_func, args, kwargs))
-        
-        print(f"📋 Préchargement programmé: {view_key}")
+        print(f"Factory enregistree: {view_key}")
         return True
     
     def get_view(self, view_key: str, *args, **kwargs):
@@ -117,12 +106,12 @@ class ViewPreloader:
             pool_item["last_access"] = time.time()
             self._loading_stats["cache_hits"] += 1
             
-            print(f"📋 Vue récupérée du pool: {view_key}")
+            print(f"Vue recuperee du pool: {view_key}")
             return pool_item["instance"]
         
         # Créer la vue immédiatement si pas en pool
         if view_key in self._view_factories:
-            print(f"🚀 Création immédiate: {view_key}")
+            print(f"Creation immediate: {view_key}")
             factory_func = self._view_factories[view_key]
             view_instance = factory_func(*args, **kwargs)
             
@@ -136,7 +125,7 @@ class ViewPreloader:
             
             return view_instance
         
-        print(f"⚠️ Vue non trouvée: {view_key}")
+        print(f"Vue non trouvee: {view_key}")
         return None
     
     def cleanup_old_views(self, max_age_seconds: int = 300):
@@ -152,7 +141,7 @@ class ViewPreloader:
         
         for view_key in views_to_remove:
             self.remove_view(view_key)
-            print(f"🗑️ Vue ancienne supprimée: {view_key}")
+            print(f"Vue ancienne supprimee: {view_key}")
     
     def remove_view(self, view_key: str):
         """Supprime une vue du pool"""
@@ -164,10 +153,10 @@ class ViewPreloader:
                 if hasattr(pool_item["instance"], 'destroy'):
                     pool_item["instance"].destroy()
             except Exception as e:
-                print(f"⚠️ Erreur destruction vue {view_key}: {e}")
+                print(f"Erreur destruction vue {view_key}: {e}")
             
             del self._view_pool[view_key]
-            print(f"🗑️ Vue supprimée du pool: {view_key}")
+            print(f"Vue supprimee du pool: {view_key}")
     
     def get_stats(self) -> Dict[str, Any]:
         """Retourne les statistiques du préchargeur"""
@@ -186,11 +175,19 @@ class ViewPreloader:
             }
         }
 
+    def preload_critical_views(self):
+        """Précharge les vues critiques"""
+        critical_views = [
+            ("classes", ViewLoadPriority.CRITICAL),
+            ("eleves", ViewLoadPriority.HIGH),
+            ("notes", ViewLoadPriority.HIGH)
+        ]
+        
         for view_key, priority in critical_views:
             if view_key in self._view_factories:
                 self.preload_view(view_key, priority)
         
-        print("✅ Préchargement des vues critiques programmé")
+        print("Prechargement des vues critiques programme")
 
 # Instance globale du préchargeur
 _view_preloader = None

@@ -16,11 +16,11 @@ sys.path.insert(0, root_path)
 from database.connection import get_db_connection
 
 # Import des modèles et contrôleurs
-from .models.bulletin_sqlserver_model import (
+from ..models.bulletin_sqlserver_model import (
     BulletinAdvancedModel, BulletinAvance, PeriodeScolaire, 
     PeriodeType, BulletinStatus, MatiereBulletin
 )
-from .controllers.calcul_bulletin_sqlserver_controller import (
+from .calcul_bulletin_sqlserver_controller import (
     CalculBulletinController, CalculBulletin, NoteMatiere
 )
 

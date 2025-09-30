@@ -195,12 +195,12 @@ def get_all_notes():
         }
         notes.append(note_dict)
     
-    print(f"🔍 Notes converties: {len(notes)}")
+    print(f"Notes converties: {len(notes)}")
     return notes
 
 def get_notes_by_eleve(eleve_id, limit=50, trimestre=None):
     """Retourne les notes pour un élève donné sous forme de liste de dictionnaires, optionnellement filtrées par trimestre."""
-    print(f"🔍 get_notes_by_eleve appelée avec eleve_id={eleve_id}, trimestre={trimestre}")
+    print(f"get_notes_by_eleve appelee avec eleve_id={eleve_id}, trimestre={trimestre}")
     
     conn = connect_db()
     cur = conn.cursor()
@@ -225,29 +225,29 @@ def get_notes_by_eleve(eleve_id, limit=50, trimestre=None):
     """
     
     if trimestre:
-        print(f"🔍 Filtrage par trimestre: {trimestre}")
+        print(f"Filtrage par trimestre: {trimestre}")
         if trimestre == "1er Trimestre":
             base_query += " AND MONTH(n.date_evaluation) IN (9,10,11,12)"
-            print("📅 Filtre 1er Trimestre appliqué (Sept-Déc)")
+            print("Filtre 1er Trimestre applique (Sept-Dec)")
         elif trimestre == "2ème Trimestre":
             base_query += " AND MONTH(n.date_evaluation) IN (1,2,3)"
-            print("📅 Filtre 2ème Trimestre appliqué (Jan-Mar)")
+            print("Filtre 2eme Trimestre applique (Jan-Mar)")
         elif trimestre == "3ème Trimestre":
             base_query += " AND MONTH(n.date_evaluation) IN (4,5,6)"
-            print("📅 Filtre 3ème Trimestre appliqué (Avr-Juin)")
+            print("Filtre 3eme Trimestre applique (Avr-Juin)")
     else:
-        print("🔍 Aucun filtre trimestre appliqué")
+        print("Aucun filtre trimestre applique")
     
     base_query += " ORDER BY n.date_evaluation DESC"
     
-    print(f"🔍 Requête SQL: {base_query}")
-    print(f"🔍 Paramètres: eleve_id={eleve_id}")
+    print(f"Requete SQL: {base_query}")
+    print(f"Parametres: eleve_id={eleve_id}")
     
     cur.execute(base_query, (eleve_id,))
     rows = cur.fetchall()
     conn.close()
     
-    print(f"🔍 Nombre de lignes récupérées: {len(rows)}")
+    print(f"Nombre de lignes recuperees: {len(rows)}")
     
     # Conversion en liste de dictionnaires
     notes = []
@@ -268,12 +268,12 @@ def get_notes_by_eleve(eleve_id, limit=50, trimestre=None):
         notes.append(note_dict)
     
     filter_msg = f" pour le {trimestre}" if trimestre else ""
-    print(f"✅ {len(notes)} notes récupérées pour l'élève {eleve_id}{filter_msg}")
+    print(f"{len(notes)} notes recuperees pour l'eleve {eleve_id}{filter_msg}")
     
     # Debug: afficher les trimestres des notes récupérées
     if notes:
         trimestres_trouves = set(note.get('trimestre', 'Inconnu') for note in notes)
-        print(f"📊 Trimestres trouvés dans les notes: {trimestres_trouves}")
+        print(f"Trimestres trouves dans les notes: {trimestres_trouves}")
     
     return notes
 
