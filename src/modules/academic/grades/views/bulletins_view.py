@@ -8,13 +8,29 @@ avec un formulaire modal stylisé et des menus déroulants dépendants.
 """
 
 import customtkinter as ctk
-from tkinter import messagebox, StringVar, Toplevel
+from tkinter import messagebox, StringVar, Toplevel, filedialog
 import os
 import sys
 from PIL import Image
 from CTkTable import CTkTable
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, TYPE_CHECKING, Any
+import importlib.util as _import_util
+
+# Détection paresseuse de python-docx pour éviter les warnings Pyright
+DOCX_AVAILABLE = _import_util.find_spec("docx") is not None
+
+# Aide au linter: fournir des alias de types quand python-docx n'est pas installé
+if TYPE_CHECKING:
+    from docx import Document as _T_Document
+    from docx.shared import Inches as _T_Inches, Pt as _T_Pt
+    from docx.enum.text import WD_ALIGN_PARAGRAPH as _T_WD
+    Document: Any = _T_Document  # type: ignore
+    Inches: Any = _T_Inches  # type: ignore
+    Pt: Any = _T_Pt  # type: ignore
+    WD_ALIGN_PARAGRAPH: Any = _T_WD  # type: ignore
+else:
+    Document = Inches = Pt = WD_ALIGN_PARAGRAPH = None  # runtime placeholders
 
 # Ajouter le chemin du projet pour les imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../..'))
@@ -119,6 +135,13 @@ def load_icon(icon_name, size=(20, 20)):
         print(f"Erreur chargement icone '{icon_name}': {e}")
         return None
 
+        # Appeler la fonction du contrôleur avec les bons paramètres
+        result = db_add_bulletin(eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition)
+        return result if result is not None else True
+    except Exception as e:
+        print(f"add_bulletin adapter error: {e}")
+        import traceback
+        traceback.print_exc()
 # Compatibilité: certaines sections utilisent load_ctk_icon
 def load_ctk_icon(name_or_path, size=(20, 20)):
     """Retourne une CTkImage à partir d'un nom logique ou d'un chemin.
@@ -149,9 +172,9 @@ def get_all_bulletins():
         return db_get_all_bulletins()
     return []
 
-def add_bulletin(info: Dict):
+def add_bulletin(info: Dict) -> bool:
     """Adaptateur pour l'ajout d'un bulletin.
-    info attend: id_eleve, periode, moyenne_generale, rang, appreciation
+    Paramètres attendus: id_eleve, periode, moyenne_generale, appreciation
     """
     if not db_add_bulletin:
         return False
@@ -162,10 +185,9 @@ def add_bulletin(info: Dict):
         moyenne = float(info.get('moyenne_generale') or 0)
         remarque = info.get('appreciation') or ''
         date_edition = datetime.now().date()
-        
-        # Appeler la fonction du contrôleur avec les bons paramètres
+
         result = db_add_bulletin(eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition)
-        return result if result is not None else True
+        return bool(result) if result is not None else True
     except Exception as e:
         print(f"add_bulletin adapter error: {e}")
         import traceback
@@ -239,6 +261,73 @@ class BulletinsView(ctk.CTkFrame):
 
         # Afficher le message initial
         self._show_no_selection_message()
+
+    # ===== Helpers robustes =====
+    def _get_class_id_by_name(self, classe_name: str) -> Optional[int]:
+        """Retourne l'ID de classe à partir de son nom, en gérant les différents schémas.
+        Cherche des clés communes: 'nom', 'nom_classe', 'classe_nom'.
+        Retourne l'ID via: 'id', 'id_classe', 'idclasse'.
+        """
+        try:
+            classes_list = get_all_classes()
+            for classe in classes_list:
+                current_name = (
+                    classe.get('nom')
+                    or classe.get('nom_classe')
+                    or classe.get('classe_nom')
+                )
+                if current_name == classe_name:
+                    return (
+                        classe.get('id')
+                        or classe.get('id_classe')
+                        or classe.get('idclasse')
+                    )
+        except Exception as _e:
+            pass
+        return None
+
+    def _extract_subject_name(self, note: Dict) -> str:
+        """Retourne le nom de la matière pour une note en gérant différents champs."""
+        return (
+            note.get('nom_matiere')
+            or note.get('matiere')
+            or note.get('libelle_matiere')
+            or note.get('nom')
+            or 'Inconnue'
+        )
+
+    def _extract_coefficient(self, note: Dict) -> float:
+        """Retourne le coefficient de la matière depuis la note.
+        Clés acceptées: 'coefficient', 'coeff', 'coef', 'coefficient_matiere'.
+        """
+        for key in ('coefficient', 'coeff', 'coef', 'coefficient_matiere'):
+            if key in note and note.get(key) is not None:
+                try:
+                    return float(note.get(key))
+                except Exception:
+                    continue
+        return 1.0
+
+    def _extract_student_class_id(self, eleve: Dict) -> Optional[int]:
+        """Récupère l'ID de classe depuis un élève, en gérant différentes clés et types."""
+        for key in ('id_classe', 'classe_id', 'idclasse', 'idClasse', 'classeId'):
+            if key in eleve and eleve.get(key) is not None:
+                try:
+                    return int(eleve.get(key))
+                except Exception:
+                    # si cast échoue, retourne brut
+                    try:
+                        return int(str(eleve.get(key)).strip())
+                    except Exception:
+                        return None
+        return None
+
+    def _student_fullname(self, eleve: Dict) -> str:
+        """Construit un nom complet robuste (gère clés manquantes)."""
+        nom = eleve.get('nom') or eleve.get('last_name') or eleve.get('surname') or ''
+        prenom = eleve.get('prenom') or eleve.get('first_name') or eleve.get('given_name') or ''
+        full = f"{str(nom).strip()} {str(prenom).strip()}".strip()
+        return full or f"Élève {eleve.get('id_eleve') or eleve.get('id') or ''}"
     
     def _load_data(self):
         """Charge les données depuis la base"""
@@ -382,6 +471,42 @@ class BulletinsView(ctk.CTkFrame):
         self.periode_dropdown.grid(row=1, column=0, sticky="ew")
         self.periode_dropdown.set("Toutes les périodes")
         
+        # ============ SECTION ÉLÈVES ============
+        eleves_section = ctk.CTkFrame(left_panel, fg_color="transparent")
+        eleves_section.grid(row=3, column=0, sticky="ew", padx=25, pady=(18, 0))
+        eleves_section.grid_columnconfigure(0, weight=1)
+        
+        # Titre de section
+        eleves_title = ctk.CTkLabel(eleves_section, text="ÉLÈVES", 
+                                     font=(FONT, 9, "bold"), text_color=TEXT_SECONDARY,
+                                     anchor="w")
+        eleves_title.grid(row=0, column=0, sticky="w", pady=(0, 10))
+        
+        # Card pour la sélection d'élève
+        eleves_card = ctk.CTkFrame(eleves_section, fg_color=BG_CARD, corner_radius=10)
+        eleves_card.grid(row=1, column=0, sticky="ew")
+        eleves_card.grid_columnconfigure(0, weight=1)
+        
+        # Container élève
+        eleve_container = ctk.CTkFrame(eleves_card, fg_color="transparent")
+        eleve_container.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 12))
+        eleve_container.grid_columnconfigure(0, weight=1)
+        
+        ctk.CTkLabel(eleve_container, text="Sélectionner un élève", font=(FONT, 10, "bold"), 
+                    text_color=TEXT_PRIMARY, anchor="w").grid(row=0, column=0, sticky="w", pady=(0, 5))
+        
+        self.eleve_var = StringVar()
+        self.eleve_dropdown = ctk.CTkComboBox(eleve_container, variable=self.eleve_var,
+                                              values=["Sélectionner classe et période..."],
+                                              command=self._on_eleve_selected, state="readonly",
+                                              font=(FONT, 11), dropdown_font=(FONT, 10),
+                                              corner_radius=8, border_width=1, border_color=BORDER_COLOR,
+                                              fg_color=BG_MAIN, button_color=TEXT_ACCENT, 
+                                              button_hover_color=SUCCESS_GREEN,
+                                              height=38)
+        self.eleve_dropdown.grid(row=1, column=0, sticky="ew")
+        self.eleve_dropdown.set("Sélectionner classe et période...")
+        
         # ============ SECTION ACTIONS ÉLÉGANTE ============
         actions_section = ctk.CTkFrame(left_panel, fg_color="transparent")
         actions_section.grid(row=4, column=0, sticky="sew", padx=25, pady=(18, 25))
@@ -393,33 +518,14 @@ class BulletinsView(ctk.CTkFrame):
                                      anchor="w")
         actions_title.grid(row=0, column=0, sticky="w", pady=(0, 10))
         
-        # ========== Bouton Générer (primaire - vert) ==========
-        generate_icon = load_icon('generate', (18, 18))
-        generate_btn = ctk.CTkButton(
-            actions_section, 
-            text="Générer les bulletins",
-            image=generate_icon,
-            compound="left",
-            command=self._generate_bulletins, 
-            fg_color="#2ECC71", 
-            hover_color="#27AE60",
-            text_color="#FFFFFF",
-            height=45, 
-            font=(FONT, 12, "bold"),
-            corner_radius=10,
-            border_width=0,
-            anchor="center"
-        )
-        generate_btn.grid(row=1, column=0, sticky="ew", pady=(0, 8))
-        
-        # ========== Bouton Bulletins individuels (bleu) ==========
+        # ========== Bouton Générer Bulletin Word (bleu) ==========
         individual_icon = load_icon('person', (18, 18))
         generate_individual_btn = ctk.CTkButton(
             actions_section, 
-            text="Bulletins individuels",
+            text="Générer Bulletin Word",
             image=individual_icon,
             compound="left",
-            command=self._generate_individual_bulletins, 
+            command=self._generate_bulletin_word_selected, 
             fg_color="#3498DB", 
             hover_color="#2980B9",
             text_color="#FFFFFF",
@@ -429,7 +535,7 @@ class BulletinsView(ctk.CTkFrame):
             border_width=0,
             anchor="center"
         )
-        generate_individual_btn.grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        generate_individual_btn.grid(row=1, column=0, sticky="ew", pady=(0, 8))
         
         # ========== Bouton Exporter Excel (orange) ==========
         export_icon = load_icon('export', (18, 18))
@@ -438,7 +544,7 @@ class BulletinsView(ctk.CTkFrame):
             text="Exporter vers Excel",
             image=export_icon,
             compound="left",
-            command=self._export_to_excel, 
+                                  command=self._export_to_excel, 
             fg_color="#E67E22", 
             hover_color="#D35400",
             text_color="#FFFFFF",
@@ -448,11 +554,11 @@ class BulletinsView(ctk.CTkFrame):
             border_width=0,
             anchor="center"
         )
-        export_btn.grid(row=3, column=0, sticky="ew", pady=(0, 12))
+        export_btn.grid(row=2, column=0, sticky="ew", pady=(0, 12))
         
         # Séparateur élégant avant le bouton actualiser
         sep_actions = ctk.CTkFrame(actions_section, height=1, fg_color=BORDER_COLOR)
-        sep_actions.grid(row=4, column=0, sticky="ew", pady=(3, 10))
+        sep_actions.grid(row=3, column=0, sticky="ew", pady=(3, 10))
         
         # ========== Bouton Actualiser (outline style) ==========
         refresh_icon = load_icon('refresh', (16, 16))
@@ -461,7 +567,7 @@ class BulletinsView(ctk.CTkFrame):
             text="Actualiser",
             image=refresh_icon,
             compound="left",
-            command=self._refresh_all, 
+                                       command=self._refresh_all, 
             fg_color="transparent", 
             hover_color=BG_CARD,
             text_color=TEXT_ACCENT, 
@@ -472,7 +578,7 @@ class BulletinsView(ctk.CTkFrame):
             border_width=2,
             anchor="center"
         )
-        refresh_all_btn.grid(row=5, column=0, sticky="ew")
+        refresh_all_btn.grid(row=4, column=0, sticky="ew")
     
     def _build_bulletins_dashboard(self):
         """Construit le tableau des bulletins"""
@@ -520,6 +626,253 @@ class BulletinsView(ctk.CTkFrame):
                                  font=F_SMALL, text_color=TEXT_SECONDARY)
         desc_label.grid(row=2, column=0)
     
+    def _show_no_bulletin_for_student(self, student_name):
+        """Affiche un message quand l'élève n'a pas de bulletin"""
+        if not self.table_frame:
+            return
+        
+        # Nettoyer le frame
+        for widget in self.table_frame.winfo_children():
+            widget.destroy()
+        
+        # Message central
+        message_frame = ctk.CTkFrame(self.table_frame, fg_color="transparent")
+        message_frame.grid(row=0, column=0, sticky="nsew")
+        message_frame.grid_columnconfigure(0, weight=1)
+        message_frame.grid_rowconfigure(0, weight=1)
+        
+        # Icône et texte
+        person_icon = load_icon('person', (64, 64))
+        icon_label = ctk.CTkLabel(message_frame, image=person_icon, text="")
+        icon_label.grid(row=0, column=0, pady=(0, MARGIN_MEDIUM))
+        
+        title_label = ctk.CTkLabel(message_frame, text=f"Aucun bulletin pour {student_name}", 
+                                  font=F_SUB, text_color=TEXT_PRIMARY)
+        title_label.grid(row=1, column=0, pady=(0, MARGIN_SMALL))
+        
+        desc_label = ctk.CTkLabel(message_frame, 
+                                 text=f"Aucun bulletin trouvé pour cet élève.\nPériode: {self.selected_periode}",
+                                 font=F_SMALL, text_color=TEXT_SECONDARY)
+        desc_label.grid(row=2, column=0)
+    
+    def _display_detailed_bulletin(self, eleve):
+        """Affiche le bulletin détaillé d'un élève avec toutes ses notes par matière"""
+        if not self.table_frame:
+            return
+        
+        # Nettoyer le frame
+        for widget in self.table_frame.winfo_children():
+            widget.destroy()
+        
+        try:
+            # Récupérer les notes de l'élève
+            eleve_id = eleve.get("id_eleve")
+            eleve_nom = eleve.get("nom", "")
+            eleve_prenom = eleve.get("prenom", "")
+            
+            notes_eleve = get_notes_by_eleve(eleve_id, trimestre=self.selected_periode)
+            
+            if not notes_eleve:
+                self._show_no_bulletin_for_student(f"{eleve_prenom} {eleve_nom}")
+                return
+            
+            # Calculer la moyenne et regrouper par matière
+            total_points = 0
+            total_coefficients = 0
+            matieres_notes = {}
+            
+            for note in notes_eleve:
+                note_value = float(note.get("note", 0))
+                coefficient = self._extract_coefficient(note)
+                matiere = self._extract_subject_name(note)
+                
+                if matiere not in matieres_notes:
+                    matieres_notes[matiere] = {
+                        'notes': [],
+                        'coefficient': coefficient
+                    }
+                matieres_notes[matiere]['notes'].append(note_value)
+                
+                total_points += note_value * coefficient
+                total_coefficients += coefficient
+            
+            if total_coefficients == 0:
+                self._show_no_bulletin_for_student(f"{eleve_prenom} {eleve_nom}")
+                return
+            
+            moyenne_generale = total_points / total_coefficients
+            
+            # Déterminer la mention
+            if moyenne_generale >= 16:
+                mention = "Très Bien"
+                mention_color = "#4CAF50"
+            elif moyenne_generale >= 14:
+                mention = "Bien"
+                mention_color = "#2196F3"
+            elif moyenne_generale >= 12:
+                mention = "Assez Bien"
+                mention_color = "#FF9800"
+            elif moyenne_generale >= 10:
+                mention = "Passable"
+                mention_color = "#FFC107"
+            else:
+                mention = "Insuffisant"
+                mention_color = "#F44336"
+            
+            # Déterminer le rang
+            bulletins_classe = [b for b in self.bulletins 
+                              if b.get('classe_nom') == self.selected_classe 
+                              and b.get('periode') == self.selected_periode]
+            bulletins_classe.sort(key=lambda x: x.get('moyenne_generale', 0), reverse=True)
+            rang = next((i+1 for i, b in enumerate(bulletins_classe) if b.get('id_eleve') == eleve_id), 0)
+            
+            # Créer l'interface du bulletin détaillé
+            self._create_detailed_bulletin_ui(eleve, matieres_notes, moyenne_generale, mention, mention_color, rang, len(bulletins_classe))
+            
+        except Exception as e:
+            print(f"Erreur affichage bulletin détaillé: {e}")
+            import traceback
+            traceback.print_exc()
+            self._show_no_bulletin_for_student(f"{eleve.get('prenom', '')} {eleve.get('nom', '')}")
+    
+    def _create_detailed_bulletin_ui(self, eleve, matieres_notes, moyenne_generale, mention, mention_color, rang, total_eleves):
+        """Crée l'interface utilisateur du bulletin détaillé"""
+        # Frame principal avec scroll
+        main_frame = ctk.CTkScrollableFrame(self.table_frame, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # En-tête du bulletin
+        header_frame = ctk.CTkFrame(main_frame, fg_color=BG_CARD, corner_radius=12)
+        header_frame.pack(fill="x", pady=(0, 20))
+        
+        # Titre
+        title_label = ctk.CTkLabel(header_frame, 
+                                  text="BULLETIN SCOLAIRE INDIVIDUEL",
+                                  font=(FONT, 20, "bold"),
+                                  text_color=TEXT_ACCENT)
+        title_label.pack(pady=20)
+        
+        # Informations de l'élève
+        info_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        info_frame.pack(fill="x", padx=20, pady=(0, 20))
+        
+        # Grille d'informations
+        info_grid = ctk.CTkFrame(info_frame, fg_color="transparent")
+        info_grid.pack(fill="x")
+        
+        # Ligne 1
+        row1 = ctk.CTkFrame(info_grid, fg_color="transparent")
+        row1.pack(fill="x", pady=5)
+        
+        ctk.CTkLabel(row1, text="Nom et Prénom:", font=(FONT, 12, "bold"), 
+                    text_color=TEXT_PRIMARY).pack(side="left")
+        ctk.CTkLabel(row1, text=f"{eleve.get('nom', '')} {eleve.get('prenom', '')}", 
+                    font=(FONT, 12), text_color=TEXT_SECONDARY).pack(side="left", padx=(10, 0))
+        
+        ctk.CTkLabel(row1, text="Classe:", font=(FONT, 12, "bold"), 
+                    text_color=TEXT_PRIMARY).pack(side="right")
+        ctk.CTkLabel(row1, text=self.selected_classe, 
+                    font=(FONT, 12), text_color=TEXT_SECONDARY).pack(side="right", padx=(10, 0))
+        
+        # Ligne 2
+        row2 = ctk.CTkFrame(info_grid, fg_color="transparent")
+        row2.pack(fill="x", pady=5)
+        
+        ctk.CTkLabel(row2, text="Période:", font=(FONT, 12, "bold"), 
+                    text_color=TEXT_PRIMARY).pack(side="left")
+        ctk.CTkLabel(row2, text=self.selected_periode, 
+                    font=(FONT, 12), text_color=TEXT_SECONDARY).pack(side="left", padx=(10, 0))
+        
+        ctk.CTkLabel(row2, text="Moyenne Générale:", font=(FONT, 12, "bold"), 
+                    text_color=TEXT_PRIMARY).pack(side="right")
+        ctk.CTkLabel(row2, text=f"{moyenne_generale:.2f}/20", 
+                    font=(FONT, 12, "bold"), text_color=mention_color).pack(side="right", padx=(10, 0))
+        
+        # Ligne 3
+        row3 = ctk.CTkFrame(info_grid, fg_color="transparent")
+        row3.pack(fill="x", pady=5)
+        
+        ctk.CTkLabel(row3, text="Rang:", font=(FONT, 12, "bold"), 
+                    text_color=TEXT_PRIMARY).pack(side="left")
+        ctk.CTkLabel(row3, text=f"{rang}/{total_eleves}", 
+                    font=(FONT, 12), text_color=TEXT_SECONDARY).pack(side="left", padx=(10, 0))
+        
+        ctk.CTkLabel(row3, text="Mention:", font=(FONT, 12, "bold"), 
+                    text_color=TEXT_PRIMARY).pack(side="right")
+        ctk.CTkLabel(row3, text=mention, 
+                    font=(FONT, 12, "bold"), text_color=mention_color).pack(side="right", padx=(10, 0))
+        
+        # Section des notes par matière
+        notes_frame = ctk.CTkFrame(main_frame, fg_color=BG_CARD, corner_radius=12)
+        notes_frame.pack(fill="x", pady=(0, 20))
+        
+        # Titre de la section
+        notes_title = ctk.CTkLabel(notes_frame, 
+                                  text="NOTES PAR MATIÈRE",
+                                  font=(FONT, 16, "bold"),
+                                  text_color=TEXT_ACCENT)
+        notes_title.pack(pady=15)
+        
+        # Tableau des notes
+        notes_data = [["Matière", "Notes", "Moyenne", "Coeff.", "Appréciation"]]
+        
+        for matiere, data in matieres_notes.items():
+            notes_list = data['notes']
+            moyenne_matiere = sum(notes_list) / len(notes_list)
+            coefficient = data['coefficient']
+            
+            # Appréciation par matière
+            if moyenne_matiere >= 16:
+                appreciation = "Très bien"
+            elif moyenne_matiere >= 14:
+                appreciation = "Bien"
+            elif moyenne_matiere >= 12:
+                appreciation = "Assez bien"
+            elif moyenne_matiere >= 10:
+                appreciation = "Passable"
+            else:
+                appreciation = "Insuffisant"
+            
+            # Formater les notes
+            notes_str = ", ".join([f"{note:.1f}" for note in notes_list])
+            
+            notes_data.append([
+                matiere,
+                notes_str,
+                f"{moyenne_matiere:.2f}",
+                str(coefficient),
+                appreciation
+            ])
+        
+        # Créer le tableau
+        notes_table = CTkTable(
+            master=notes_frame,
+            row=len(notes_data),
+            column=len(notes_data[0]),
+            values=notes_data,
+            header_color=BG_SIDEBAR,
+            colors=[BG_CARD, BG_SECONDARY],
+            hover_color=TEXT_ACCENT,
+            corner_radius=8,
+            border_width=1,
+            border_color=BORDER_COLOR,
+            text_color=TEXT_PRIMARY,
+            font=(FONT, 11),
+            command=None
+        )
+        
+        notes_table.pack(padx=20, pady=(0, 20), fill="x")
+        
+        # Footer avec date
+        footer_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        footer_frame.pack(fill="x", pady=10)
+        
+        footer_label = ctk.CTkLabel(footer_frame,
+                                   text=f"Document généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
+                                   font=(FONT, 9),
+                                   text_color=TEXT_SECONDARY)
+        footer_label.pack()
+    
     def _on_classe_selected(self, selected_classe):
         """Gère la sélection d'une classe"""
         print(f"DEBUG: _on_classe_selected appele avec: '{selected_classe}'")
@@ -532,6 +885,7 @@ class BulletinsView(ctk.CTkFrame):
             self.selected_classe = selected_classe
         
         print(f"Classe selectionnee: {selected_classe}")
+        self._update_eleves_list()
         self._filter_bulletins()
     
     def _on_periode_selected(self, selected_periode):
@@ -546,7 +900,79 @@ class BulletinsView(ctk.CTkFrame):
             self.selected_periode = selected_periode
         
         print(f"Periode selectionnee: {selected_periode}")
+        self._update_eleves_list()
         self._filter_bulletins()
+    
+    def _on_eleve_selected(self, selected_eleve):
+        """Gère la sélection d'un élève et affiche son bulletin détaillé"""
+        print(f"DEBUG: _on_eleve_selected appele avec: '{selected_eleve}'")
+        
+        if selected_eleve in ["Sélectionner classe et période...", "Sélectionner un élève...", "Aucun élève dans cette classe", ""]:
+            return
+        
+        # Afficher le bulletin détaillé de cet élève
+        if self.selected_classe and self.selected_periode:
+            # Récupérer l'ID de la classe (robuste)
+            classe_id = self._get_class_id_by_name(self.selected_classe)
+            
+            if not classe_id:
+                return
+            
+            # Récupérer tous les élèves de la classe
+            eleves_classe = get_all_eleves()
+            eleves_classe = [e for e in eleves_classe if self._extract_student_class_id(e) == classe_id]
+            
+            # Trouver l'élève sélectionné
+            eleve_selected = None
+            for eleve in eleves_classe:
+                if f"{eleve['nom']} {eleve['prenom']}" == selected_eleve:
+                    eleve_selected = eleve
+                    break
+            
+            if eleve_selected:
+                print(f"Affichage du bulletin détaillé de {selected_eleve}")
+                self._display_detailed_bulletin(eleve_selected)
+            else:
+                print(f"Élève non trouvé: {selected_eleve}")
+                self._show_no_bulletin_for_student(selected_eleve)
+    
+    def _update_eleves_list(self):
+        """Met à jour la liste des élèves selon la classe et période sélectionnées"""
+        if not self.selected_classe or not self.selected_periode:
+            self.eleve_dropdown.configure(values=["Sélectionner classe et période..."])
+            self.eleve_dropdown.set("Sélectionner classe et période...")
+            return
+        
+        # Récupérer l'ID de la classe (robuste)
+        classe_id = self._get_class_id_by_name(self.selected_classe)
+        
+        if not classe_id:
+            print(f"Classe non trouvée: {self.selected_classe}")
+            return
+        
+        # Récupérer tous les élèves de la classe (compat clés)
+        eleves_classe = get_all_eleves()
+        print(f"Total élèves récupérés: {len(eleves_classe)}")
+        
+        def _belongs_to_class(e):
+            return (
+                e.get('id_classe') == classe_id
+                or e.get('classe_id') == classe_id
+                or e.get('idclasse') == classe_id
+            )
+        eleves_classe = [e for e in eleves_classe if _belongs_to_class(e)]
+        print(f"Élèves filtrés pour classe {classe_id}: {len(eleves_classe)}")
+        
+        if eleves_classe:
+            eleves_list = [self._student_fullname(e) for e in eleves_classe]
+            eleves_list.sort()  # Trier par ordre alphabétique
+            self.eleve_dropdown.configure(values=eleves_list)
+            self.eleve_dropdown.set("Sélectionner un élève...")
+            print(f"{len(eleves_list)} élèves chargés pour la classe {self.selected_classe}: {eleves_list[:5]}...")
+        else:
+            self.eleve_dropdown.configure(values=["Aucun élève dans cette classe"])
+            self.eleve_dropdown.set("Aucun élève dans cette classe")
+            print(f"Aucun élève trouvé pour la classe {self.selected_classe} (ID: {classe_id})")
 
     def _filter_bulletins(self):
         """Filtre les bulletins selon les sélections"""
@@ -680,41 +1106,6 @@ class BulletinsView(ctk.CTkFrame):
         
         # Ajouter la pagination
         self._add_pagination(len(bulletins))
-        
-        # Appliquer les couleurs spéciales pour les moyennes
-        self._apply_moyenne_colors()
-    
-    def _apply_moyenne_colors(self):
-        """Applique les couleurs spéciales pour les moyennes dans le tableau"""
-        if not hasattr(self, 'bulletins_table'):
-            return
-        
-        try:
-            # Parcourir les lignes de données (en commençant par la ligne 1, pas l'en-tête)
-            for row in range(1, self.bulletins_table.rows):
-                # La colonne 3 contient les moyennes
-                try:
-                    moyenne_text = self.bulletins_table.get(row=row, column=3)
-                    if moyenne_text:
-                        try:
-                            moyenne = float(moyenne_text)
-                            # Déterminer la couleur selon la moyenne
-                            if moyenne >= 12:
-                                color = "#4CAF50"  # Vert pour bonne moyenne
-                            elif moyenne >= 10:
-                                color = "#FF9800"  # Orange pour moyenne correcte
-                            else:
-                                color = "#F44336"  # Rouge pour faible moyenne
-                            
-                            # Appliquer la couleur via la méthode update
-                            self.bulletins_table.update_value(row, 3, moyenne_text)
-                        except (ValueError, TypeError):
-                            continue
-                except Exception as e:
-                    print(f"Erreur ligne {row}: {e}")
-                    continue
-        except Exception as e:
-            print(f"Erreur application couleurs moyennes: {e}")
     
     def _add_pagination(self, total_items):
         """Ajoute la pagination sous le tableau"""
@@ -778,21 +1169,266 @@ class BulletinsView(ctk.CTkFrame):
             print(f"Bulletin sélectionné: ligne {data['row']}, colonne {data['column']}")
             # Ici vous pouvez ajouter la logique pour sélectionner/éditer un bulletin
     
-    def _generate_individual_bulletins(self):
-        """Génère des bulletins individuels complets avec toutes les notes"""
+    def _generate_bulletin_word_selected(self):
+        """Génère le bulletin Word de l'élève sélectionné"""
         if not self.selected_classe:
             messagebox.showwarning("Sélection requise", "Veuillez d'abord sélectionner une classe.")
             return
         
-        # Confirmer la génération
-        periode_text = self.selected_periode or "toutes les périodes"
-        if messagebox.askyesno("Génération des bulletins individuels", 
-                              f"Voulez-vous générer des bulletins individuels complets pour :\n\n"
-                              f"• Classe: {self.selected_classe}\n"
-                              f"• Période: {periode_text}\n\n"
-                              f"Cette action va créer des bulletins détaillés avec toutes les notes\n"
-                              f"et matières pour chaque élève."):
-            self._generate_detailed_bulletins()
+        if not self.selected_periode:
+            messagebox.showwarning("Sélection requise", "Veuillez d'abord sélectionner une période.")
+            return
+        
+        selected_eleve = self.eleve_var.get()
+        if selected_eleve in ["Sélectionner classe et période...", "Sélectionner un élève...", "Aucun élève dans cette classe", ""]:
+            messagebox.showwarning("Sélection requise", "Veuillez d'abord sélectionner un élève.")
+            return
+        
+        # Récupérer l'élève correspondant
+        classes_list = get_all_classes()
+        classe_id = None
+        for classe in classes_list:
+            if classe['nom'] == self.selected_classe:
+                classe_id = classe['id']
+                break
+        
+        if not classe_id:
+            messagebox.showerror("Erreur", "Classe non trouvée.")
+            return
+        
+        # Récupérer tous les élèves de la classe (compat clés)
+        eleves_classe = get_all_eleves()
+        def _belongs_to_class(e):
+            return (
+                e.get('id_classe') == classe_id
+                or e.get('classe_id') == classe_id
+                or e.get('idclasse') == classe_id
+            )
+        eleves_classe = [e for e in eleves_classe if _belongs_to_class(e)]
+        
+        # Trouver l'élève sélectionné
+        eleve_selected = None
+        for eleve in eleves_classe:
+            if f"{eleve['nom']} {eleve['prenom']}" == selected_eleve:
+                eleve_selected = eleve
+                break
+        
+        if eleve_selected:
+            self._generate_bulletin_word(eleve_selected, classe_id)
+        else:
+            messagebox.showerror("Erreur", "Élève non trouvé.")
+    
+    def _generate_bulletin_word(self, eleve, classe_id):
+        """Génère un bulletin au format Word pour un élève"""
+        if not DOCX_AVAILABLE:
+            messagebox.showerror("Erreur", 
+                               "La bibliothèque python-docx n'est pas installée.\n\n"
+                               "Installez-la avec: pip install python-docx")
+            return
+        
+        try:
+            # Importer localement pour éviter les warnings lorsqu'indisponible
+            from docx import Document
+            from docx.shared import Inches, Pt
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+            # Récupérer les notes de l'élève
+            eleve_id = eleve.get("id_eleve")
+            eleve_nom = eleve.get("nom", "")
+            eleve_prenom = eleve.get("prenom", "")
+            
+            notes_eleve = get_notes_by_eleve(eleve_id, trimestre=self.selected_periode)
+            
+            if not notes_eleve:
+                messagebox.showwarning("Aucune note", 
+                                     f"Aucune note trouvée pour {eleve_prenom} {eleve_nom}")
+                return
+            
+            # Calculer la moyenne et regrouper par matière
+            total_points = 0
+            total_coefficients = 0
+            matieres_notes = {}
+            
+            for note in notes_eleve:
+                note_value = float(note.get("note", 0))
+                coefficient = float(note.get("coefficient", 1))
+                matiere = note.get("nom_matiere", "Inconnue")
+                
+                if matiere not in matieres_notes:
+                    matieres_notes[matiere] = {
+                        'notes': [],
+                        'coefficient': coefficient
+                    }
+                matieres_notes[matiere]['notes'].append(note_value)
+                
+                total_points += note_value * coefficient
+                total_coefficients += coefficient
+            
+            if total_coefficients == 0:
+                messagebox.showwarning("Erreur", "Impossible de calculer la moyenne.")
+                return
+            
+            moyenne_generale = total_points / total_coefficients
+            
+            # Déterminer le rang
+            bulletins_classe = [b for b in self.bulletins 
+                              if b.get('classe_nom') == self.selected_classe 
+                              and b.get('periode') == self.selected_periode]
+            bulletins_classe.sort(key=lambda x: x.get('moyenne_generale', 0), reverse=True)
+            rang = next((i+1 for i, b in enumerate(bulletins_classe) if b.get('id_eleve') == eleve_id), 0)
+            
+            # Créer le document Word
+            self._create_bulletin_document(eleve, matieres_notes, moyenne_generale, rang, len(bulletins_classe))
+            
+        except Exception as e:
+            print(f"Erreur génération bulletin Word: {e}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Erreur", f"Erreur lors de la génération du bulletin:\n{str(e)}")
+    
+    def _create_bulletin_document(self, eleve, matieres_notes, moyenne_generale, rang, total_eleves):
+        """Crée le document Word du bulletin"""
+        doc = Document()
+        
+        # Configuration de la page
+        sections = doc.sections
+        for section in sections:
+            section.page_height = Inches(11.69)  # A4
+            section.page_width = Inches(8.27)
+            section.top_margin = Inches(0.5)
+            section.bottom_margin = Inches(0.5)
+            section.left_margin = Inches(0.75)
+            section.right_margin = Inches(0.75)
+        
+        # En-tête avec date
+        header = doc.add_paragraph()
+        header.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        run = header.add_run(f"{datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        run.font.size = Pt(9)
+        
+        # Titre principal
+        title = doc.add_heading("BULLETIN SCOLAIRE", 0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        title.runs[0].font.size = Pt(20)
+        title.runs[0].font.bold = True
+        
+        doc.add_paragraph()  # Espacement
+        
+        # Informations de l'élève
+        info_table = doc.add_table(rows=5, cols=4)
+        info_table.style = 'Table Grid'
+        
+        # Remplir les informations
+        cells = info_table.rows[0].cells
+        cells[0].text = "Nom et Prénom:"
+        cells[1].text = f"{eleve.get('nom', '')} {eleve.get('prenom', '')}"
+        cells[2].text = "Classe:"
+        cells[3].text = self.selected_classe
+        
+        cells = info_table.rows[1].cells
+        cells[0].text = "Date de naissance:"
+        cells[1].text = str(eleve.get('date_naissance', ''))
+        cells[2].text = "Période:"
+        cells[3].text = self.selected_periode
+        
+        cells = info_table.rows[2].cells
+        cells[0].text = "Genre:"
+        cells[1].text = eleve.get('sexe', '')
+        cells[2].text = "Moyenne Générale:"
+        cells[3].text = f"{moyenne_generale:.2f}/20"
+        
+        cells = info_table.rows[3].cells
+        cells[0].text = "Matricule:"
+        cells[1].text = str(eleve.get('matricule', ''))
+        cells[2].text = "Rang:"
+        cells[3].text = f"{rang}/{total_eleves}"
+        
+        cells = info_table.rows[4].cells
+        cells[0].text = "Téléphone:"
+        cells[1].text = str(eleve.get('telephone', ''))
+        cells[2].text = "Statut:"
+        cells[3].text = "Admis" if moyenne_generale >= 10 else "Ajourné"
+        
+        doc.add_paragraph()  # Espacement
+        
+        # Section Notes par matière
+        doc.add_heading("NOTES PAR MATIÈRE", level=2)
+        
+        notes_table = doc.add_table(rows=len(matieres_notes) + 1, cols=4)
+        notes_table.style = 'Table Grid'
+        
+        # En-têtes
+        header_cells = notes_table.rows[0].cells
+        header_cells[0].text = "Matière"
+        header_cells[1].text = "Moyenne"
+        header_cells[2].text = "Coefficient"
+        header_cells[3].text = "Appréciation"
+        
+        # Remplir les notes
+        for idx, (matiere, data) in enumerate(matieres_notes.items(), start=1):
+            cells = notes_table.rows[idx].cells
+            moyenne_matiere = sum(data['notes']) / len(data['notes'])
+            cells[0].text = matiere
+            cells[1].text = f"{moyenne_matiere:.2f}"
+            cells[2].text = str(data['coefficient'])
+            
+            # Appréciation selon la moyenne
+            if moyenne_matiere >= 16:
+                appreciation = "Très bien"
+            elif moyenne_matiere >= 14:
+                appreciation = "Bien"
+            elif moyenne_matiere >= 12:
+                appreciation = "Assez bien"
+            elif moyenne_matiere >= 10:
+                appreciation = "Passable"
+            else:
+                appreciation = "Insuffisant"
+            cells[3].text = appreciation
+        
+        doc.add_paragraph()  # Espacement
+        
+        # Signatures
+        doc.add_paragraph()
+        doc.add_paragraph()
+        
+        sig_table = doc.add_table(rows=2, cols=3)
+        sig_cells = sig_table.rows[0].cells
+        sig_cells[0].text = "Signature du Professeur"
+        sig_cells[1].text = "Signature du Directeur"
+        sig_cells[2].text = "Cachet de l'Établissement"
+        
+        # Ajouter de l'espace pour les signatures
+        for cell in sig_table.rows[1].cells:
+            cell.text = "\n\n\n"
+        
+        # Footer
+        footer = doc.add_paragraph()
+        footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = footer.add_run(f"\nDocument généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}")
+        run.font.size = Pt(8)
+        run.font.italic = True
+        
+        # Demander où sauvegarder
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".docx",
+            filetypes=[("Document Word", "*.docx"), ("Tous les fichiers", "*.*")],
+            initialfile=f"Bulletin_{eleve.get('nom')}_{eleve.get('prenom')}_{self.selected_periode}.docx",
+            title="Enregistrer le bulletin"
+        )
+        
+        if filename:
+            doc.save(filename)
+            messagebox.showinfo("Succès", 
+                              f"Bulletin généré avec succès !\n\n"
+                              f"Fichier: {filename}\n\n"
+                              f"Élève: {eleve.get('prenom')} {eleve.get('nom')}\n"
+                              f"Moyenne: {moyenne_generale:.2f}/20\n"
+                              f"Rang: {rang}/{total_eleves}")
+            
+            # Ouvrir le fichier
+            try:
+                os.startfile(filename)
+            except:
+                pass
     
     def _generate_detailed_bulletins(self):
         """Génère des bulletins détaillés avec toutes les notes"""
@@ -912,29 +1548,29 @@ class BulletinsView(ctk.CTkFrame):
                 # Pour l'instant, on utilise une méthode simplifiée
                 print(f"Recalcul des rangs pour classe {classe_id}, periode {periode}")
                 
-                # Grouper les bulletins par classe et période
-                bulletins_by_class_period = {}
+            # Grouper les bulletins par classe et période
+            bulletins_by_class_period = {}
+            
+            for bulletin in self.bulletins:
+                classe = bulletin.get('classe_nom', '')
+                periode_bulletin = bulletin.get('periode', '')
+                key = f"{classe}_{periode_bulletin}"
                 
-                for bulletin in self.bulletins:
-                    classe = bulletin.get('classe_nom', '')
-                    periode_bulletin = bulletin.get('periode', '')
-                    key = f"{classe}_{periode_bulletin}"
-                    
-                    if key not in bulletins_by_class_period:
-                        bulletins_by_class_period[key] = []
-                    bulletins_by_class_period[key].append(bulletin)
+                if key not in bulletins_by_class_period:
+                    bulletins_by_class_period[key] = []
+                bulletins_by_class_period[key].append(bulletin)
+            
+            # Trier par moyenne décroissante et attribuer les rangs
+            for key, bulletins_group in bulletins_by_class_period.items():
+                bulletins_group.sort(key=lambda x: x.get('moyenne_generale', 0), reverse=True)
                 
-                # Trier par moyenne décroissante et attribuer les rangs
-                for key, bulletins_group in bulletins_by_class_period.items():
-                    bulletins_group.sort(key=lambda x: x.get('moyenne_generale', 0), reverse=True)
-                    
-                    for i, bulletin in enumerate(bulletins_group, 1):
-                        bulletin['rang'] = i
-                        # Mettre à jour dans la base de données
-                        if bulletin.get('id'):
-                            update_bulletin(bulletin.get('id'), {'rang': i})
-                
-                print("Rangs recalcules avec succes")
+                for i, bulletin in enumerate(bulletins_group, 1):
+                    bulletin['rang'] = i
+                    # Mettre à jour dans la base de données
+                    if bulletin.get('id'):
+                        update_bulletin(bulletin.get('id'), {'rang': i})
+            
+            print("Rangs recalcules avec succes")
             
         except Exception as e:
             print(f"Erreur recalcul des rangs: {e}")

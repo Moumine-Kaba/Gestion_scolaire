@@ -83,21 +83,37 @@ def add_bulletin(eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_ed
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Récupérer id_classe de l'élève
-        cur.execute("SELECT id_classe FROM eleves WHERE id_eleve = ?", (eleve_id,))
-        result = cur.fetchone()
-        id_classe = result[0] if result else None
-        
-        if not id_classe:
-            print(f"Classe non trouvée pour l'élève {eleve_id}")
-            conn.close()
-            return False
-        
-        # Utiliser les bons noms de colonnes conformes au schéma
+        # Vérifier si la colonne id_classe existe dans la table bulletins
         cur.execute("""
-            INSERT INTO bulletins (id_eleve, id_classe, periode, moyenne_generale, appreciation, date_creation)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (eleve_id, id_classe, trimestre, moyenne, remarque, date_edition))
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_NAME = 'bulletins' AND COLUMN_NAME = 'id_classe'
+        """)
+        has_id_classe = cur.fetchone()[0] > 0
+        
+        if has_id_classe:
+            # Récupérer id_classe de l'élève
+            cur.execute("SELECT id_classe FROM eleves WHERE id_eleve = ?", (eleve_id,))
+            result = cur.fetchone()
+            id_classe = result[0] if result else None
+            
+            if not id_classe:
+                print(f"Classe non trouvée pour l'élève {eleve_id}")
+                conn.close()
+                return False
+            
+            # Insérer avec id_classe
+            cur.execute("""
+                INSERT INTO bulletins (id_eleve, id_classe, periode, moyenne_generale, appreciation, date_creation)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (eleve_id, id_classe, trimestre, moyenne, remarque, date_edition))
+        else:
+            # Insérer sans id_classe
+            cur.execute("""
+                INSERT INTO bulletins (id_eleve, periode, moyenne_generale, appreciation, date_creation)
+                VALUES (?, ?, ?, ?, ?)
+            """, (eleve_id, trimestre, moyenne, remarque, date_edition))
+        
         conn.commit()
         conn.close()
         return True
@@ -113,17 +129,34 @@ def update_bulletin(bulletin_id, eleve_id, annee_scolaire, trimestre, moyenne, r
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Récupérer id_classe de l'élève
-        cur.execute("SELECT id_classe FROM eleves WHERE id_eleve = ?", (eleve_id,))
-        result = cur.fetchone()
-        id_classe = result[0] if result else None
-        
-        # Utiliser les bons noms de colonnes
+        # Vérifier si la colonne id_classe existe dans la table bulletins
         cur.execute("""
-            UPDATE bulletins 
-            SET id_eleve=?, id_classe=?, periode=?, moyenne_generale=?, appreciation=?, date_creation=?
-            WHERE id_bulletin=?
-        """, (eleve_id, id_classe, trimestre, moyenne, remarque, date_edition, bulletin_id))
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_NAME = 'bulletins' AND COLUMN_NAME = 'id_classe'
+        """)
+        has_id_classe = cur.fetchone()[0] > 0
+        
+        if has_id_classe:
+            # Récupérer id_classe de l'élève
+            cur.execute("SELECT id_classe FROM eleves WHERE id_eleve = ?", (eleve_id,))
+            result = cur.fetchone()
+            id_classe = result[0] if result else None
+            
+            # Mettre à jour avec id_classe
+            cur.execute("""
+                UPDATE bulletins 
+                SET id_eleve=?, id_classe=?, periode=?, moyenne_generale=?, appreciation=?, date_creation=?
+                WHERE id_bulletin=?
+            """, (eleve_id, id_classe, trimestre, moyenne, remarque, date_edition, bulletin_id))
+        else:
+            # Mettre à jour sans id_classe
+            cur.execute("""
+                UPDATE bulletins 
+                SET id_eleve=?, periode=?, moyenne_generale=?, appreciation=?, date_creation=?
+                WHERE id_bulletin=?
+            """, (eleve_id, trimestre, moyenne, remarque, date_edition, bulletin_id))
+        
         conn.commit()
         conn.close()
         return True
