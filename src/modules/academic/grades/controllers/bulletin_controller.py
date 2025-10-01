@@ -78,28 +78,72 @@ def get_all_bulletins(eleve_id=None):
         return []
 
 def add_bulletin(eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO bulletins (eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition))
-    conn.commit()
-    conn.close()
+    """Ajoute un bulletin avec les bons noms de colonnes"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Récupérer id_classe de l'élève
+        cur.execute("SELECT id_classe FROM eleves WHERE id_eleve = ?", (eleve_id,))
+        result = cur.fetchone()
+        id_classe = result[0] if result else None
+        
+        if not id_classe:
+            print(f"Classe non trouvée pour l'élève {eleve_id}")
+            conn.close()
+            return False
+        
+        # Utiliser les bons noms de colonnes conformes au schéma
+        cur.execute("""
+            INSERT INTO bulletins (id_eleve, id_classe, periode, moyenne_generale, appreciation, date_creation)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (eleve_id, id_classe, trimestre, moyenne, remarque, date_edition))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur add_bulletin: {e}")
+        if conn:
+            conn.close()
+        return False
 
 def update_bulletin(bulletin_id, eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        UPDATE bulletins SET eleve_id=?, annee_scolaire=?, trimestre=?, moyenne=?, remarque=?, date_edition=?
-        WHERE id=?
-    """, (eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition, bulletin_id))
-    conn.commit()
-    conn.close()
+    """Met à jour un bulletin avec les bons noms de colonnes"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Récupérer id_classe de l'élève
+        cur.execute("SELECT id_classe FROM eleves WHERE id_eleve = ?", (eleve_id,))
+        result = cur.fetchone()
+        id_classe = result[0] if result else None
+        
+        # Utiliser les bons noms de colonnes
+        cur.execute("""
+            UPDATE bulletins 
+            SET id_eleve=?, id_classe=?, periode=?, moyenne_generale=?, appreciation=?, date_creation=?
+            WHERE id_bulletin=?
+        """, (eleve_id, id_classe, trimestre, moyenne, remarque, date_edition, bulletin_id))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur update_bulletin: {e}")
+        if conn:
+            conn.close()
+        return False
 
 def delete_bulletin(bulletin_id):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM bulletins WHERE id=?", (bulletin_id,))
-    conn.commit()
-    conn.close()
+    """Supprime un bulletin"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM bulletins WHERE id_bulletin=?", (bulletin_id,))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur delete_bulletin: {e}")
+        if conn:
+            conn.close()
+        return False

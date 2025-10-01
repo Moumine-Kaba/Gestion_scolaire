@@ -152,7 +152,6 @@ def get_all_bulletins():
 def add_bulletin(info: Dict):
     """Adaptateur pour l'ajout d'un bulletin.
     info attend: id_eleve, periode, moyenne_generale, rang, appreciation
-    Le contrôleur sous-jacent requiert: annee_scolaire, trimestre, remarque, date_edition
     """
     if not db_add_bulletin:
         return False
@@ -163,10 +162,14 @@ def add_bulletin(info: Dict):
         moyenne = float(info.get('moyenne_generale') or 0)
         remarque = info.get('appreciation') or ''
         date_edition = datetime.now().date()
-        db_add_bulletin(eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition)
-        return True
+        
+        # Appeler la fonction du contrôleur avec les bons paramètres
+        result = db_add_bulletin(eleve_id, annee_scolaire, trimestre, moyenne, remarque, date_edition)
+        return result if result is not None else True
     except Exception as e:
         print(f"add_bulletin adapter error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def update_bulletin(bulletin_id: int, info: Dict):
@@ -276,132 +279,200 @@ class BulletinsView(ctk.CTkFrame):
         self._build_bulletins_dashboard()
     
     def _build_selection_panel(self):
-        """Construit le panneau de sélection gauche avec design épuré et moderne"""
-        # Frame principal du panneau gauche minimaliste
+        """Construit le panneau de sélection gauche avec design élégant"""
+        # Frame principal avec gradient subtil
         left_panel = ctk.CTkFrame(self, fg_color=BG_SIDEBAR, corner_radius=0)
         left_panel.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
         left_panel.grid_columnconfigure(0, weight=1)
         left_panel.grid_rowconfigure(4, weight=1)
         
-        # En-tête ultra-minimaliste
+        # ============ HEADER ÉLÉGANT ============
         header_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
-        header_frame.grid(row=0, column=0, sticky="ew", padx=25, pady=(30, 20))
+        header_frame.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
         
-        # Icône centrée
-        icon_container = ctk.CTkFrame(header_frame, fg_color="transparent")
-        icon_container.pack()
+        # Container avec fond accent subtil
+        header_bg = ctk.CTkFrame(header_frame, fg_color=BG_CARD, corner_radius=0)
+        header_bg.pack(fill="both", expand=True, padx=0, pady=0)
         
-        newspaper_icon = load_icon('newspaper', (40, 40))
-        if newspaper_icon:
-            icon_label = ctk.CTkLabel(icon_container, image=newspaper_icon, text="")
-            icon_label.pack()
+        # Icône et titre en ligne
+        title_container = ctk.CTkFrame(header_bg, fg_color="transparent")
+        title_container.pack(pady=20, padx=25)
         
-        # Titre principal minimaliste
-        title_label = ctk.CTkLabel(header_frame, text="Bulletins", 
-                                  font=(FONT, 22, "bold"), text_color=TEXT_ACCENT)
-        title_label.pack(pady=(10, 0))
+        # Icône à gauche
+        grade_icon = load_icon('grade', (28, 28))
+        if grade_icon:
+            icon_label = ctk.CTkLabel(title_container, image=grade_icon, text="")
+            icon_label.pack(side="left", padx=(0, 12))
         
-        # Compteur de bulletins
+        # Texte à droite de l'icône
+        text_container = ctk.CTkFrame(title_container, fg_color="transparent")
+        text_container.pack(side="left")
+        
+        title_label = ctk.CTkLabel(text_container, text="Bulletins Scolaires", 
+                                  font=(FONT, 17, "bold"), text_color=TEXT_ACCENT,
+                                  anchor="w")
+        title_label.pack(anchor="w")
+        
+        # Sous-titre avec compteur
         total_bulletins = len(self.bulletins) if hasattr(self, 'bulletins') else 0
-        count_label = ctk.CTkLabel(header_frame, text=f"{total_bulletins} bulletins", 
-                                  font=(FONT, 11), text_color=TEXT_SECONDARY)
-        count_label.pack(pady=(5, 0))
+        subtitle_label = ctk.CTkLabel(text_container, 
+                                     text=f"Gestion de {total_bulletins} bulletins", 
+                                     font=(FONT, 10), text_color=TEXT_SECONDARY,
+                                     anchor="w")
+        subtitle_label.pack(anchor="w", pady=(3, 0))
         
-        # Ligne de séparation fine
-        separator1 = ctk.CTkFrame(left_panel, height=1, fg_color=BORDER_COLOR)
-        separator1.grid(row=1, column=0, sticky="ew", padx=25, pady=(0, 20))
-        
-        # Section filtres minimaliste
+        # ============ SECTION FILTRES ÉLÉGANTE ============
         filters_section = ctk.CTkFrame(left_panel, fg_color="transparent")
-        filters_section.grid(row=2, column=0, sticky="ew", padx=25, pady=(0, 20))
+        filters_section.grid(row=2, column=0, sticky="ew", padx=25, pady=(18, 0))
         filters_section.grid_columnconfigure(0, weight=1)
         
-        # Filtre classe épuré
-        ctk.CTkLabel(filters_section, text="Classe", font=(FONT, 11), 
-                    text_color=TEXT_SECONDARY).grid(row=0, column=0, sticky="w", pady=(0, 6))
+        # Titre de section avec style
+        filters_title = ctk.CTkLabel(filters_section, text="FILTRES", 
+                                     font=(FONT, 9, "bold"), text_color=TEXT_SECONDARY,
+                                     anchor="w")
+        filters_title.grid(row=0, column=0, sticky="w", pady=(0, 10))
+        
+        # Card pour les filtres
+        filters_card = ctk.CTkFrame(filters_section, fg_color=BG_CARD, corner_radius=10)
+        filters_card.grid(row=1, column=0, sticky="ew")
+        filters_card.grid_columnconfigure(0, weight=1)
+        
+        # Filtre classe dans la card
+        classe_container = ctk.CTkFrame(filters_card, fg_color="transparent")
+        classe_container.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 8))
+        classe_container.grid_columnconfigure(0, weight=1)
+        
+        ctk.CTkLabel(classe_container, text="Classe", font=(FONT, 10, "bold"), 
+                    text_color=TEXT_PRIMARY, anchor="w").grid(row=0, column=0, sticky="w", pady=(0, 5))
         
         self.classe_var = StringVar()
         classe_values = ["Toutes les classes"] + [classe['nom'] for classe in self.classes.values()]
-        self.classe_dropdown = ctk.CTkComboBox(filters_section, variable=self.classe_var, 
+        self.classe_dropdown = ctk.CTkComboBox(classe_container, variable=self.classe_var, 
                                               values=classe_values,
                                               command=self._on_classe_selected, state="readonly",
-                                              font=(FONT, 12), dropdown_font=(FONT, 11),
-                                              corner_radius=8, border_width=0,
-                                              fg_color=BG_MAIN, button_color=BG_SECONDARY, 
-                                              button_hover_color=TEXT_ACCENT,
+                                              font=(FONT, 11), dropdown_font=(FONT, 10),
+                                              corner_radius=8, border_width=1, border_color=BORDER_COLOR,
+                                              fg_color=BG_MAIN, button_color=TEXT_ACCENT, 
+                                              button_hover_color=SUCCESS_GREEN,
                                               height=38)
-        self.classe_dropdown.grid(row=1, column=0, sticky="ew", pady=(0, 15))
+        self.classe_dropdown.grid(row=1, column=0, sticky="ew")
         self.classe_dropdown.set("Toutes les classes")
         
-        # Filtre période épuré
-        ctk.CTkLabel(filters_section, text="Période", font=(FONT, 11), 
-                    text_color=TEXT_SECONDARY).grid(row=2, column=0, sticky="w", pady=(0, 6))
+        # Séparateur interne
+        sep_internal = ctk.CTkFrame(filters_card, height=1, fg_color=BORDER_COLOR)
+        sep_internal.grid(row=1, column=0, sticky="ew", padx=12, pady=0)
+        
+        # Filtre période dans la card
+        periode_container = ctk.CTkFrame(filters_card, fg_color="transparent")
+        periode_container.grid(row=2, column=0, sticky="ew", padx=12, pady=(8, 12))
+        periode_container.grid_columnconfigure(0, weight=1)
+        
+        ctk.CTkLabel(periode_container, text="Période", font=(FONT, 10, "bold"), 
+                    text_color=TEXT_PRIMARY, anchor="w").grid(row=0, column=0, sticky="w", pady=(0, 5))
         
         self.periode_var = StringVar()
         periode_values = ["Toutes les périodes"] + self.periodes
-        self.periode_dropdown = ctk.CTkComboBox(filters_section, variable=self.periode_var,
+        self.periode_dropdown = ctk.CTkComboBox(periode_container, variable=self.periode_var,
                                               values=periode_values, command=self._on_periode_selected, state="readonly",
-                                              font=(FONT, 12), dropdown_font=(FONT, 11),
-                                              corner_radius=8, border_width=0,
-                                              fg_color=BG_MAIN, button_color=BG_SECONDARY, 
-                                              button_hover_color=TEXT_ACCENT,
+                                              font=(FONT, 11), dropdown_font=(FONT, 10),
+                                              corner_radius=8, border_width=1, border_color=BORDER_COLOR,
+                                              fg_color=BG_MAIN, button_color=TEXT_ACCENT, 
+                                              button_hover_color=SUCCESS_GREEN,
                                               height=38)
-        self.periode_dropdown.grid(row=3, column=0, sticky="ew", pady=(0, 0))
+        self.periode_dropdown.grid(row=1, column=0, sticky="ew")
         self.periode_dropdown.set("Toutes les périodes")
         
-        # Ligne de séparation
-        separator2 = ctk.CTkFrame(left_panel, height=1, fg_color=BORDER_COLOR)
-        separator2.grid(row=3, column=0, sticky="ew", padx=25, pady=20)
-        
-        # Section actions minimaliste
+        # ============ SECTION ACTIONS ÉLÉGANTE ============
         actions_section = ctk.CTkFrame(left_panel, fg_color="transparent")
-        actions_section.grid(row=4, column=0, sticky="sew", padx=25, pady=(0, 25))
+        actions_section.grid(row=4, column=0, sticky="sew", padx=25, pady=(18, 25))
         actions_section.grid_columnconfigure(0, weight=1)
         
-        # Boutons d'action empilés avec design épuré
-        # Bouton Générer
-        generate_btn = ctk.CTkButton(actions_section, text="Générer les bulletins",
-                                    command=self._generate_bulletins, 
-                                    fg_color=SUCCESS_GREEN, hover_color="#80C7C5",
-                                    height=42, font=(FONT, 12, "bold"),
-                                    corner_radius=8, border_width=0)
-        generate_btn.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        # Titre de section
+        actions_title = ctk.CTkLabel(actions_section, text="ACTIONS", 
+                                     font=(FONT, 9, "bold"), text_color=TEXT_SECONDARY,
+                                     anchor="w")
+        actions_title.grid(row=0, column=0, sticky="w", pady=(0, 10))
         
-        # Bouton Générer individuels
-        generate_individual_btn = ctk.CTkButton(actions_section, text="Générer individuels",
-                                               command=self._generate_individual_bulletins, 
-                                               fg_color=ACCENT, hover_color="#4A90E2",
-                                               text_color=BG_MAIN,
-                                               height=42, font=(FONT, 12, "bold"),
-                                               corner_radius=8, border_width=0)
-        generate_individual_btn.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        # ========== Bouton Générer (primaire - vert) ==========
+        generate_icon = load_icon('generate', (18, 18))
+        generate_btn = ctk.CTkButton(
+            actions_section, 
+            text="Générer les bulletins",
+            image=generate_icon,
+            compound="left",
+            command=self._generate_bulletins, 
+            fg_color="#2ECC71", 
+            hover_color="#27AE60",
+            text_color="#FFFFFF",
+            height=45, 
+            font=(FONT, 12, "bold"),
+            corner_radius=10,
+            border_width=0,
+            anchor="center"
+        )
+        generate_btn.grid(row=1, column=0, sticky="ew", pady=(0, 8))
         
-        # Bouton Exporter Excel
-        export_btn = ctk.CTkButton(actions_section, text="Exporter Excel",
-                                  command=self._export_to_excel, 
-                                  fg_color=WARNING_YELLOW, hover_color="#E6B800",
-                                  text_color=BG_MAIN,
-                                  height=42, font=(FONT, 12, "bold"),
-                                  corner_radius=8, border_width=0)
-        export_btn.grid(row=2, column=0, sticky="ew", pady=(0, 10))
+        # ========== Bouton Bulletins individuels (bleu) ==========
+        individual_icon = load_icon('person', (18, 18))
+        generate_individual_btn = ctk.CTkButton(
+            actions_section, 
+            text="Bulletins individuels",
+            image=individual_icon,
+            compound="left",
+            command=self._generate_individual_bulletins, 
+            fg_color="#3498DB", 
+            hover_color="#2980B9",
+            text_color="#FFFFFF",
+            height=45, 
+            font=(FONT, 12, "bold"),
+            corner_radius=10,
+            border_width=0,
+            anchor="center"
+        )
+        generate_individual_btn.grid(row=2, column=0, sticky="ew", pady=(0, 8))
         
-        # Bouton Rafraîchir
-        refresh_all_btn = ctk.CTkButton(actions_section, text="Actualiser",
-                                       command=self._refresh_all, 
-                                       fg_color=BG_SECONDARY, hover_color=TEXT_ACCENT,
-                                       text_color=TEXT_PRIMARY,
-                                       height=42, font=(FONT, 12),
-                                       corner_radius=8, border_width=0)
-        refresh_all_btn.grid(row=3, column=0, sticky="ew", pady=(0, 0))
+        # ========== Bouton Exporter Excel (orange) ==========
+        export_icon = load_icon('export', (18, 18))
+        export_btn = ctk.CTkButton(
+            actions_section, 
+            text="Exporter vers Excel",
+            image=export_icon,
+            compound="left",
+            command=self._export_to_excel, 
+            fg_color="#E67E22", 
+            hover_color="#D35400",
+            text_color="#FFFFFF",
+            height=45, 
+            font=(FONT, 12, "bold"),
+            corner_radius=10,
+            border_width=0,
+            anchor="center"
+        )
+        export_btn.grid(row=3, column=0, sticky="ew", pady=(0, 12))
         
-        # Statistiques
-        stats_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
-        stats_frame.grid(row=4, column=0, sticky="ew", padx=MARGIN_MEDIUM, pady=MARGIN_SMALL)
-        stats_frame.grid_columnconfigure(0, weight=1)
+        # Séparateur élégant avant le bouton actualiser
+        sep_actions = ctk.CTkFrame(actions_section, height=1, fg_color=BORDER_COLOR)
+        sep_actions.grid(row=4, column=0, sticky="ew", pady=(3, 10))
         
-        self.stats_label = ctk.CTkLabel(stats_frame, text="Sélectionnez une classe et une période", 
-                                       font=F_SMALL, text_color=TEXT_SECONDARY)
-        self.stats_label.grid(row=0, column=0, sticky="ew")
+        # ========== Bouton Actualiser (outline style) ==========
+        refresh_icon = load_icon('refresh', (16, 16))
+        refresh_all_btn = ctk.CTkButton(
+            actions_section, 
+            text="Actualiser",
+            image=refresh_icon,
+            compound="left",
+            command=self._refresh_all, 
+            fg_color="transparent", 
+            hover_color=BG_CARD,
+            text_color=TEXT_ACCENT, 
+            border_color=TEXT_ACCENT,
+            height=42, 
+            font=(FONT, 11, "bold"),
+            corner_radius=10,
+            border_width=2,
+            anchor="center"
+        )
+        refresh_all_btn.grid(row=5, column=0, sticky="ew")
     
     def _build_bulletins_dashboard(self):
         """Construit le tableau des bulletins"""
@@ -815,8 +886,9 @@ class BulletinsView(ctk.CTkFrame):
                     else:
                         print(f"Erreur generation bulletin pour {eleve_prenom} {eleve_nom}")
             
-            # Recalculer les rangs
-            self._recalculate_ranks()
+            # Recalculer les rangs pour la classe et période sélectionnées
+            if classe_id and self.selected_periode:
+                self._recalculate_ranks(classe_id, self.selected_periode)
             
             messagebox.showinfo("Génération terminée", 
                               f"Génération des bulletins individuels terminée !\n\n"
@@ -831,37 +903,38 @@ class BulletinsView(ctk.CTkFrame):
             print(f"Erreur generation bulletins individuels: {e}")
             messagebox.showerror("Erreur", f"Erreur lors de la génération des bulletins individuels:\n{str(e)}")
     
-    def _recalculate_ranks(self):
+    def _recalculate_ranks(self, classe_id, periode):
         """Recalcule les rangs des bulletins par classe et période"""
         try:
-            # Recharger les bulletins depuis la base
-            self.bulletins = get_all_bulletins()
-            
-            # Grouper les bulletins par classe et période
-            bulletins_by_class_period = {}
-            
-            for bulletin in self.bulletins:
-                classe = bulletin.get('classe_nom', '')
-                periode = bulletin.get('periode', '')
-                key = f"{classe}_{periode}"
+            # Utiliser le contrôleur pour recalculer les classements
+            if hasattr(self.bulletins_controller, 'calcul_controller'):
+                # Récupérer l'ID de période si nécessaire
+                # Pour l'instant, on utilise une méthode simplifiée
+                print(f"Recalcul des rangs pour classe {classe_id}, periode {periode}")
                 
-                if key not in bulletins_by_class_period:
-                    bulletins_by_class_period[key] = []
-                bulletins_by_class_period[key].append(bulletin)
-            
-            # Trier par moyenne décroissante et attribuer les rangs
-            for key, bulletins_group in bulletins_by_class_period.items():
-                bulletins_group.sort(key=lambda x: x.get('moyenne_generale', 0), reverse=True)
+                # Grouper les bulletins par classe et période
+                bulletins_by_class_period = {}
                 
-                for i, bulletin in enumerate(bulletins_group, 1):
-                    bulletin['rang'] = i
-                    # Mettre à jour dans la base de données
-                    try:
-                        update_bulletin(bulletin.get('id'), {'rang': i})
-                    except Exception as e:
-                        print(f"Erreur mise à jour rang pour bulletin {bulletin.get('id')}: {e}")
-            
-            print("Rangs recalcules avec succes")
+                for bulletin in self.bulletins:
+                    classe = bulletin.get('classe_nom', '')
+                    periode_bulletin = bulletin.get('periode', '')
+                    key = f"{classe}_{periode_bulletin}"
+                    
+                    if key not in bulletins_by_class_period:
+                        bulletins_by_class_period[key] = []
+                    bulletins_by_class_period[key].append(bulletin)
+                
+                # Trier par moyenne décroissante et attribuer les rangs
+                for key, bulletins_group in bulletins_by_class_period.items():
+                    bulletins_group.sort(key=lambda x: x.get('moyenne_generale', 0), reverse=True)
+                    
+                    for i, bulletin in enumerate(bulletins_group, 1):
+                        bulletin['rang'] = i
+                        # Mettre à jour dans la base de données
+                        if bulletin.get('id'):
+                            update_bulletin(bulletin.get('id'), {'rang': i})
+                
+                print("Rangs recalcules avec succes")
             
         except Exception as e:
             print(f"Erreur recalcul des rangs: {e}")
