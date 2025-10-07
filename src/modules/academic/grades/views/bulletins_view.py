@@ -348,6 +348,24 @@ class BulletinsView(ctk.CTkFrame):
             self.bulletins = get_all_bulletins()
             print(f"{len(self.bulletins)} bulletins charges")
             
+            # Debug: Afficher la structure des premiers bulletins
+            if self.bulletins:
+                print("DEBUG: Structure du premier bulletin:")
+                first_bulletin = self.bulletins[0]
+                for key, value in first_bulletin.items():
+                    print(f"  {key}: {value}")
+                
+                # Afficher les classes uniques dans les bulletins
+                classes_in_bulletins = set()
+                for bulletin in self.bulletins:
+                    classe_nom = bulletin.get('classe_nom', '')
+                    if classe_nom:
+                        classes_in_bulletins.add(classe_nom)
+                print(f"DEBUG: Classes trouvees dans les bulletins: {sorted(classes_in_bulletins)}")
+                
+                # Corriger les bulletins qui n'ont pas de classe_nom
+                self._fix_missing_classe_names()
+            
             print("Donnees bulletins chargees avec succes")
             
         except Exception as e:
@@ -556,9 +574,29 @@ class BulletinsView(ctk.CTkFrame):
         )
         export_btn.grid(row=2, column=0, sticky="ew", pady=(0, 12))
         
-        # Séparateur élégant avant le bouton actualiser
+        # Séparateur élégant avant les boutons outline
         sep_actions = ctk.CTkFrame(actions_section, height=1, fg_color=BORDER_COLOR)
         sep_actions.grid(row=3, column=0, sticky="ew", pady=(3, 10))
+        
+        # ========== Bouton Générer Bulletins (outline style) ==========
+        generate_icon = load_icon('add', (16, 16))
+        generate_bulletins_btn = ctk.CTkButton(
+            actions_section, 
+            text="Générer Bulletins",
+            image=generate_icon,
+            compound="left",
+            command=self._generate_all_bulletins, 
+            fg_color="transparent", 
+            hover_color=BG_CARD,
+            text_color=TEXT_ACCENT, 
+            border_color=TEXT_ACCENT,
+            height=42, 
+            font=(FONT, 11, "bold"),
+            corner_radius=10,
+            border_width=2,
+            anchor="center"
+        )
+        generate_bulletins_btn.grid(row=4, column=0, sticky="ew", pady=(0, 8))
         
         # ========== Bouton Actualiser (outline style) ==========
         refresh_icon = load_icon('refresh', (16, 16))
@@ -578,7 +616,67 @@ class BulletinsView(ctk.CTkFrame):
             border_width=2,
             anchor="center"
         )
-        refresh_all_btn.grid(row=4, column=0, sticky="ew")
+        refresh_all_btn.grid(row=5, column=0, sticky="ew")
+        
+        # ========== Bouton Recalculer Rangs (outline style) ==========
+        recalc_icon = load_icon('sort', (16, 16))
+        recalc_ranks_btn = ctk.CTkButton(
+            actions_section, 
+            text="Recalculer Rangs",
+            image=recalc_icon,
+            compound="left",
+            command=self._recalculate_ranks_ui, 
+            fg_color="transparent", 
+            hover_color=BG_CARD,
+            text_color=WARNING_ORANGE, 
+            border_color=WARNING_ORANGE,
+            height=42, 
+            font=(FONT, 11, "bold"),
+            corner_radius=10,
+            border_width=2,
+            anchor="center"
+        )
+        recalc_ranks_btn.grid(row=6, column=0, sticky="ew", pady=(8, 0))
+        
+        # ========== Bouton Régénérer Bulletins par Trimestre (outline style) ==========
+        regenerate_icon = load_icon('generate', (16, 16))
+        regenerate_bulletins_btn = ctk.CTkButton(
+            actions_section, 
+            text="Régénérer par Trimestre",
+            image=regenerate_icon,
+            compound="left",
+            command=self._regenerate_bulletins_by_trimestre_ui, 
+            fg_color="transparent", 
+            hover_color=BG_CARD,
+            text_color=SUCCESS_GREEN, 
+            border_color=SUCCESS_GREEN,
+            height=42, 
+            font=(FONT, 11, "bold"),
+            corner_radius=10,
+            border_width=2,
+            anchor="center"
+        )
+        regenerate_bulletins_btn.grid(row=7, column=0, sticky="ew", pady=(8, 0))
+        
+        # ========== Bouton Générer Tous les Trimestres (outline style) ==========
+        generate_all_icon = load_icon('generate', (16, 16))
+        generate_all_trimestres_btn = ctk.CTkButton(
+            actions_section, 
+            text="Générer Tous Trimestres",
+            image=generate_all_icon,
+            compound="left",
+            command=self._generate_all_trimestres_ui, 
+            fg_color="transparent", 
+            hover_color=BG_CARD,
+            text_color=ACCENT, 
+            border_color=ACCENT,
+            height=42, 
+            font=(FONT, 11, "bold"),
+            corner_radius=10,
+            border_width=2,
+            anchor="center"
+        )
+        generate_all_trimestres_btn.grid(row=8, column=0, sticky="ew", pady=(8, 0))
     
     def _build_bulletins_dashboard(self):
         """Construit le tableau des bulletins"""
@@ -736,7 +834,7 @@ class BulletinsView(ctk.CTkFrame):
             self._show_no_bulletin_for_student(f"{eleve.get('prenom', '')} {eleve.get('nom', '')}")
     
     def _create_detailed_bulletin_ui(self, eleve, matieres_notes, moyenne_generale, mention, mention_color, rang, total_eleves):
-        """Crée l'interface utilisateur du bulletin détaillé"""
+        """Crée l'interface utilisateur du bulletin détaillé avec export Excel"""
         # Frame principal avec scroll
         main_frame = ctk.CTkScrollableFrame(self.table_frame, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -745,12 +843,32 @@ class BulletinsView(ctk.CTkFrame):
         header_frame = ctk.CTkFrame(main_frame, fg_color=BG_CARD, corner_radius=12)
         header_frame.pack(fill="x", pady=(0, 20))
         
-        # Titre
-        title_label = ctk.CTkLabel(header_frame, 
+        # Titre avec bouton d'export
+        title_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        title_frame.pack(fill="x", padx=20, pady=20)
+        
+        title_label = ctk.CTkLabel(title_frame, 
                                   text="BULLETIN SCOLAIRE INDIVIDUEL",
                                   font=(FONT, 20, "bold"),
                                   text_color=TEXT_ACCENT)
-        title_label.pack(pady=20)
+        title_label.pack(side="left")
+        
+        # Bouton d'export Excel
+        export_icon = load_icon('export', (16, 16))
+        export_btn = ctk.CTkButton(
+            title_frame,
+            text="Exporter Excel",
+            image=export_icon,
+            compound="left",
+            font=(FONT, 12, "bold"),
+            fg_color="#4CAF50",
+            hover_color="#45a049",
+            text_color="white",
+            corner_radius=8,
+            height=35,
+            command=lambda: self._export_individual_bulletin_excel(eleve, matieres_notes, moyenne_generale, mention, rang, total_eleves)
+        )
+        export_btn.pack(side="right", padx=(10, 0))
         
         # Informations de l'élève
         info_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
@@ -863,6 +981,89 @@ class BulletinsView(ctk.CTkFrame):
         
         notes_table.pack(padx=20, pady=(0, 20), fill="x")
         
+        # Section d'appréciation générale
+        appreciation_frame = ctk.CTkFrame(main_frame, fg_color=BG_CARD, corner_radius=12)
+        appreciation_frame.pack(fill="x", pady=(0, 20))
+        
+        # Titre de la section
+        appreciation_title = ctk.CTkLabel(appreciation_frame, 
+                                        text="APPRÉCIATION GÉNÉRALE",
+                                        font=(FONT, 16, "bold"),
+                                        text_color=TEXT_ACCENT)
+        appreciation_title.pack(pady=15)
+        
+        # Appréciation détaillée
+        appreciation_text = self._generate_appreciation_text(moyenne_generale, mention, rang, total_eleves)
+        
+        appreciation_content = ctk.CTkLabel(appreciation_frame,
+                                          text=appreciation_text,
+                                          font=(FONT, 12),
+                                          text_color=TEXT_PRIMARY,
+                                          justify="left",
+                                          wraplength=600)
+        appreciation_content.pack(padx=20, pady=(0, 20))
+        
+        # Section des statistiques
+        stats_frame = ctk.CTkFrame(main_frame, fg_color=BG_CARD, corner_radius=12)
+        stats_frame.pack(fill="x", pady=(0, 20))
+        
+        stats_title = ctk.CTkLabel(stats_frame, 
+                                  text="STATISTIQUES DE PERFORMANCE",
+                                  font=(FONT, 16, "bold"),
+                                  text_color=TEXT_ACCENT)
+        stats_title.pack(pady=15)
+        
+        # Grille des statistiques
+        stats_grid = ctk.CTkFrame(stats_frame, fg_color="transparent")
+        stats_grid.pack(fill="x", padx=20, pady=(0, 20))
+        
+        # Calculer les statistiques
+        total_matieres = len(matieres_notes)
+        matieres_excellentes = sum(1 for data in matieres_notes.values() 
+                                 if sum(data['notes']) / len(data['notes']) >= 16)
+        matieres_bonnes = sum(1 for data in matieres_notes.values() 
+                            if 14 <= sum(data['notes']) / len(data['notes']) < 16)
+        matieres_moyennes = sum(1 for data in matieres_notes.values() 
+                              if 10 <= sum(data['notes']) / len(data['notes']) < 14)
+        matieres_faibles = total_matieres - matieres_excellentes - matieres_bonnes - matieres_moyennes
+        
+        # Ligne 1 des statistiques
+        stats_row1 = ctk.CTkFrame(stats_grid, fg_color="transparent")
+        stats_row1.pack(fill="x", pady=5)
+        
+        ctk.CTkLabel(stats_row1, text="Total des matières:", font=(FONT, 12, "bold"), 
+                    text_color=TEXT_PRIMARY).pack(side="left")
+        ctk.CTkLabel(stats_row1, text=str(total_matieres), 
+                    font=(FONT, 12), text_color=TEXT_SECONDARY).pack(side="left", padx=(10, 0))
+        
+        ctk.CTkLabel(stats_row1, text="Matières excellentes (≥16):", font=(FONT, 12, "bold"), 
+                    text_color=TEXT_PRIMARY).pack(side="right")
+        ctk.CTkLabel(stats_row1, text=str(matieres_excellentes), 
+                    font=(FONT, 12), text_color="#4CAF50").pack(side="right", padx=(10, 0))
+        
+        # Ligne 2 des statistiques
+        stats_row2 = ctk.CTkFrame(stats_grid, fg_color="transparent")
+        stats_row2.pack(fill="x", pady=5)
+        
+        ctk.CTkLabel(stats_row2, text="Matières bonnes (14-15.9):", font=(FONT, 12, "bold"), 
+                    text_color=TEXT_PRIMARY).pack(side="left")
+        ctk.CTkLabel(stats_row2, text=str(matieres_bonnes), 
+                    font=(FONT, 12), text_color="#2196F3").pack(side="left", padx=(10, 0))
+        
+        ctk.CTkLabel(stats_row2, text="Matières moyennes (10-13.9):", font=(FONT, 12, "bold"), 
+                    text_color=TEXT_PRIMARY).pack(side="right")
+        ctk.CTkLabel(stats_row2, text=str(matieres_moyennes), 
+                    font=(FONT, 12), text_color="#FF9800").pack(side="right", padx=(10, 0))
+        
+        # Ligne 3 des statistiques
+        stats_row3 = ctk.CTkFrame(stats_grid, fg_color="transparent")
+        stats_row3.pack(fill="x", pady=5)
+        
+        ctk.CTkLabel(stats_row3, text="Matières à améliorer (<10):", font=(FONT, 12, "bold"), 
+                    text_color=TEXT_PRIMARY).pack(side="left")
+        ctk.CTkLabel(stats_row3, text=str(matieres_faibles), 
+                    font=(FONT, 12), text_color="#F44336").pack(side="left", padx=(10, 0))
+        
         # Footer avec date
         footer_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         footer_frame.pack(fill="x", pady=10)
@@ -872,6 +1073,88 @@ class BulletinsView(ctk.CTkFrame):
                                    font=(FONT, 9),
                                    text_color=TEXT_SECONDARY)
         footer_label.pack()
+    
+    def _generate_appreciation_text(self, moyenne_generale, mention, rang, total_eleves):
+        """Génère une appréciation personnalisée basée sur les performances de l'élève"""
+        if moyenne_generale >= 16:
+            base_text = f"Excellente performance ! {mention} avec une moyenne de {moyenne_generale:.2f}/20. "
+            if rang <= 3:
+                base_text += f"Félicitations pour votre {rang}e place sur {total_eleves} élèves. "
+            base_text += "Votre travail assidu et votre rigueur sont remarquables. Continuez sur cette excellente voie !"
+            
+        elif moyenne_generale >= 14:
+            base_text = f"Très bonne performance ! {mention} avec une moyenne de {moyenne_generale:.2f}/20. "
+            if rang <= total_eleves * 0.3:
+                base_text += f"Vous figurez parmi les meilleurs élèves de la classe (rang {rang}/{total_eleves}). "
+            base_text += "Votre investissement porte ses fruits. Maintenez cet effort pour progresser encore !"
+            
+        elif moyenne_generale >= 12:
+            base_text = f"Bonne performance ! {mention} avec une moyenne de {moyenne_generale:.2f}/20. "
+            if rang <= total_eleves * 0.5:
+                base_text += f"Vous êtes dans la première moitié de la classe (rang {rang}/{total_eleves}). "
+            base_text += "Votre travail est satisfaisant. Quelques efforts supplémentaires vous permettront d'améliorer encore vos résultats."
+            
+        elif moyenne_generale >= 10:
+            base_text = f"Performance acceptable ! {mention} avec une moyenne de {moyenne_generale:.2f}/20. "
+            base_text += f"Rang {rang}/{total_eleves}. Votre niveau est passable mais des efforts sont nécessaires pour progresser. "
+            base_text += "Concentrez-vous sur les matières où vous avez des difficultés et n'hésitez pas à demander de l'aide."
+            
+        else:
+            base_text = f"Performance insuffisante avec une moyenne de {moyenne_generale:.2f}/20. "
+            base_text += f"Rang {rang}/{total_eleves}. Des efforts importants sont nécessaires pour améliorer vos résultats. "
+            base_text += "Il est recommandé de revoir les bases et de travailler régulièrement. N'hésitez pas à solliciter l'aide de vos enseignants."
+        
+        return base_text
+    
+    def _clean_appreciation(self, appreciation, moyenne):
+        """Nettoie et formate l'appréciation pour l'affichage dans le tableau"""
+        if not appreciation:
+            # Générer une appréciation basée sur la moyenne si aucune n'existe
+            if moyenne >= 16:
+                return "Très bien"
+            elif moyenne >= 14:
+                return "Bien"
+            elif moyenne >= 12:
+                return "Assez bien"
+            elif moyenne >= 10:
+                return "Passable"
+            else:
+                return "Insuffisant"
+        
+        # Nettoyer les appréciations trop longues ou mal formatées
+        appreciation = appreciation.strip()
+        
+        # Si l'appréciation contient du texte descriptif, extraire seulement la mention
+        if "Bulletin individuel" in appreciation or "matières" in appreciation:
+            # Extraire la mention à la fin
+            if "Très bien" in appreciation:
+                return "Très bien"
+            elif "Bien" in appreciation:
+                return "Bien"
+            elif "Assez bien" in appreciation:
+                return "Assez bien"
+            elif "Passable" in appreciation:
+                return "Passable"
+            elif "Insuffisant" in appreciation:
+                return "Insuffisant"
+            else:
+                # Fallback basé sur la moyenne
+                if moyenne >= 16:
+                    return "Très bien"
+                elif moyenne >= 14:
+                    return "Bien"
+                elif moyenne >= 12:
+                    return "Assez bien"
+                elif moyenne >= 10:
+                    return "Passable"
+                else:
+                    return "Insuffisant"
+        
+        # Limiter la longueur de l'appréciation
+        if len(appreciation) > 20:
+            return appreciation[:17] + "..."
+        
+        return appreciation
     
     def _on_classe_selected(self, selected_classe):
         """Gère la sélection d'une classe"""
@@ -978,6 +1261,9 @@ class BulletinsView(ctk.CTkFrame):
         """Filtre les bulletins selon les sélections"""
         print(f"DEBUG: _filter_bulletins appele - classe: '{self.selected_classe}', periode: '{self.selected_periode}'")
         
+        # Réinitialiser la pagination à chaque nouveau filtrage
+        self.current_page = 1
+        
         if not self.selected_classe and not self.selected_periode:
             print("DEBUG: Aucune selection - affichage message")
             self._show_no_selection_message()
@@ -991,6 +1277,19 @@ class BulletinsView(ctk.CTkFrame):
             if self.selected_classe and self.selected_classe != "Toutes les classes":
                 # Utiliser directement classe_nom du bulletin
                 bulletin_classe = bulletin.get('classe_nom', '')
+                
+                # Debug limité (seulement les 3 premiers)
+                if len(filtered_bulletins) < 3:
+                    print(f"DEBUG: Comparaison - Bulletin classe: '{bulletin_classe}' vs Selection: '{self.selected_classe}'")
+                
+                # Si classe_nom est vide, essayer de récupérer la classe via l'ID élève
+                if not bulletin_classe:
+                    eleve_id = bulletin.get('id_eleve')
+                    if eleve_id:
+                        bulletin_classe = self._get_eleve_classe_name(eleve_id)
+                        if len(filtered_bulletins) < 5:
+                            print(f"DEBUG: Classe recuperee via ID eleve {eleve_id}: '{bulletin_classe}'")
+                
                 if bulletin_classe != self.selected_classe:
                     continue
             
@@ -1003,20 +1302,902 @@ class BulletinsView(ctk.CTkFrame):
         
         print(f"DEBUG: {len(filtered_bulletins)} bulletins filtres sur {len(self.bulletins)} total")
         
-        # Afficher les bulletins filtrés
-        self._display_bulletins(filtered_bulletins)
+        # Debug: Afficher les détails des bulletins filtrés
+        if filtered_bulletins:
+            print(f"DEBUG: Bulletins pour '{self.selected_classe}' - {self.selected_periode}:")
+            for i, bulletin in enumerate(filtered_bulletins[:5]):  # Afficher les 5 premiers
+                eleve_nom = self._get_eleve_name(bulletin.get('id_eleve'))
+                rang = bulletin.get('rang', 0)
+                moyenne = bulletin.get('moyenne_generale', 0)
+                print(f"  {i+1}. {eleve_nom} - Rang: {rang} - Moyenne: {moyenne}")
+            if len(filtered_bulletins) > 5:
+                print(f"  ... et {len(filtered_bulletins) - 5} autres")
+        
+        # Si aucun bulletin trouvé pour une classe spécifique, proposer de les générer
+        if len(filtered_bulletins) == 0 and self.selected_classe and self.selected_classe != "Toutes les classes":
+            self._show_generate_bulletins_option()
+        else:
+            # Recalculer les rangs si nécessaire avant affichage
+            if filtered_bulletins:
+                self._ensure_ranks_are_calculated(filtered_bulletins)
+            
+            # Afficher les bulletins filtrés
+            self._display_bulletins(filtered_bulletins)
+    
+    def _ensure_ranks_are_calculated(self, bulletins):
+        """S'assure que les rangs sont correctement calculés pour les bulletins"""
+        try:
+            # Grouper les bulletins par classe et période
+            bulletins_by_class_period = {}
+            for bulletin in bulletins:
+                classe_nom = bulletin.get('classe_nom', '')
+                periode = bulletin.get('periode', '')
+                key = f"{classe_nom}_{periode}"
+                
+                if key not in bulletins_by_class_period:
+                    bulletins_by_class_period[key] = []
+                bulletins_by_class_period[key].append(bulletin)
+            
+            # Recalculer les rangs pour chaque groupe
+            for key, bulletins_group in bulletins_by_class_period.items():
+                # Trier par moyenne décroissante
+                bulletins_group.sort(key=lambda x: x.get('moyenne_generale', 0), reverse=True)
+                
+                # Assigner les rangs
+                for i, bulletin in enumerate(bulletins_group):
+                    bulletin['rang'] = i + 1
+                    
+                print(f"DEBUG: Rangs recalculés pour {key}: {len(bulletins_group)} bulletins")
+                
+        except Exception as e:
+            print(f"Erreur lors du recalcul des rangs: {e}")
+    
+    def _recalculate_ranks_in_db(self, classe_nom, periode):
+        """Recalcule les rangs en base de données pour une classe et période spécifiques"""
+        try:
+            from database.connection import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Récupérer l'ID de la classe
+            cursor.execute("SELECT id_classe FROM classes WHERE nom = ?", (classe_nom,))
+            classe_result = cursor.fetchone()
+            if not classe_result:
+                print(f"Classe '{classe_nom}' non trouvée en base")
+                return
+            
+            classe_id = classe_result[0]
+            
+            # Récupérer tous les bulletins de la classe et période, triés par moyenne décroissante
+            cursor.execute("""
+                SELECT b.id_bulletin, b.id_eleve, b.moyenne_generale
+                FROM bulletins b
+                JOIN eleves e ON b.id_eleve = e.id_eleve
+                WHERE e.id_classe = ? AND b.periode = ?
+                ORDER BY b.moyenne_generale DESC
+            """, (classe_id, periode))
+            
+            bulletins = cursor.fetchall()
+            
+            # Mettre à jour les rangs
+            for i, (bulletin_id, eleve_id, moyenne) in enumerate(bulletins):
+                rang = i + 1
+                cursor.execute("""
+                    UPDATE bulletins SET rang = ? WHERE id_bulletin = ?
+                """, (rang, bulletin_id))
+            
+            conn.commit()
+            conn.close()
+            print(f"Rangs recalculés en base pour la classe {classe_nom} - {periode} ({len(bulletins)} bulletins)")
+            
+        except Exception as e:
+            print(f"Erreur lors du recalcul des rangs en base: {e}")
+    
+    def _recalculate_ranks_in_db_by_classe_id(self, classe_id, periode):
+        """Recalcule les rangs en base de données pour une classe et période spécifiques (par ID classe)"""
+        try:
+            from database.connection import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Récupérer tous les bulletins de la classe et période, triés par moyenne décroissante
+            cursor.execute("""
+                SELECT b.id_bulletin, b.id_eleve, b.moyenne_generale
+                FROM bulletins b
+                JOIN eleves e ON b.id_eleve = e.id_eleve
+                WHERE e.id_classe = ? AND b.periode = ?
+                ORDER BY b.moyenne_generale DESC
+            """, (classe_id, periode))
+            
+            bulletins = cursor.fetchall()
+            
+            # Mettre à jour les rangs
+            for i, (bulletin_id, eleve_id, moyenne) in enumerate(bulletins):
+                rang = i + 1
+                cursor.execute("""
+                    UPDATE bulletins SET rang = ? WHERE id_bulletin = ?
+                """, (rang, bulletin_id))
+            
+            conn.commit()
+            conn.close()
+            print(f"Rangs recalculés en base pour la classe ID {classe_id} - {periode} ({len(bulletins)} bulletins)")
+            
+        except Exception as e:
+            print(f"Erreur lors du recalcul des rangs en base pour classe ID {classe_id}: {e}")
+    
+    def _recalculate_ranks_ui(self):
+        """Interface utilisateur pour recalculer les rangs"""
+        if not self.selected_classe or not self.selected_periode:
+            messagebox.showwarning("Sélection requise", 
+                                 "Veuillez d'abord sélectionner une classe et une période.")
+            return
+        
+        # Demander confirmation
+        result = messagebox.askyesno(
+            "Recalculer les rangs", 
+            f"Voulez-vous recalculer les rangs pour la classe '{self.selected_classe}' "
+            f"et la période '{self.selected_periode}' ?\n\n"
+            "Cette action mettra à jour les rangs en base de données."
+        )
+        
+        if result:
+            try:
+                # Recalculer les rangs en base de données
+                self._recalculate_ranks_in_db(self.selected_classe, self.selected_periode)
+                
+                # Recharger les données et actualiser l'affichage
+                self._load_data()
+                self._filter_bulletins()
+                
+                messagebox.showinfo("Succès", 
+                                  f"Les rangs ont été recalculés avec succès pour "
+                                  f"la classe '{self.selected_classe}' et la période '{self.selected_periode}'.")
+                
+            except Exception as e:
+                messagebox.showerror("Erreur", 
+                                   f"Erreur lors du recalcul des rangs:\n{str(e)}")
+    
+    def _regenerate_bulletins_by_trimestre_ui(self):
+        """Interface utilisateur pour régénérer les bulletins par trimestre"""
+        if not self.selected_periode:
+            messagebox.showwarning("Sélection requise", 
+                                 "Veuillez d'abord sélectionner une période (trimestre).")
+            return
+        
+        # Demander confirmation
+        result = messagebox.askyesno(
+            "Régénérer les bulletins par trimestre", 
+            f"Voulez-vous régénérer TOUS les bulletins pour le '{self.selected_periode}' ?\n\n"
+            "Cette action va :\n"
+            "• Supprimer tous les bulletins existants pour ce trimestre\n"
+            "• Recalculer les moyennes depuis les notes\n"
+            "• Générer de nouveaux bulletins pour toutes les classes\n"
+            "• Calculer les rangs correctement"
+        )
+        
+        if result:
+            try:
+                # Supprimer tous les bulletins existants pour ce trimestre
+                self._delete_all_bulletins_for_trimestre(self.selected_periode)
+                
+                # Générer les bulletins pour toutes les classes de ce trimestre
+                self._generate_bulletins_for_trimestre(self.selected_periode)
+                
+                messagebox.showinfo("Succès", 
+                                  f"Les bulletins ont été régénérés avec succès pour "
+                                  f"le '{self.selected_periode}'.\n\n"
+                                  f"Toutes les classes ont été traitées avec les moyennes recalculées.")
+                
+            except Exception as e:
+                messagebox.showerror("Erreur", 
+                                   f"Erreur lors de la régénération des bulletins:\n{str(e)}")
+    
+    def _delete_bulletins_for_class_period(self, classe_nom, periode):
+        """Supprime les bulletins existants pour une classe et période spécifiques"""
+        try:
+            from database.connection import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Récupérer l'ID de la classe
+            cursor.execute("SELECT id_classe FROM classes WHERE nom = ?", (classe_nom,))
+            classe_result = cursor.fetchone()
+            if not classe_result:
+                print(f"Classe '{classe_nom}' non trouvée en base")
+                return
+            
+            classe_id = classe_result[0]
+            
+            # Supprimer les bulletins de la classe et période
+            cursor.execute("""
+                DELETE FROM bulletins 
+                WHERE id_eleve IN (
+                    SELECT id_eleve FROM eleves WHERE id_classe = ?
+                ) AND periode = ?
+            """, (classe_id, periode))
+            
+            deleted_count = cursor.rowcount
+            conn.commit()
+            conn.close()
+            print(f"Supprimé {deleted_count} bulletins pour la classe {classe_nom} - {periode}")
+            
+        except Exception as e:
+            print(f"Erreur lors de la suppression des bulletins: {e}")
+    
+    def _delete_all_bulletins_for_trimestre(self, trimestre):
+        """Supprime tous les bulletins existants pour un trimestre donné"""
+        try:
+            from database.connection import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Supprimer tous les bulletins du trimestre
+            cursor.execute("DELETE FROM bulletins WHERE periode = ?", (trimestre,))
+            
+            deleted_count = cursor.rowcount
+            conn.commit()
+            conn.close()
+            print(f"Supprimé {deleted_count} bulletins pour le trimestre {trimestre}")
+            
+        except Exception as e:
+            print(f"Erreur lors de la suppression des bulletins pour le trimestre {trimestre}: {e}")
+    
+    def _generate_bulletins_for_trimestre(self, trimestre):
+        """Génère les bulletins pour toutes les classes d'un trimestre donné"""
+        try:
+            from src.modules.academic.classes.controllers.classe_controller import get_all_classes
+            from src.modules.academic.students.controllers.eleve_controller import get_all_eleves
+            from src.modules.academic.grades.controllers.notes_controller import get_notes_by_eleve
+            
+            # Récupérer toutes les classes
+            classes_list = get_all_classes()
+            if not classes_list:
+                print("Aucune classe trouvée")
+                return
+            
+            # Récupérer tous les élèves
+            eleves_list = get_all_eleves()
+            if not eleves_list:
+                print("Aucun élève trouvé")
+                return
+            
+            bulletins_generes_total = 0
+            classes_traitees = 0
+            
+            print(f"Génération des bulletins pour le trimestre: {trimestre}")
+            
+            # Traiter chaque classe
+            for classe in classes_list:
+                classe_id = classe.get('id')
+                classe_nom = classe.get('nom')
+                
+                print(f"Traitement de la classe: {classe_nom}")
+                
+                # Récupérer les élèves de cette classe
+                eleves_classe = [e for e in eleves_list if e.get('id_classe') == classe_id]
+                
+                if not eleves_classe:
+                    print(f"Aucun élève trouvé pour la classe {classe_nom}")
+                    continue
+                
+                bulletins_generes_classe = 0
+                
+                # Traiter chaque élève de la classe
+                for eleve in eleves_classe:
+                    eleve_id = eleve.get('id_eleve')
+                    eleve_nom = eleve.get('nom', '')
+                    eleve_prenom = eleve.get('prenom', '')
+                    
+                    print(f"Traitement de {eleve_prenom} {eleve_nom} (ID: {eleve_id})")
+                    
+                    # Récupérer les notes de l'élève pour le trimestre
+                    notes_eleve = get_notes_by_eleve(eleve_id, trimestre=trimestre)
+                    
+                    print(f"DEBUG: {len(notes_eleve)} notes trouvées pour {eleve_prenom} {eleve_nom} - {trimestre}")
+                    if notes_eleve:
+                        for note in notes_eleve[:3]:  # Afficher les 3 premières notes pour debug
+                            print(f"  Note: {note.get('note')} - Matière: {note.get('matiere_nom')} - Date: {note.get('date_evaluation')}")
+                    
+                    if not notes_eleve:
+                        print(f"Aucune note trouvée pour {eleve_prenom} {eleve_nom} - {trimestre}")
+                        continue
+                    
+                    # Calculer la moyenne pondérée
+                    total_points = 0
+                    total_coefficients = 0
+                    
+                    for note in notes_eleve:
+                        note_value = float(note.get("note", 0))
+                        coefficient = float(note.get("coefficient", 1))
+                        total_points += note_value * coefficient
+                        total_coefficients += coefficient
+                    
+                    # Calculer la moyenne
+                    if total_coefficients == 0:
+                        moyenne_generale = 0.0
+                        print(f"DEBUG: Aucune note pour {eleve_prenom} {eleve_nom} - {trimestre} - Moyenne: 0.0")
+                    else:
+                        moyenne_generale = total_points / total_coefficients
+                        print(f"DEBUG: {len(notes_eleve)} notes pour {eleve_prenom} {eleve_nom} - {trimestre} - Moyenne: {moyenne_generale:.2f}")
+                    
+                    # Déterminer la mention
+                    if moyenne_generale >= 16:
+                        mention = "Très bien"
+                    elif moyenne_generale >= 14:
+                        mention = "Bien"
+                    elif moyenne_generale >= 12:
+                        mention = "Assez bien"
+                    elif moyenne_generale >= 10:
+                        mention = "Passable"
+                    else:
+                        mention = "Insuffisant"
+                    
+                    # Créer le bulletin
+                    bulletin_info = {
+                        "id_eleve": eleve_id,
+                        "periode": trimestre,
+                        "moyenne_generale": round(moyenne_generale, 2),
+                        "rang": 0,  # Sera calculé après
+                        "appreciation": mention
+                    }
+                    
+                    # Ajouter le bulletin
+                    success = add_bulletin(bulletin_info)
+                    if success:
+                        bulletins_generes_classe += 1
+                        print(f"Bulletin généré pour {eleve_prenom} {eleve_nom} - {trimestre} - Moyenne: {moyenne_generale:.2f}")
+                
+                print(f"Classe {classe_nom}: {bulletins_generes_classe} bulletins générés")
+                bulletins_generes_total += bulletins_generes_classe
+                classes_traitees += 1
+            
+            # Recalculer les rangs pour toutes les classes de ce trimestre
+            print("Recalcul des rangs pour toutes les classes...")
+            for classe in classes_list:
+                classe_id = classe.get('id')
+                self._recalculate_ranks_in_db_by_classe_id(classe_id, trimestre)
+            
+            # Recharger les bulletins
+            self._load_data()
+            self._filter_bulletins()
+            
+            print(f"Génération terminée: {bulletins_generes_total} bulletins générés pour {classes_traitees} classes")
+            
+        except Exception as e:
+            print(f"Erreur lors de la génération des bulletins pour le trimestre {trimestre}: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _generate_all_trimestres_ui(self):
+        """Interface utilisateur pour générer les bulletins pour tous les trimestres"""
+        # Demander confirmation
+        result = messagebox.askyesno(
+            "Générer tous les trimestres", 
+            "Voulez-vous générer les bulletins pour TOUS les trimestres ?\n\n"
+            "Cette action va :\n"
+            "• Supprimer tous les bulletins existants\n"
+            "• Générer les bulletins pour les 3 trimestres\n"
+            "• Traiter toutes les classes\n"
+            "• Calculer les moyennes et rangs correctement\n\n"
+            "⚠️ Cette opération peut prendre du temps !"
+        )
+        
+        if result:
+            try:
+                # Supprimer tous les bulletins existants
+                self._delete_all_bulletins()
+                
+                # Générer pour chaque trimestre
+                trimestres = ["1er Trimestre", "2ème Trimestre", "3ème Trimestre"]
+                total_bulletins = 0
+                
+                for trimestre in trimestres:
+                    print(f"Génération des bulletins pour {trimestre}...")
+                    self._generate_bulletins_for_trimestre(trimestre)
+                    total_bulletins += self._count_bulletins_for_trimestre(trimestre)
+                
+                messagebox.showinfo("Succès", 
+                                  f"Génération terminée !\n\n"
+                                  f"Bulletins générés pour les 3 trimestres.\n"
+                                  f"Total: {total_bulletins} bulletins créés.")
+                
+            except Exception as e:
+                messagebox.showerror("Erreur", 
+                                   f"Erreur lors de la génération de tous les trimestres:\n{str(e)}")
+    
+    def _delete_all_bulletins(self):
+        """Supprime tous les bulletins existants"""
+        try:
+            from database.connection import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Supprimer tous les bulletins
+            cursor.execute("DELETE FROM bulletins")
+            
+            deleted_count = cursor.rowcount
+            conn.commit()
+            conn.close()
+            print(f"Supprimé {deleted_count} bulletins au total")
+            
+        except Exception as e:
+            print(f"Erreur lors de la suppression de tous les bulletins: {e}")
+    
+    def _count_bulletins_for_trimestre(self, trimestre):
+        """Compte le nombre de bulletins pour un trimestre"""
+        try:
+            from database.connection import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT COUNT(*) FROM bulletins WHERE periode = ?", (trimestre,))
+            count = cursor.fetchone()[0]
+            conn.close()
+            
+            return count
+            
+        except Exception as e:
+            print(f"Erreur lors du comptage des bulletins pour {trimestre}: {e}")
+            return 0
     
     def _get_eleve_classe_name(self, eleve_id):
-        """Récupère le nom de la classe d'un élève depuis les bulletins"""
+        """Récupère le nom de la classe d'un élève depuis les bulletins ou la base de données"""
         try:
             # Chercher dans les bulletins existants pour trouver la classe
             for bulletin in self.bulletins:
-                if bulletin.get('id_eleve') == eleve_id and 'classe_nom' in bulletin:
+                if bulletin.get('id_eleve') == eleve_id and bulletin.get('classe_nom'):
                     return bulletin['classe_nom']
+            
+            # Si pas trouvé dans les bulletins, essayer de récupérer depuis la base
+            try:
+                from src.modules.academic.grades.controllers.bulletin_controller import get_all_eleves
+                eleves = get_all_eleves()
+                for eleve in eleves:
+                    if eleve.get('id_eleve') == eleve_id:
+                        # Récupérer le nom de la classe via l'ID classe
+                        classe_id = eleve.get('id_classe')
+                        if classe_id and classe_id in self.classes:
+                            return self.classes[classe_id].get('nom', '')
+                        break
+            except Exception as e:
+                print(f"Erreur recuperation classe depuis base pour eleve {eleve_id}: {e}")
+            
             return ''
         except Exception as e:
             print(f"Erreur recuperation classe eleve {eleve_id}: {e}")
             return ''
+    
+    def _fix_missing_classe_names(self):
+        """Corrige les bulletins qui n'ont pas de classe_nom en récupérant depuis la base"""
+        try:
+            bulletins_fixed = 0
+            for bulletin in self.bulletins:
+                if not bulletin.get('classe_nom'):
+                    eleve_id = bulletin.get('id_eleve')
+                    if eleve_id:
+                        classe_nom = self._get_eleve_classe_name(eleve_id)
+                        if classe_nom:
+                            bulletin['classe_nom'] = classe_nom
+                            bulletins_fixed += 1
+            
+            if bulletins_fixed > 0:
+                print(f"DEBUG: {bulletins_fixed} bulletins corriges avec classe_nom manquant")
+                
+        except Exception as e:
+            print(f"Erreur correction classe_nom: {e}")
+    
+    def _show_generate_bulletins_option(self):
+        """Affiche une option pour générer les bulletins manquants pour la classe sélectionnée"""
+        if not self.table_frame:
+            return
+        
+        # Nettoyer le frame
+        for widget in self.table_frame.winfo_children():
+            widget.destroy()
+        
+        # Frame principal
+        main_frame = ctk.CTkFrame(self.table_frame, fg_color=BG_CARD, corner_radius=12)
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # Icône d'information
+        info_icon = ctk.CTkLabel(main_frame, text="ℹ️", font=(FONT, 48), text_color=TEXT_ACCENT)
+        info_icon.pack(pady=(20, 10))
+        
+        # Titre
+        title_label = ctk.CTkLabel(main_frame, 
+                                  text="Aucun bulletin trouvé",
+                                  font=(FONT, 20, "bold"),
+                                  text_color=TEXT_PRIMARY)
+        title_label.pack(pady=(0, 10))
+        
+        # Message
+        message_label = ctk.CTkLabel(main_frame,
+                                    text=f"Aucun bulletin n'a été trouvé pour la classe '{self.selected_classe}'.\n\n"
+                                         f"Les bulletins peuvent être générés automatiquement à partir des notes existantes.",
+                                    font=(FONT, 14),
+                                    text_color=TEXT_SECONDARY,
+                                    justify="center")
+        message_label.pack(pady=(0, 20))
+        
+        # Boutons d'action
+        buttons_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        buttons_frame.pack(pady=(0, 20))
+        
+        # Bouton générer bulletins
+        generate_btn = ctk.CTkButton(
+            buttons_frame,
+            text="Générer les bulletins",
+            font=(FONT, 14, "bold"),
+            fg_color="#4CAF50",
+            hover_color="#45a049",
+            text_color="white",
+            corner_radius=8,
+            height=40,
+            width=200,
+            command=self._generate_bulletins_for_class
+        )
+        generate_btn.pack(side="left", padx=(0, 10))
+        
+        # Bouton actualiser
+        refresh_btn = ctk.CTkButton(
+            buttons_frame,
+            text="Actualiser",
+            font=(FONT, 14, "bold"),
+            fg_color="#2196F3",
+            hover_color="#1976D2",
+            text_color="white",
+            corner_radius=8,
+            height=40,
+            width=120,
+            command=self._refresh_bulletins
+        )
+        refresh_btn.pack(side="left")
+    
+    def _generate_bulletins_for_class(self):
+        """Génère les bulletins pour la classe sélectionnée"""
+        try:
+            from tkinter import messagebox
+            
+            # Demander confirmation
+            result = messagebox.askyesno(
+                "Génération des bulletins",
+                f"Voulez-vous générer les bulletins pour la classe '{self.selected_classe}' ?\n\n"
+                f"Cela créera des bulletins basés sur les notes existantes des élèves de cette classe."
+            )
+            
+            if not result:
+                return
+            
+            # Récupérer l'ID de la classe
+            classe_id = self._get_class_id_by_name(self.selected_classe)
+            if not classe_id:
+                messagebox.showerror("Erreur", f"Impossible de trouver l'ID de la classe '{self.selected_classe}'")
+                return
+            
+            # Supprimer les bulletins existants pour cette classe
+            self._delete_existing_bulletins_for_class(classe_id)
+            
+            # Générer les bulletins pour cette classe (version complète avec tous les élèves)
+            self._generate_complete_bulletins_for_class(classe_id)
+            
+        except Exception as e:
+            print(f"Erreur generation bulletins pour classe: {e}")
+            messagebox.showerror("Erreur", f"Erreur lors de la génération des bulletins:\n{str(e)}")
+    
+    def _delete_existing_bulletins_for_class(self, classe_id):
+        """Supprime les bulletins existants pour une classe avant régénération"""
+        try:
+            # Récupérer le nom de la classe
+            classe_nom = None
+            for classe in self.classes.values():
+                if classe.get('id') == classe_id:
+                    classe_nom = classe.get('nom', '')
+                    break
+            
+            if not classe_nom:
+                print(f"Nom de classe non trouvé pour l'ID {classe_id}")
+                return
+            
+            print(f"Suppression des bulletins existants pour la classe '{classe_nom}'...")
+            
+            # Trouver et supprimer les bulletins de cette classe
+            bulletins_to_delete = []
+            for bulletin in self.bulletins:
+                if bulletin.get('classe_nom') == classe_nom:
+                    bulletins_to_delete.append(bulletin)
+            
+            # Supprimer les bulletins de la base de données
+            deleted_count = 0
+            for bulletin in bulletins_to_delete:
+                bulletin_id = bulletin.get('id')
+                if bulletin_id:
+                    try:
+                        success = delete_bulletin(bulletin_id)
+                        if success:
+                            deleted_count += 1
+                    except Exception as e:
+                        print(f"Erreur suppression bulletin {bulletin_id}: {e}")
+            
+            print(f"{deleted_count} bulletins supprimés pour la classe '{classe_nom}'")
+            
+        except Exception as e:
+            print(f"Erreur suppression bulletins pour classe {classe_id}: {e}")
+    
+    def _generate_complete_bulletins_for_class(self, classe_id):
+        """Génère les bulletins pour TOUS les élèves d'une classe, même ceux sans notes"""
+        try:
+            from tkinter import messagebox
+            
+            # Récupérer tous les élèves de la classe
+            eleves_classe = get_all_eleves()
+            eleves_classe = [e for e in eleves_classe if self._extract_student_class_id(e) == classe_id]
+            
+            if not eleves_classe:
+                messagebox.showwarning("Aucun élève", f"Aucun élève trouvé dans la classe '{self.selected_classe}'")
+                return
+            
+            print(f"DEBUG: {len(eleves_classe)} élèves trouvés dans la classe '{self.selected_classe}'")
+            bulletins_generes = 0
+            
+            for eleve in eleves_classe:
+                eleve_id = eleve.get('id_eleve')
+                eleve_nom = eleve.get('nom', '')
+                eleve_prenom = eleve.get('prenom', '')
+                
+                # Récupérer les notes de l'élève pour toutes les périodes
+                for periode in self.periodes:
+                    notes_eleve = get_notes_by_eleve(eleve_id, trimestre=periode)
+                    
+                    # Calculer la moyenne et regrouper par matière
+                    total_points = 0
+                    total_coefficients = 0
+                    matieres_notes = {}
+                    
+                    if notes_eleve:
+                        for note in notes_eleve:
+                            note_value = float(note.get("note", 0))
+                            coefficient = self._extract_coefficient(note)
+                            matiere = self._extract_subject_name(note)
+                            
+                            if matiere not in matieres_notes:
+                                matieres_notes[matiere] = {
+                                    'notes': [],
+                                    'coefficient': coefficient
+                                }
+                            matieres_notes[matiere]['notes'].append(note_value)
+                            
+                            total_points += note_value * coefficient
+                            total_coefficients += coefficient
+                    
+                    # Si l'élève n'a pas de notes, moyenne = 0
+                    if total_coefficients == 0:
+                        moyenne_generale = 0.0
+                        print(f"DEBUG: Aucune note pour {eleve_prenom} {eleve_nom} - {periode} - Moyenne: 0.0")
+                    else:
+                        moyenne_generale = total_points / total_coefficients
+                        print(f"DEBUG: {len(notes_eleve)} notes pour {eleve_prenom} {eleve_nom} - {periode} - Moyenne: {moyenne_generale:.2f}")
+                    
+                    # Déterminer la mention
+                    if moyenne_generale >= 16:
+                        mention = "Très bien"
+                    elif moyenne_generale >= 14:
+                        mention = "Bien"
+                    elif moyenne_generale >= 12:
+                        mention = "Assez bien"
+                    elif moyenne_generale >= 10:
+                        mention = "Passable"
+                    else:
+                        mention = "Insuffisant"
+                    
+                    # Créer le bulletin
+                    bulletin_info = {
+                        "id_eleve": eleve_id,
+                        "periode": periode,
+                        "moyenne_generale": round(moyenne_generale, 2),
+                        "rang": 0,  # Sera calculé après
+                        "appreciation": mention
+                    }
+                    
+                    # Ajouter le bulletin
+                    success = add_bulletin(bulletin_info)
+                    if success:
+                        bulletins_generes += 1
+                        print(f"Bulletin genere pour {eleve_prenom} {eleve_nom} - {periode} - Moyenne: {moyenne_generale:.2f}")
+            
+            # Recharger les bulletins
+            self._load_data()
+            
+            # Recalculer les rangs pour toutes les périodes de cette classe
+            self._recalculate_all_ranks_for_class(classe_id)
+            
+            messagebox.showinfo("Génération terminée", 
+                              f"Génération des bulletins terminée !\n\n"
+                              f"• {bulletins_generes} bulletins générés\n"
+                              f"• Classe: {self.selected_classe}\n"
+                              f"• {len(eleves_classe)} élèves traités\n"
+                              f"• Tous les élèves ont maintenant des bulletins")
+            
+            # Réinitialiser la pagination et actualiser l'affichage
+            self.current_page = 1
+            self._filter_bulletins()
+            
+        except Exception as e:
+            print(f"Erreur generation bulletins complete: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _generate_detailed_bulletins_for_class(self, classe_id):
+        """Génère les bulletins détaillés pour une classe spécifique - DÉPRÉCIÉE"""
+        # Rediriger vers la nouvelle méthode complète
+        self._generate_complete_bulletins_for_class(classe_id)
+    
+    def _refresh_bulletins(self):
+        """Actualise les bulletins depuis la base de données"""
+        try:
+            self._load_data()
+            # Réinitialiser la pagination et actualiser l'affichage
+            self.current_page = 1
+            self._filter_bulletins()
+        except Exception as e:
+            print(f"Erreur actualisation bulletins: {e}")
+    
+    def _generate_all_bulletins(self):
+        """Génère les bulletins pour toutes les classes qui n'en ont pas"""
+        try:
+            from tkinter import messagebox
+            
+            # Demander confirmation
+            result = messagebox.askyesno(
+                "Génération des bulletins",
+                "Voulez-vous générer les bulletins pour toutes les classes qui n'en ont pas ?\n\n"
+                "Cette opération peut prendre quelques minutes selon le nombre d'élèves et de notes."
+            )
+            
+            if not result:
+                return
+            
+            # Récupérer toutes les classes
+            classes_list = get_all_classes()
+            bulletins_generes_total = 0
+            classes_traitees = 0
+            
+            for classe in classes_list:
+                classe_id = classe.get('id')
+                classe_nom = classe.get('nom', '')
+                
+                # Vérifier si cette classe a déjà des bulletins
+                bulletins_classe = [b for b in self.bulletins if b.get('classe_nom') == classe_nom]
+                
+                if bulletins_classe:
+                    print(f"Classe '{classe_nom}' a déjà des bulletins, ignorée")
+                    continue
+                
+                # Générer les bulletins pour cette classe (version complète)
+                print(f"Génération des bulletins pour la classe '{classe_nom}'...")
+                bulletins_generes = self._generate_complete_bulletins_for_class_id(classe_id, classe_nom)
+                bulletins_generes_total += bulletins_generes
+                classes_traitees += 1
+            
+            # Recharger les bulletins
+            self._load_data()
+            
+            # Recalculer les rangs pour toutes les classes traitées
+            print("Recalcul des rangs pour toutes les classes...")
+            for classe in classes_list:
+                classe_id = classe.get('id')
+                classe_nom = classe.get('nom', '')
+                
+                # Vérifier si cette classe a des bulletins
+                bulletins_classe = [b for b in self.bulletins if b.get('classe_nom') == classe_nom]
+                if bulletins_classe:
+                    self._recalculate_all_ranks_for_class(classe_id)
+            
+            messagebox.showinfo("Génération terminée", 
+                              f"Génération des bulletins terminée !\n\n"
+                              f"• {bulletins_generes_total} bulletins générés\n"
+                              f"• {classes_traitees} classes traitées\n"
+                              f"• Rangs calculés pour toutes les classes\n"
+                              f"• Toutes les classes ont maintenant des bulletins")
+            
+            # Réinitialiser la pagination et actualiser l'affichage
+            self.current_page = 1
+            self._filter_bulletins()
+            
+        except Exception as e:
+            print(f"Erreur generation tous bulletins: {e}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Erreur", f"Erreur lors de la génération des bulletins:\n{str(e)}")
+    
+    def _generate_bulletins_for_class_id(self, classe_id, classe_nom):
+        """Génère les bulletins pour une classe spécifique (version utilitaire) - DÉPRÉCIÉE"""
+        # Rediriger vers la nouvelle méthode complète
+        return self._generate_complete_bulletins_for_class_id(classe_id, classe_nom)
+    
+    def _generate_complete_bulletins_for_class_id(self, classe_id, classe_nom):
+        """Génère les bulletins pour TOUS les élèves d'une classe (version utilitaire)"""
+        try:
+            # Récupérer tous les élèves de la classe
+            eleves_classe = get_all_eleves()
+            eleves_classe = [e for e in eleves_classe if self._extract_student_class_id(e) == classe_id]
+            
+            if not eleves_classe:
+                print(f"Aucun élève trouvé dans la classe '{classe_nom}'")
+                return 0
+            
+            print(f"DEBUG: {len(eleves_classe)} élèves trouvés dans la classe '{classe_nom}'")
+            bulletins_generes = 0
+            
+            for eleve in eleves_classe:
+                eleve_id = eleve.get('id_eleve')
+                eleve_nom = eleve.get('nom', '')
+                eleve_prenom = eleve.get('prenom', '')
+                
+                # Récupérer les notes de l'élève pour toutes les périodes
+                for periode in self.periodes:
+                    notes_eleve = get_notes_by_eleve(eleve_id, trimestre=periode)
+                    
+                    # Calculer la moyenne et regrouper par matière
+                    total_points = 0
+                    total_coefficients = 0
+                    matieres_notes = {}
+                    
+                    if notes_eleve:
+                        for note in notes_eleve:
+                            note_value = float(note.get("note", 0))
+                            coefficient = self._extract_coefficient(note)
+                            matiere = self._extract_subject_name(note)
+                            
+                            if matiere not in matieres_notes:
+                                matieres_notes[matiere] = {
+                                    'notes': [],
+                                    'coefficient': coefficient
+                                }
+                            matieres_notes[matiere]['notes'].append(note_value)
+                            
+                            total_points += note_value * coefficient
+                            total_coefficients += coefficient
+                    
+                    # Si l'élève n'a pas de notes, moyenne = 0
+                    if total_coefficients == 0:
+                        moyenne_generale = 0.0
+                        print(f"DEBUG: Aucune note pour {eleve_prenom} {eleve_nom} - {periode} - Moyenne: 0.0")
+                    else:
+                        moyenne_generale = total_points / total_coefficients
+                        print(f"DEBUG: {len(notes_eleve)} notes pour {eleve_prenom} {eleve_nom} - {periode} - Moyenne: {moyenne_generale:.2f}")
+                    
+                    # Déterminer la mention
+                    if moyenne_generale >= 16:
+                        mention = "Très bien"
+                    elif moyenne_generale >= 14:
+                        mention = "Bien"
+                    elif moyenne_generale >= 12:
+                        mention = "Assez bien"
+                    elif moyenne_generale >= 10:
+                        mention = "Passable"
+                    else:
+                        mention = "Insuffisant"
+                    
+                    # Créer le bulletin
+                    bulletin_info = {
+                        "id_eleve": eleve_id,
+                        "periode": periode,
+                        "moyenne_generale": round(moyenne_generale, 2),
+                        "rang": 0,  # Sera calculé après
+                        "appreciation": mention
+                    }
+                    
+                    # Ajouter le bulletin
+                    success = add_bulletin(bulletin_info)
+                    if success:
+                        bulletins_generes += 1
+                        print(f"Bulletin genere pour {eleve_prenom} {eleve_nom} - {classe_nom} - {periode} - Moyenne: {moyenne_generale:.2f}")
+            
+            return bulletins_generes
+            
+        except Exception as e:
+            print(f"Erreur generation bulletins pour classe {classe_nom}: {e}")
+            return 0
     
     def _display_bulletins(self, bulletins):
         """Affiche les bulletins dans l'interface avec CTkTable moderne"""
@@ -1053,14 +2234,22 @@ class BulletinsView(ctk.CTkFrame):
                         font=(FONT, FONT_SIZE_TEXT), text_color=TEXT_SECONDARY).grid(row=2, column=0)
             return
         
+        # Trier les bulletins par ordre de mérite (moyenne décroissante) avant affichage
+        # Ignorer les rangs existants et recalculer basé sur les moyennes réelles
+        bulletins_tries = sorted(bulletins, key=lambda x: -x.get('moyenne_generale', 0))
+        
+        # Recalculer les rangs basés sur le tri par moyenne
+        for i, bulletin in enumerate(bulletins_tries):
+            bulletin['rang_calcule'] = i + 1
+        
         # Préparer les données pour CTkTable
-        headers = ["Élève", "Classe", "Période", "Moyenne", "Rang", "Appréciation"]
+        headers = ["Rang", "Élève", "Classe", "Période", "Moyenne", "Appréciation"]
         table_data = [headers]  # Première ligne = en-têtes
         
         # Ajouter les données des bulletins avec pagination
         start_idx = (self.current_page - 1) * self.items_per_page
         end_idx = start_idx + self.items_per_page
-        paginated_bulletins = bulletins[start_idx:end_idx]
+        paginated_bulletins = bulletins_tries[start_idx:end_idx]
         
         for bulletin in paginated_bulletins:
             eleve_nom = self._get_eleve_name(bulletin.get('id_eleve'))
@@ -1070,13 +2259,19 @@ class BulletinsView(ctk.CTkFrame):
             appreciation = bulletin.get('appreciation', '')
             periode = bulletin.get('periode', '')
             
+            # Nettoyer et formater l'appréciation
+            appreciation_clean = self._clean_appreciation(appreciation, moyenne)
+            
+            # Utiliser le rang calculé basé sur le tri par moyenne
+            rang_display = str(bulletin.get('rang_calcule', bulletins_tries.index(bulletin) + 1))
+            
             row_data = [
+                rang_display,
                 eleve_nom,
                 classe_nom,
                 periode,
                 f"{moyenne:.2f}",
-                str(rang) if rang else "-",
-                appreciation
+                appreciation_clean
             ]
             table_data.append(row_data)
         
@@ -1120,7 +2315,7 @@ class BulletinsView(ctk.CTkFrame):
         # Informations de pagination
         start_item = (self.current_page - 1) * self.items_per_page + 1
         end_item = min(self.current_page * self.items_per_page, total_items)
-        info_text = f"Affichage {start_item}-{end_item} sur {total_items} bulletins"
+        info_text = f"Affichage {start_item}-{end_item} sur {total_items} bulletins (20 par page)"
         
         info_label = ctk.CTkLabel(pagination_frame, text=info_text, 
                                  font=(FONT, FONT_SIZE_SMALL), text_color=TEXT_SECONDARY)
@@ -1511,7 +2706,7 @@ class BulletinsView(ctk.CTkFrame):
                         "periode": self.selected_periode or "Année complète",
                         "moyenne_generale": round(moyenne_generale, 2),
                         "rang": 0,  # Sera calculé après
-                        "appreciation": f"Bulletin individuel complet avec {len(matieres_notes)} matières. {mention}."
+                        "appreciation": mention
                     }
                     
                     # Ajouter ou mettre à jour le bulletin
@@ -1574,6 +2769,55 @@ class BulletinsView(ctk.CTkFrame):
             
         except Exception as e:
             print(f"Erreur recalcul des rangs: {e}")
+    
+    def _recalculate_all_ranks_for_class(self, classe_id):
+        """Recalcule les rangs pour toutes les périodes d'une classe spécifique"""
+        try:
+            # Récupérer le nom de la classe
+            classe_nom = None
+            for classe in self.classes.values():
+                if classe.get('id') == classe_id:
+                    classe_nom = classe.get('nom', '')
+                    break
+            
+            if not classe_nom:
+                print(f"Nom de classe non trouvé pour l'ID {classe_id}")
+                return
+            
+            print(f"Recalcul des rangs pour la classe '{classe_nom}' (ID: {classe_id})")
+            
+            # Grouper les bulletins de cette classe par période
+            bulletins_by_period = {}
+            
+            for bulletin in self.bulletins:
+                if bulletin.get('classe_nom') == classe_nom:
+                    periode = bulletin.get('periode', '')
+                    if periode not in bulletins_by_period:
+                        bulletins_by_period[periode] = []
+                    bulletins_by_period[periode].append(bulletin)
+            
+            # Calculer les rangs pour chaque période
+            for periode, bulletins_period in bulletins_by_period.items():
+                # Trier par moyenne décroissante
+                bulletins_period.sort(key=lambda x: x.get('moyenne_generale', 0), reverse=True)
+                
+                # Attribuer les rangs
+                for i, bulletin in enumerate(bulletins_period, 1):
+                    bulletin['rang'] = i
+                    # Mettre à jour dans la base de données
+                    if bulletin.get('id'):
+                        try:
+                            update_bulletin(bulletin.get('id'), {'rang': i})
+                            print(f"Rang {i} attribué à {bulletin.get('eleve_nom', '')} {bulletin.get('eleve_prenom', '')} - {periode}")
+                        except Exception as e:
+                            print(f"Erreur mise à jour rang pour bulletin {bulletin.get('id')}: {e}")
+            
+            print(f"Rangs recalculés pour {len(bulletins_by_period)} périodes de la classe '{classe_nom}'")
+            
+        except Exception as e:
+            print(f"Erreur recalcul rangs pour classe {classe_id}: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _export_to_excel(self):
         """Exporte tous les bulletins au format Excel, regroupés par élève"""
@@ -1653,6 +2897,195 @@ class BulletinsView(ctk.CTkFrame):
         except Exception as e:
             print(f"Erreur export Excel: {e}")
             messagebox.showerror("Erreur", f"Erreur lors de l'export Excel:\n{str(e)}")
+    
+    def _export_individual_bulletin_excel(self, eleve, matieres_notes, moyenne_generale, mention, rang, total_eleves):
+        """Exporte un bulletin individuel au format Excel avec formatage professionnel"""
+        try:
+            from tkinter import filedialog
+            import pandas as pd
+            from datetime import datetime
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            from openpyxl.utils.dataframe import dataframe_to_rows
+            
+            # Demander le chemin de sauvegarde
+            eleve_nom = f"{eleve.get('nom', '')} {eleve.get('prenom', '')}"
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Fichiers Excel", "*.xlsx"), ("Tous les fichiers", "*.*")],
+                title=f"Exporter le bulletin de {eleve_nom}",
+                initialvalue=f"Bulletin_{eleve_nom.replace(' ', '_')}_{self.selected_periode}.xlsx"
+            )
+            
+            if not filename:
+                return
+            
+            # Créer un nouveau classeur Excel
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Bulletin Scolaire"
+            
+            # Styles
+            header_font = Font(name="Arial", size=16, bold=True, color="FFFFFF")
+            title_font = Font(name="Arial", size=14, bold=True)
+            normal_font = Font(name="Arial", size=11)
+            small_font = Font(name="Arial", size=9)
+            
+            header_fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
+            accent_fill = PatternFill(start_color="D9E2F3", end_color="D9E2F3", fill_type="solid")
+            success_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+            
+            center_alignment = Alignment(horizontal="center", vertical="center")
+            left_alignment = Alignment(horizontal="left", vertical="center")
+            
+            thin_border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            
+            # En-tête du bulletin
+            ws.merge_cells('A1:F1')
+            ws['A1'] = "BULLETIN SCOLAIRE INDIVIDUEL"
+            ws['A1'].font = header_font
+            ws['A1'].fill = header_fill
+            ws['A1'].alignment = center_alignment
+            ws['A1'].border = thin_border
+            ws.row_dimensions[1].height = 30
+            
+            # Informations de l'établissement (optionnel)
+            ws.merge_cells('A2:F2')
+            ws['A2'] = "ÉTABLISSEMENT SCOLAIRE"
+            ws['A2'].font = title_font
+            ws['A2'].alignment = center_alignment
+            ws.row_dimensions[2].height = 25
+            
+            # Informations de l'élève
+            row = 4
+            ws[f'A{row}'] = "Nom et Prénom:"
+            ws[f'A{row}'].font = title_font
+            ws[f'B{row}'] = eleve_nom
+            ws[f'B{row}'].font = normal_font
+            ws[f'D{row}'] = "Classe:"
+            ws[f'D{row}'].font = title_font
+            ws[f'E{row}'] = self.selected_classe
+            ws[f'E{row}'].font = normal_font
+            row += 1
+            
+            ws[f'A{row}'] = "Période:"
+            ws[f'A{row}'].font = title_font
+            ws[f'B{row}'] = self.selected_periode
+            ws[f'B{row}'].font = normal_font
+            ws[f'D{row}'] = "Moyenne Générale:"
+            ws[f'D{row}'].font = title_font
+            ws[f'E{row}'] = f"{moyenne_generale:.2f}/20"
+            ws[f'E{row}'].font = Font(name="Arial", size=12, bold=True, color="2E75B6")
+            row += 1
+            
+            ws[f'A{row}'] = "Rang:"
+            ws[f'A{row}'].font = title_font
+            ws[f'B{row}'] = f"{rang}/{total_eleves}"
+            ws[f'B{row}'].font = normal_font
+            ws[f'D{row}'] = "Mention:"
+            ws[f'D{row}'].font = title_font
+            ws[f'E{row}'] = mention
+            ws[f'E{row}'].font = Font(name="Arial", size=12, bold=True, color="2E75B6")
+            row += 2
+            
+            # En-tête du tableau des notes
+            headers = ["Matière", "Notes", "Moyenne", "Coefficient", "Appréciation"]
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=row, column=col, value=header)
+                cell.font = title_font
+                cell.fill = accent_fill
+                cell.alignment = center_alignment
+                cell.border = thin_border
+            ws.row_dimensions[row].height = 25
+            row += 1
+            
+            # Données des matières
+            for matiere, data in matieres_notes.items():
+                notes_list = data['notes']
+                moyenne_matiere = sum(notes_list) / len(notes_list)
+                coefficient = data['coefficient']
+                
+                # Appréciation par matière
+                if moyenne_matiere >= 16:
+                    appreciation = "Très bien"
+                    appreciation_color = "00B050"  # Vert
+                elif moyenne_matiere >= 14:
+                    appreciation = "Bien"
+                    appreciation_color = "0070C0"  # Bleu
+                elif moyenne_matiere >= 12:
+                    appreciation = "Assez bien"
+                    appreciation_color = "FFC000"  # Orange
+                elif moyenne_matiere >= 10:
+                    appreciation = "Passable"
+                    appreciation_color = "FF6600"  # Orange foncé
+                else:
+                    appreciation = "Insuffisant"
+                    appreciation_color = "FF0000"  # Rouge
+                
+                # Formater les notes
+                notes_str = ", ".join([f"{note:.1f}" for note in notes_list])
+                
+                # Remplir les cellules
+                ws.cell(row=row, column=1, value=matiere).font = normal_font
+                ws.cell(row=row, column=2, value=notes_str).font = normal_font
+                ws.cell(row=row, column=3, value=f"{moyenne_matiere:.2f}").font = normal_font
+                ws.cell(row=row, column=4, value=coefficient).font = normal_font
+                ws.cell(row=row, column=5, value=appreciation).font = Font(name="Arial", size=11, bold=True, color=appreciation_color)
+                
+                # Appliquer les bordures
+                for col in range(1, 6):
+                    ws.cell(row=row, column=col).border = thin_border
+                    ws.cell(row=row, column=col).alignment = center_alignment
+                
+                row += 1
+            
+            # Ligne de moyenne générale
+            row += 1
+            ws.merge_cells(f'A{row}:D{row}')
+            ws[f'A{row}'] = "MOYENNE GÉNÉRALE"
+            ws[f'A{row}'].font = Font(name="Arial", size=12, bold=True)
+            ws[f'A{row}'].alignment = center_alignment
+            ws[f'E{row}'] = f"{moyenne_generale:.2f}/20"
+            ws[f'E{row}'].font = Font(name="Arial", size=14, bold=True, color="2E75B6")
+            ws[f'E{row}'].alignment = center_alignment
+            ws[f'E{row}'].fill = success_fill
+            
+            # Appliquer les bordures à la ligne de moyenne
+            for col in range(1, 6):
+                ws.cell(row=row, column=col).border = thin_border
+            
+            # Footer avec date
+            row += 3
+            ws.merge_cells(f'A{row}:F{row}')
+            ws[f'A{row}'] = f"Document généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}"
+            ws[f'A{row}'].font = small_font
+            ws[f'A{row}'].alignment = center_alignment
+            
+            # Ajuster la largeur des colonnes
+            column_widths = [25, 20, 12, 12, 15]
+            for i, width in enumerate(column_widths, 1):
+                ws.column_dimensions[chr(64 + i)].width = width
+            
+            # Sauvegarder le fichier
+            wb.save(filename)
+            
+            messagebox.showinfo("Export réussi", 
+                              f"Bulletin de {eleve_nom} exporté avec succès !\n\n"
+                              f"• Fichier: {filename}\n"
+                              f"• Période: {self.selected_periode}\n"
+                              f"• Moyenne: {moyenne_generale:.2f}/20\n"
+                              f"• Mention: {mention}")
+            
+        except ImportError:
+            messagebox.showerror("Erreur", "La bibliothèque openpyxl est requise pour l'export Excel.\nVeuillez l'installer avec: pip install openpyxl")
+        except Exception as e:
+            print(f"Erreur export bulletin individuel: {e}")
+            messagebox.showerror("Erreur", f"Erreur lors de l'export du bulletin:\n{str(e)}")
     
     def _get_eleve_name(self, eleve_id):
         """Récupère le nom complet d'un élève depuis les bulletins"""
@@ -1760,6 +3193,11 @@ class BulletinsView(ctk.CTkFrame):
                 
                 # Récupérer les notes de l'élève pour la période sélectionnée
                 notes_eleve = get_notes_by_eleve(eleve_id, trimestre=self.selected_periode)
+                
+                print(f"DEBUG: {len(notes_eleve)} notes trouvées pour {eleve_prenom} {eleve_nom} - {self.selected_periode}")
+                if notes_eleve:
+                    for note in notes_eleve[:3]:  # Afficher les 3 premières notes pour debug
+                        print(f"  Note: {note.get('note')} - Matière: {note.get('matiere_nom')} - Date: {note.get('date_evaluation')}")
                 
                 if not notes_eleve:
                     print(f"Aucune note trouvee pour {eleve_prenom} {eleve_nom} - {self.selected_periode or 'Toutes'}")

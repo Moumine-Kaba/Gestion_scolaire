@@ -1,3 +1,4 @@
 # Dépendances pour la génération de bulletins Word
 python-docx>=0.8.11
 
+

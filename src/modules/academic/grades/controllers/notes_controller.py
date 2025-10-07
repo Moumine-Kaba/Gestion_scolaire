@@ -69,7 +69,8 @@ def get_all_notes():
                 CASE 
                     WHEN MONTH(n.date_evaluation) IN (9,10,11,12) THEN '1er Trimestre'
                     WHEN MONTH(n.date_evaluation) IN (1,2,3) THEN '2ème Trimestre'
-                    ELSE '3ème Trimestre'
+                    WHEN MONTH(n.date_evaluation) IN (4,5,6,7,8) THEN '3ème Trimestre'
+                    ELSE 'Trimestre non défini'
                 END as trimestre
             FROM notes n
             LEFT JOIN eleves e ON n.id_eleve = e.id_eleve
@@ -233,8 +234,8 @@ def get_notes_by_eleve(eleve_id, limit=50, trimestre=None):
             base_query += " AND MONTH(n.date_evaluation) IN (1,2,3)"
             print("Filtre 2eme Trimestre applique (Jan-Mar)")
         elif trimestre == "3ème Trimestre":
-            base_query += " AND MONTH(n.date_evaluation) IN (4,5,6)"
-            print("Filtre 3eme Trimestre applique (Avr-Juin)")
+            base_query += " AND MONTH(n.date_evaluation) IN (4,5,6,7,8)"
+            print("Filtre 3eme Trimestre applique (Avr-Aout)")
     else:
         print("Aucun filtre trimestre applique")
     
@@ -297,7 +298,8 @@ def get_notes_by_trimestre(trimestre):
                 CASE 
                     WHEN MONTH(n.date_evaluation) IN (9,10,11,12) THEN '1er Trimestre'
                     WHEN MONTH(n.date_evaluation) IN (1,2,3) THEN '2ème Trimestre'
-                    ELSE '3ème Trimestre'
+                    WHEN MONTH(n.date_evaluation) IN (4,5,6,7,8) THEN '3ème Trimestre'
+                    ELSE 'Trimestre non défini'
                 END as trimestre
             FROM notes n
             LEFT JOIN eleves e ON n.id_eleve = e.id_eleve
@@ -310,7 +312,7 @@ def get_notes_by_trimestre(trimestre):
         elif trimestre == "2ème Trimestre":
             base_query += " AND MONTH(n.date_evaluation) IN (1,2,3)"
         elif trimestre == "3ème Trimestre":
-            base_query += " AND MONTH(n.date_evaluation) IN (4,5,6)"
+            base_query += " AND MONTH(n.date_evaluation) IN (4,5,6,7,8)"
         
         base_query += " ORDER BY e.nom, e.prenom, n.date_evaluation DESC"
         
@@ -360,7 +362,8 @@ def get_notes_summary_by_eleve(eleve_id):
                 CASE 
                     WHEN MONTH(n.date_evaluation) IN (9,10,11,12) THEN '1er Trimestre'
                     WHEN MONTH(n.date_evaluation) IN (1,2,3) THEN '2ème Trimestre'
-                    ELSE '3ème Trimestre'
+                    WHEN MONTH(n.date_evaluation) IN (4,5,6,7,8) THEN '3ème Trimestre'
+                    ELSE 'Trimestre non défini'
                 END as trimestre,
                 COUNT(*) as nb_notes,
                 AVG(n.note) as moyenne_trimestre,
